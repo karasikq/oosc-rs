@@ -1,6 +1,7 @@
 #[derive(Debug)]
 pub enum Error {
     Order(String),
+    Specify(&'static str),
     Generic(String),
 }
 
@@ -15,6 +16,7 @@ impl ToString for Error {
         match self {
             Self::Order(err) => err.to_string(),
             Self::Generic(err) => err.to_string(),
+            Self::Specify(err) => format!("Need to specify {} first", err),
         }
     }
 }
