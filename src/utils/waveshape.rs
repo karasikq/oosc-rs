@@ -11,11 +11,9 @@ pub enum WaveShape {
     Saw2,
 }
 
-pub struct Shape(WaveShape);
-
-impl Evaluate for Shape {
+impl Evaluate for WaveShape {
     fn evaluate(&self, t: f32) -> f32 {
-        match self.0 {
+        match self {
             WaveShape::Sin => t.sin(),
             WaveShape::Square => {
                 if t % PI_2M < PI {
@@ -25,7 +23,7 @@ impl Evaluate for Shape {
                 }
             }
             WaveShape::SquareQ(q) => {
-                (1..q)
+                (1..*q)
                     .map(|v| {
                         let n = (2 * v - 1) as f32;
                         (PI_2M * t * n).sin() / n
@@ -45,17 +43,17 @@ mod tests {
     use crate::utils::{
         consts::PI,
         evaluate::Evaluate,
-        waveshape::{Shape, WaveShape},
+        waveshape::WaveShape,
     };
     use assert_approx_eq::assert_approx_eq;
 
     #[test]
     fn test_evaluate() {
-        let sin = Shape(WaveShape::Sin);
-        let square = Shape(WaveShape::Square);
-        let square_q = Shape(WaveShape::SquareQ(50));
-        let saw = Shape(WaveShape::Saw);
-        let saw2 = Shape(WaveShape::Saw2);
+        let sin = WaveShape::Sin;
+        let square = WaveShape::Square;
+        let square_q = WaveShape::SquareQ(50);
+        let saw = WaveShape::Saw;
+        let saw2 = WaveShape::Saw2;
         assert_approx_eq!(sin.evaluate(1.0), 0.841_470_96);
         assert_approx_eq!(square.evaluate(PI + 0.3), 1.0);
         assert_approx_eq!(square.evaluate(PI - 0.3), -1.0);
