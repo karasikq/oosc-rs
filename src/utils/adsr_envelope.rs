@@ -141,11 +141,10 @@ impl Default for ADSREnvelopeBuilder {
     }
 }
 
+#[cfg(test)]
 mod tests {
-    use super::CubicBezierCurve;
     use crate::utils::adsr_envelope::ADSREnvelopeBuilder;
     use assert_approx_eq::assert_approx_eq;
-    use cgmath::Vector2;
 
     #[test]
     fn test_builder() {

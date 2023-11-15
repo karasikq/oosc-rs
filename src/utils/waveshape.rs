@@ -40,6 +40,7 @@ impl Evaluate for Shape {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use crate::utils::{
         consts::PI,

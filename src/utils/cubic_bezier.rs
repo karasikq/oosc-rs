@@ -52,6 +52,7 @@ impl CubicBezierCurve {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::CubicBezierCurve;
     use cgmath::Vector2;
