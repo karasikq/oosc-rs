@@ -3,4 +3,4 @@ pub mod adsr_envelope;
 pub mod waveshape;
 pub mod evaluate;
 pub mod consts;
-pub mod audio_buffer;
+pub mod sample_buffer;
