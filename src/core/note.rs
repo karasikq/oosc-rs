@@ -12,21 +12,31 @@ impl Note {
     pub fn new(note: u8, velocity: u8) -> Self {
         Self {
             note,
-            frequency: Self::note_to_freq(note),
-            velocity: Self::float_velocity(velocity),
+            frequency: Converter::note_to_freq(note),
+            velocity: Converter::velocity_to_float(velocity),
             play_time: 0.0,
             hold_on: State::Sustain,
         }
     }
 
+}
+
+pub struct Converter;
+
+impl Converter {
     #[inline]
-    fn float_velocity(velocity: u8) -> f32 {
+    pub fn cents_to_freq(cents: u8) -> f32 {
+        2.0_f32.powf(cents as f32 / 1200.0)
+    }
+
+    #[inline]
+    fn velocity_to_float(velocity: u8) -> f32 {
         velocity as f32 / 255.0
     }
 
     #[inline]
     fn note_to_freq(note: u8) -> f32 {
-        8.175_799_f32 * 1.059_463_1_f32.powf(note as f32)
+        8.175_799_f32 * 1.059_463_1_f32.powi(note as i32)
     }
 }
 
