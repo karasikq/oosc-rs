@@ -88,6 +88,14 @@ impl SampleBufferMono {
         Ok(())
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &f32> {
+        self.samples.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut f32> {
+        self.samples.iter_mut()
+    }
+
     pub fn from_array(a: &[f32]) -> Self {
         let samples = a.to_vec();
         Self {
@@ -137,7 +145,17 @@ impl SampleBuffer {
         Ok(())
     }
 
-    fn get_mut_buffer_ref(&mut self, channel: u8) -> Result<&mut SampleBufferMono, Error> {
+    pub fn iter(&self, channel: u8) -> Result<impl Iterator<Item = &f32>, Error> {
+        let buffer = self.get_buffer_ref(channel)?;
+        Ok(buffer.iter())
+    }
+
+    pub fn iter_mut(&mut self, channel: u8) -> Result<impl Iterator<Item = &mut f32>, Error> {
+        let buffer = self.get_mut_buffer_ref(channel)?;
+        Ok(buffer.iter_mut())
+    }
+
+    pub fn get_mut_buffer_ref(&mut self, channel: u8) -> Result<&mut SampleBufferMono, Error> {
         let buffer = self
             .buffers
             .get_mut(channel as usize)
@@ -145,7 +163,7 @@ impl SampleBuffer {
         Ok(buffer)
     }
 
-    fn get_buffer_ref(&self, channel: u8) -> Result<&SampleBufferMono, Error> {
+    pub fn get_buffer_ref(&self, channel: u8) -> Result<&SampleBufferMono, Error> {
         let buffer = self
             .buffers
             .get(channel as usize)
