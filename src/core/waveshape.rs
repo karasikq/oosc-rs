@@ -11,7 +11,7 @@ pub enum WaveShape {
     Saw2,
 }
 
-impl Evaluate for WaveShape {
+impl Evaluate<f32> for WaveShape {
     fn evaluate(&self, t: f32) -> std::result::Result<f32, Error> {
         match self {
             WaveShape::Sin => Ok(t.sin()),
