@@ -31,21 +31,24 @@ impl WaveTableBuilder {
         }
     }
 
-    pub fn set_buffer(&mut self, buffer: SampleBuffer) {
-        self.buffer = Some(buffer)
+    pub fn set_buffer(&mut self, buffer: SampleBuffer) -> &mut Self {
+        self.buffer = Some(buffer);
+        self
     }
 
-    pub fn set_chunk_size(&mut self, size: usize) {
-        self.chunk_size = Some(size)
+    pub fn set_chunk_size(&mut self, size: usize) -> &mut Self {
+        self.chunk_size = Some(size);
+        self
     }
 
-    pub fn set_position(&mut self, position: usize) {
-        self.position = Some(position)
+    pub fn set_position(&mut self, position: usize) -> &mut Self {
+        self.position = Some(position);
+        self
     }
 
-    pub fn build(self) -> Result<WaveTable, Error> {
-        let buffer = self.buffer.ok_or(Error::Specify("buffer"))?;
-        let chunk_size = self.chunk_size.ok_or(Error::Specify("chunk size"))?;
+    pub fn build(&mut self) -> Result<WaveTable, Error> {
+        let buffer = self.buffer.take().ok_or(Error::Specify("buffer"))?;
+        let chunk_size = self.chunk_size.take().ok_or(Error::Specify("chunk size"))?;
         if buffer.len() % chunk_size != 0 {
             return Err(Error::from(
                 "Cannot split sample buffer into the same length chunks",
@@ -101,7 +104,7 @@ impl WaveTable {
     }
 }
 
-impl Evaluate for WaveTable {
+impl Evaluate<f32> for WaveTable {
     fn evaluate(&self, t: f32) -> Result<f32, Error> {
         let index = ((self.chunk_size as f32 * (t % PI_2M / PI_2M)).ceil() % self.chunk_size as f32)
             as usize;
@@ -113,6 +116,7 @@ impl Evaluate for WaveTable {
 mod tests {
     use crate::utils::consts::PI;
     use crate::utils::evaluate::Evaluate;
+    use crate::utils::sample_buffer::SampleBufferBuilder;
     use crate::{
         core::{waveshape::WaveShape, wavetable::WaveTableBuilder},
         utils::consts::PI_2M,
@@ -147,5 +151,16 @@ mod tests {
         let mut table = WaveTableBuilder::new().from_array(&samples, 3).unwrap();
         assert!(table.set_position(1).is_ok());
         assert!(table.set_position(2).is_err());
+    }
+
+    #[test]
+    fn test_wavetable_builder() {
+        let samples = [0.1, -0.2, 0.6, 0.96, 0.3, 0.55];
+        WaveTableBuilder::new()
+            .set_buffer(SampleBufferBuilder::new().from_array(&samples))
+            .set_chunk_size(2)
+            .set_position(0)
+            .build()
+            .unwrap();
     }
 }
