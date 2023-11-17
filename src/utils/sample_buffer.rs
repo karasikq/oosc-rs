@@ -50,7 +50,7 @@ impl SampleBufferBuilder {
         }
     }
 
-    pub fn build(self) -> Result<SampleBuffer, Error> {
+    pub fn build(&mut self) -> Result<SampleBuffer, Error> {
         let channels = self.channels.ok_or(Error::Specify("channels count"))?;
         let samples = self.samples.ok_or(Error::Specify("samples count"))?;
         Ok(SampleBuffer {
@@ -77,6 +77,15 @@ impl SampleBufferMono {
             .get(index)
             .ok_or(Error::from("Index of sample out of buffer"))?;
         Ok(*sample)
+    }
+
+    pub fn set_at(&mut self, index: usize, value: f32) -> Result<(), Error> {
+        let sample_ref = self
+            .samples
+            .get_mut(index)
+            .ok_or(Error::from("Cannot get mutable sample by index"))?;
+        *sample_ref = value;
+        Ok(())
     }
 
     pub fn from_array(a: &[f32]) -> Self {
@@ -119,12 +128,29 @@ impl SampleBuffer {
     }
 
     pub fn at(&self, index: usize, channel: u8) -> Result<f32, Error> {
-        let sample = self
+        let sample = self.get_buffer_ref(channel)?.at(index)?;
+        Ok(sample)
+    }
+
+    pub fn set_at(&mut self, channel: u8, index: usize, value: f32) -> Result<(), Error> {
+        self.get_mut_buffer_ref(channel)?.set_at(index, value)?;
+        Ok(())
+    }
+
+    fn get_mut_buffer_ref(&mut self, channel: u8) -> Result<&mut SampleBufferMono, Error> {
+        let buffer = self
+            .buffers
+            .get_mut(channel as usize)
+            .ok_or(Error::from("Channel index out of buffer size"))?;
+        Ok(buffer)
+    }
+
+    fn get_buffer_ref(&self, channel: u8) -> Result<&SampleBufferMono, Error> {
+        let buffer = self
             .buffers
             .get(channel as usize)
-            .ok_or(Error::from("Channel index out of buffer size"))?
-            .at(index)?;
-        Ok(sample)
+            .ok_or(Error::from("Channel index out of buffer size"))?;
+        Ok(buffer)
     }
 }
 
@@ -136,7 +162,7 @@ impl Default for SampleBufferBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::sample_buffer::SampleBufferMono;
+    use crate::utils::sample_buffer::{SampleBufferBuilder, SampleBufferMono};
 
     #[test]
     fn test_mono_buffer() {
@@ -153,5 +179,21 @@ mod tests {
         if buffer.at(100).is_ok() {
             panic!("Index should be out of range")
         };
+    }
+
+    #[test]
+    fn test_buffer_set() {
+        let mut buffer = SampleBufferMono::from_array(&[0.1, 0.2, 0.95, -0.93, -0.934]);
+        buffer.set_at(0, 1.0).unwrap();
+        assert_eq!(buffer.at(0).unwrap(), 1.0);
+        let mut buffer = SampleBufferBuilder::new()
+            .set_channels(2)
+            .set_samples(16)
+            .build()
+            .unwrap();
+        let set = buffer.set_at(2, 0, 0.);
+        assert!(set.is_err());
+        let set = buffer.set_at(0, 0, 0.);
+        assert!(set.is_ok());
     }
 }
