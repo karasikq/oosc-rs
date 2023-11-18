@@ -65,7 +65,7 @@ impl WaveTableBuilder {
     }
 
     pub fn from_array(mut self, a: &[f32], chunk_size: usize) -> Result<WaveTable, Error> {
-        let buffer = SampleBufferBuilder::new().from_array(a);
+        let buffer = SampleBufferBuilder::from_array(a);
         self.set_buffer(buffer);
         self.set_chunk_size(chunk_size);
         self.build()
@@ -76,7 +76,7 @@ impl WaveTableBuilder {
         let vec: Vec<f32> = (0..chunk_size)
             .map(|v| shape.evaluate(v as f32 * step).unwrap())
             .collect();
-        let buffer = SampleBufferBuilder::new().from_vec(vec);
+        let buffer = SampleBufferBuilder::from_vec(vec);
         self.set_buffer(buffer);
         self.set_chunk_size(chunk_size);
         self.build()
@@ -157,7 +157,7 @@ mod tests {
     fn test_wavetable_builder() {
         let samples = [0.1, -0.2, 0.6, 0.96, 0.3, 0.55];
         WaveTableBuilder::new()
-            .set_buffer(SampleBufferBuilder::new().from_array(&samples))
+            .set_buffer(SampleBufferBuilder::from_array(&samples))
             .set_chunk_size(2)
             .set_position(0)
             .build()

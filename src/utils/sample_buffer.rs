@@ -34,7 +34,7 @@ impl SampleBufferBuilder {
         self
     }
 
-    pub fn from_array(self, a: &[f32]) -> SampleBuffer {
+    pub fn from_array(a: &[f32]) -> SampleBuffer {
         SampleBuffer {
             channels: 1,
             buffers: vec![SampleBufferMono::from_array(a)],
@@ -42,7 +42,7 @@ impl SampleBufferBuilder {
         }
     }
 
-    pub fn from_vec(self, a: Vec<f32>) -> SampleBuffer {
+    pub fn from_vec(a: Vec<f32>) -> SampleBuffer {
         SampleBuffer {
             channels: 1,
             samples_count: a.len(),
@@ -88,8 +88,8 @@ impl SampleBufferMono {
         Ok(())
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &f32> {
-        self.samples.iter()
+    pub fn iter(&self) -> impl Iterator<Item = f32> + '_ {
+        self.samples.iter().map(|s| s.clone())
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut f32> {
@@ -145,7 +145,7 @@ impl SampleBuffer {
         Ok(())
     }
 
-    pub fn iter(&self, channel: u8) -> Result<impl Iterator<Item = &f32>, Error> {
+    pub fn iter(&self, channel: u8) -> Result<impl Iterator<Item = f32> + '_, Error> {
         let buffer = self.get_buffer_ref(channel)?;
         Ok(buffer.iter())
     }
