@@ -1,12 +1,12 @@
 use crate::utils::adsr_envelope::State;
 
 pub struct Note {
-    note: u8,
-    frequency: f32,
-    velocity: f32,
-    play_time: f32,
-    hold_on: State,
-    state: State,
+    pub note: u8,
+    pub frequency: f32,
+    pub velocity: f32,
+    pub play_time: f32,
+    pub hold_on: State,
+    pub state: State,
 }
 
 impl Note {
@@ -19,14 +19,6 @@ impl Note {
             hold_on: State::Sustain,
             state: State::Attack,
         }
-    }
-
-    pub fn hold_state(&self) -> State {
-        self.hold_on
-    }
-
-    pub fn state(&self) -> State {
-        self.state
     }
 }
 
