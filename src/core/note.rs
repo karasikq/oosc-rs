@@ -6,6 +6,7 @@ pub struct Note {
     velocity: f32,
     play_time: f32,
     hold_on: State,
+    state: State,
 }
 
 impl Note {
@@ -16,9 +17,17 @@ impl Note {
             velocity: Converter::velocity_to_float(velocity),
             play_time: 0.0,
             hold_on: State::Sustain,
+            state: State::Attack,
         }
     }
 
+    pub fn hold_state(&self) -> State {
+        self.hold_on
+    }
+
+    pub fn state(&self) -> State {
+        self.state
+    }
 }
 
 pub struct Converter;
