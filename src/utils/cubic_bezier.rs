@@ -28,6 +28,10 @@ impl CubicBezierCurve {
         self.d - self.a
     }
 
+    pub fn start(&self) -> Point {
+        self.a
+    }
+
     pub fn end(&self) -> Point {
         self.d
     }

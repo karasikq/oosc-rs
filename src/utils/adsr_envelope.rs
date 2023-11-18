@@ -4,6 +4,7 @@ use crate::error::Error;
 
 use super::cubic_bezier::CubicBezierCurve;
 
+#[derive(Copy, Clone)]
 pub enum State {
     None,
     Attack,
@@ -19,30 +20,18 @@ pub struct ADSREnvelope {
 }
 
 impl ADSREnvelope {
-    pub fn total_attack_length(&self) -> f32 {
-        self.attack.difference().x
-    }
-
-    pub fn total_decay_length(&self) -> f32 {
-        Self::total_attack_length(self) + self.decay.difference().x
-    }
-
-    pub fn total_length(&self) -> f32 {
-        Self::total_decay_length(self) + self.release.difference().x
-    }
-
     pub fn evaluate(&self, t: f32) -> f32 {
-        let attack_time = Self::total_attack_length(self);
+        let attack_time = self.time_range_of(State::Attack).1;
         if t < attack_time {
             self.attack.evaluate(t / attack_time).y
         } else {
-            let decay_time = Self::total_decay_length(self);
+            let decay_time = self.time_range_of(State::Decay).1;
             if t < decay_time {
                 self.decay
                     .evaluate((t - attack_time) / self.decay.difference().x)
                     .y
             } else {
-                let release_time = Self::total_length(self);
+                let release_time = self.time_range_of(State::Release).1;
                 if t < release_time {
                     self.release
                         .evaluate((t - decay_time) / self.release.difference().x)
@@ -51,6 +40,35 @@ impl ADSREnvelope {
                     0.0
                 }
             }
+        }
+    }
+
+    pub fn peak_at(&self, state: State) -> f32 {
+        match state {
+            State::None => 0.0,
+            State::Attack => self.attack.evaluate(1.0).y,
+            State::Decay => self.decay.evaluate(1.0).y,
+            State::Sustain => self.decay.evaluate(1.0).y,
+            State::Release => self.release.evaluate(1.0).y,
+        }
+    }
+
+    pub fn time_range_of(&self, state: State) -> (f32, f32) {
+        match state {
+            State::None => (0., 0.),
+            State::Attack => (self.attack.start().x, self.attack.difference().x),
+            State::Decay => {
+                let attack = self.time_range_of(State::Attack);
+                (attack.1, attack.1 + self.decay.difference().x)
+            }
+            State::Sustain => {
+                let decay = self.time_range_of(State::Decay);
+                (decay.1, decay.1)
+            },
+            State::Release => {
+                let decay = self.time_range_of(State::Decay);
+                (decay.1, decay.1 + self.release.difference().x)
+            },
         }
     }
 }
@@ -143,7 +161,7 @@ impl Default for ADSREnvelopeBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::adsr_envelope::ADSREnvelopeBuilder;
+    use crate::utils::adsr_envelope::{ADSREnvelopeBuilder, State};
     use assert_approx_eq::assert_approx_eq;
 
     #[test]
@@ -157,7 +175,7 @@ mod tests {
             .unwrap()
             .build()
             .unwrap();
-        assert_eq!(adsr.total_length(), 2.45);
+        assert_eq!(adsr.time_range_of(State::Release).1, 2.45);
     }
 
     #[test]
