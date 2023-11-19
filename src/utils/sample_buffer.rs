@@ -160,6 +160,18 @@ impl SampleBuffer {
         Ok(())
     }
 
+    pub fn combine(&mut self, buffer: &SampleBuffer) -> Result<(), Error> {
+        if self.len() != buffer.len() {
+            return Err("Buffers has different length".into());
+        }
+        for channel in 0..self.channels {
+            for i in 0..self.len() {
+                self.add_at(channel, i, buffer.at(i, channel)?)?;
+            }
+        }
+        Ok(())
+    }
+
     pub fn fill(&mut self, value: f32) {
         for buffer in self.buffers.iter_mut() {
             buffer.fill(value);
