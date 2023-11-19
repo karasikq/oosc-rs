@@ -79,17 +79,26 @@ impl SampleBufferMono {
         Ok(*sample)
     }
 
-    pub fn set_at(&mut self, index: usize, value: f32) -> Result<(), Error> {
-        let sample_ref = self
+    pub fn fill(&mut self, value: f32) -> usize {
+        self.iter_mut().map(|s| *s = value).count()
+    }
+
+    pub fn get_mut(&mut self, index: usize) -> Result<&mut f32, Error> {
+        let sample = self
             .samples
             .get_mut(index)
             .ok_or(Error::from("Cannot get mutable sample by index"))?;
+        Ok(sample)
+    }
+
+    pub fn set_at(&mut self, index: usize, value: f32) -> Result<(), Error> {
+        let sample_ref = self.get_mut(index)?;
         *sample_ref = value;
         Ok(())
     }
 
     pub fn iter(&self) -> impl Iterator<Item = f32> + '_ {
-        self.samples.iter().map(|s| s.clone())
+        self.samples.iter().copied()
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut f32> {
@@ -143,6 +152,18 @@ impl SampleBuffer {
     pub fn set_at(&mut self, channel: u8, index: usize, value: f32) -> Result<(), Error> {
         self.get_mut_buffer_ref(channel)?.set_at(index, value)?;
         Ok(())
+    }
+
+    pub fn add_at(&mut self, channel: u8, index: usize, value: f32) -> Result<(), Error> {
+        let sample = self.get_mut_buffer_ref(channel)?.get_mut(index)?;
+        *sample += value;
+        Ok(())
+    }
+
+    pub fn fill(&mut self, value: f32) {
+        for buffer in self.buffers.iter_mut() {
+            buffer.fill(value);
+        }
     }
 
     pub fn iter(&self, channel: u8) -> Result<impl Iterator<Item = f32> + '_, Error> {
@@ -213,5 +234,16 @@ mod tests {
         assert!(set.is_err());
         let set = buffer.set_at(0, 0, 0.);
         assert!(set.is_ok());
+    }
+
+    #[test]
+    fn test_buffer_add() {
+        let mut buffer = SampleBufferBuilder::new()
+            .set_channels(2)
+            .set_samples(16)
+            .build()
+            .unwrap();
+        buffer.add_at(0, 0, 2.).unwrap();
+        assert_eq!(buffer.at(0, 0).unwrap(), 2.);
     }
 }
