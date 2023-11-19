@@ -5,7 +5,7 @@ pub trait Evaluate<T> {
 }
 
 pub trait EvaluateWithParam<T, R> {
-    fn evaluate(&self, t: f32, param: T) -> Result<R, Error>;
+    fn evaluate(&mut self, t: f32, param: T) -> Result<R, Error>;
 }
 
 pub trait EvaluateMut<T> {
