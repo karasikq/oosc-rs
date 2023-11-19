@@ -144,7 +144,7 @@ impl SampleBuffer {
         self.len() == 0
     }
 
-    pub fn at(&self, index: usize, channel: u8) -> Result<f32, Error> {
+    pub fn at(&self, channel: u8, index: usize) -> Result<f32, Error> {
         let sample = self.get_buffer_ref(channel)?.at(index)?;
         Ok(sample)
     }
@@ -164,11 +164,13 @@ impl SampleBuffer {
         if self.len() != buffer.len() {
             return Err("Buffers has different length".into());
         }
-        for channel in 0..self.channels {
-            for i in 0..self.len() {
-                self.add_at(channel, i, buffer.at(i, channel)?)?;
-            }
-        }
+        self.buffers.iter_mut().enumerate().for_each(|(index, buf)| {
+            let self_iter = buf.iter_mut();
+            let mut another_iter = buffer.iter(index as u8).unwrap();
+            self_iter.for_each(|s| {
+                *s += another_iter.next().unwrap();
+            });
+        });
         Ok(())
     }
 
@@ -257,5 +259,23 @@ mod tests {
             .unwrap();
         buffer.add_at(0, 0, 2.).unwrap();
         assert_eq!(buffer.at(0, 0).unwrap(), 2.);
+    }
+
+    #[test]
+    fn test_buffer_combine() {
+        let mut buffer = SampleBufferBuilder::new()
+            .set_channels(2)
+            .set_samples(16)
+            .build()
+            .unwrap();
+        buffer.fill(1.0);
+        let mut buffer2 = SampleBufferBuilder::new()
+            .set_channels(2)
+            .set_samples(16)
+            .build()
+            .unwrap();
+        buffer2.fill(3.0);
+        buffer.combine(&buffer2).unwrap();
+        assert_eq!(buffer.at(0, 8).unwrap(), 4.);
     }
 }

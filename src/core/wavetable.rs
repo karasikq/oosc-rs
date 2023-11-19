@@ -91,7 +91,7 @@ impl Default for WaveTableBuilder {
 
 impl WaveTable {
     fn sample_at(&self, index: usize) -> Result<f32, Error> {
-        self.buffer.at(index, 0)
+        self.buffer.at(0, index)
     }
 
     fn set_position(&mut self, position: usize) -> Result<(), Error> {
