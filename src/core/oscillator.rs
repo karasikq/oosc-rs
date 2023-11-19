@@ -36,8 +36,8 @@ impl Oscillator {
             let sample = self.wavetable.evaluate(freq)?;
 
             let samples = (sample * envelope * 1., sample * envelope * 1.);
-            buffer.set_at(0, i, samples.0)?;
-            buffer.set_at(1, i, samples.1)?;
+            buffer.add_at(0, i, samples.0)?;
+            buffer.add_at(1, i, samples.1)?;
 
             t += delta_time;
         }
