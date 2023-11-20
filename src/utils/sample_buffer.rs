@@ -1,8 +1,10 @@
 use crate::error::Error;
 
+pub type Sample = f32;
+
 pub struct SampleBufferMono {
-    samples: Vec<f32>,
-    extrema: (f32, f32),
+    samples: Vec<Sample>,
+    extrema: (Sample, Sample),
 }
 
 pub struct SampleBuffer {
@@ -34,7 +36,7 @@ impl SampleBufferBuilder {
         self
     }
 
-    pub fn from_array(a: &[f32]) -> SampleBuffer {
+    pub fn from_array(a: &[Sample]) -> SampleBuffer {
         SampleBuffer {
             channels: 1,
             buffers: vec![SampleBufferMono::from_array(a)],
@@ -42,7 +44,7 @@ impl SampleBufferBuilder {
         }
     }
 
-    pub fn from_vec(a: Vec<f32>) -> SampleBuffer {
+    pub fn from_vec(a: Vec<Sample>) -> SampleBuffer {
         SampleBuffer {
             channels: 1,
             samples_count: a.len(),
@@ -71,7 +73,7 @@ impl SampleBufferMono {
         }
     }
 
-    pub fn at(&self, index: usize) -> Result<f32, Error> {
+    pub fn at(&self, index: usize) -> Result<Sample, Error> {
         let sample = self
             .samples
             .get(index)
@@ -79,11 +81,11 @@ impl SampleBufferMono {
         Ok(*sample)
     }
 
-    pub fn fill(&mut self, value: f32) -> usize {
+    pub fn fill(&mut self, value: Sample) -> usize {
         self.iter_mut().map(|s| *s = value).count()
     }
 
-    pub fn get_mut(&mut self, index: usize) -> Result<&mut f32, Error> {
+    pub fn get_mut(&mut self, index: usize) -> Result<&mut Sample, Error> {
         let sample = self
             .samples
             .get_mut(index)
@@ -91,21 +93,21 @@ impl SampleBufferMono {
         Ok(sample)
     }
 
-    pub fn set_at(&mut self, index: usize, value: f32) -> Result<(), Error> {
+    pub fn set_at(&mut self, index: usize, value: Sample) -> Result<(), Error> {
         let sample_ref = self.get_mut(index)?;
         *sample_ref = value;
         Ok(())
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = f32> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = Sample> + '_ {
         self.samples.iter().copied()
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut f32> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Sample> {
         self.samples.iter_mut()
     }
 
-    pub fn from_array(a: &[f32]) -> Self {
+    pub fn from_array(a: &[Sample]) -> Self {
         let samples = a.to_vec();
         Self {
             samples,
@@ -113,7 +115,7 @@ impl SampleBufferMono {
         }
     }
 
-    pub fn from_vec(a: Vec<f32>) -> Self {
+    pub fn from_vec(a: Vec<Sample>) -> Self {
         let samples = a;
         Self {
             extrema: Self::extremas(&samples),
@@ -121,8 +123,8 @@ impl SampleBufferMono {
         }
     }
 
-    fn extremas(a: &[f32]) -> (f32, f32) {
-        let (mut min, mut max) = (f32::MAX, f32::MIN);
+    fn extremas(a: &[Sample]) -> (Sample, Sample) {
+        let (mut min, mut max) = (Sample::MAX, Sample::MIN);
         for v in a {
             if *v > max {
                 max = *v;
@@ -144,17 +146,17 @@ impl SampleBuffer {
         self.len() == 0
     }
 
-    pub fn at(&self, channel: u8, index: usize) -> Result<f32, Error> {
+    pub fn at(&self, channel: u8, index: usize) -> Result<Sample, Error> {
         let sample = self.get_buffer_ref(channel)?.at(index)?;
         Ok(sample)
     }
 
-    pub fn set_at(&mut self, channel: u8, index: usize, value: f32) -> Result<(), Error> {
+    pub fn set_at(&mut self, channel: u8, index: usize, value: Sample) -> Result<(), Error> {
         self.get_mut_buffer_ref(channel)?.set_at(index, value)?;
         Ok(())
     }
 
-    pub fn add_at(&mut self, channel: u8, index: usize, value: f32) -> Result<(), Error> {
+    pub fn add_at(&mut self, channel: u8, index: usize, value: Sample) -> Result<(), Error> {
         let sample = self.get_mut_buffer_ref(channel)?.get_mut(index)?;
         *sample += value;
         Ok(())
@@ -174,18 +176,22 @@ impl SampleBuffer {
         Ok(())
     }
 
-    pub fn fill(&mut self, value: f32) {
+    pub fn fill(&mut self, value: Sample) {
         for buffer in self.buffers.iter_mut() {
             buffer.fill(value);
         }
     }
 
-    pub fn iter(&self, channel: u8) -> Result<impl Iterator<Item = f32> + '_, Error> {
+    pub fn iter_buffers(&mut self) -> impl Iterator<Item = &mut SampleBufferMono> + '_ {
+        self.buffers.iter_mut()
+    }
+
+    pub fn iter(&self, channel: u8) -> Result<impl Iterator<Item = Sample> + '_, Error> {
         let buffer = self.get_buffer_ref(channel)?;
         Ok(buffer.iter())
     }
 
-    pub fn iter_mut(&mut self, channel: u8) -> Result<impl Iterator<Item = &mut f32>, Error> {
+    pub fn iter_mut(&mut self, channel: u8) -> Result<impl Iterator<Item = &mut Sample>, Error> {
         let buffer = self.get_mut_buffer_ref(channel)?;
         Ok(buffer.iter_mut())
     }
