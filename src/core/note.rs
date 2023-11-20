@@ -31,12 +31,12 @@ impl Converter {
     }
 
     #[inline]
-    fn velocity_to_float(velocity: u8) -> f32 {
+    pub fn velocity_to_float(velocity: u8) -> f32 {
         velocity as f32 / 255.0
     }
 
     #[inline]
-    fn note_to_freq(note: u8) -> f32 {
+    pub fn note_to_freq(note: u8) -> f32 {
         8.175_799_f32 * 1.059_463_1_f32.powi(note as i32)
     }
 }

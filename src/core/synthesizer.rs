@@ -32,7 +32,7 @@ impl Synthesizer {
         Ok(())
     }
 
-    fn output(&mut self) -> Result<SyncSampleBuffer, Error> {
+    pub fn output(&mut self) -> Result<SyncSampleBuffer, Error> {
         let mut notes = self.notes.lock().expect("Cannot lock notes");
         let mut buffer = self.buffer.lock().expect("Cannot lock buffer");
         buffer.fill(0.);

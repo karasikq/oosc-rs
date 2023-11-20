@@ -8,9 +8,10 @@ use crate::utils::evaluate::Evaluate;
 use crate::utils::sample_buffer::SyncSampleBuffer;
 use crate::utils::{adsr_envelope::ADSREnvelope, sample_buffer::SampleBuffer};
 
+use super::note::Converter;
 use super::wavetable::WaveTable;
 
-pub trait Oscillator<'a, T, R> : Send + Sync {
+pub trait Oscillator<'a, T, R>: Send + Sync {
     fn evaluate(&mut self, t: f32, param: T) -> Result<R, Error>;
     fn get_buffer(&mut self) -> SyncSampleBuffer;
 }
@@ -19,6 +20,13 @@ pub struct WavetableOscillator {
     buffer: SyncSampleBuffer,
     envelope: ADSREnvelope,
     wavetable: WaveTable,
+    octave_offset: i8,
+}
+
+impl WavetableOscillator {
+    pub fn set_octave_offset(&mut self, octave_offset: i8) {
+        self.octave_offset = octave_offset * 12;
+    }
 }
 
 impl Oscillator<'_, &Note, SyncSampleBuffer> for WavetableOscillator {
@@ -37,11 +45,12 @@ impl Oscillator<'_, &Note, SyncSampleBuffer> for WavetableOscillator {
                     }
                 }
             };
-            let freq = PI_2M * note.frequency * t;
+            let freq =
+                PI_2M * Converter::note_to_freq((note.note as i8 + self.octave_offset) as u8) * t;
             let sample = self.wavetable.evaluate(freq)?;
 
-            iteration_buffer[0] = sample * envelope * 1.;
-            iteration_buffer[1] = sample * envelope * 1.;
+            iteration_buffer[0] = sample * envelope * 0.2;
+            iteration_buffer[1] = sample * envelope * 0.2;
             buffer
                 .iter_buffers()
                 .enumerate()
@@ -102,6 +111,7 @@ impl OscillatorBuilder {
             buffer,
             envelope,
             wavetable,
+            octave_offset: 0,
         })
     }
 }
