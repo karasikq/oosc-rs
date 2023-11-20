@@ -9,8 +9,6 @@ use crate::utils::{adsr_envelope::ADSREnvelope, sample_buffer::SampleBuffer};
 
 use super::wavetable::WaveTable;
 
-// REMINDER
-// Make oscillator fully stateless, move notes to note wrapper
 pub struct Oscillator {
     buffer: Arc<Mutex<SampleBuffer>>,
     envelope: ADSREnvelope,
@@ -41,7 +39,7 @@ impl Oscillator {
             buffer
                 .iter_buffers()
                 .enumerate()
-                .map(|(i, buf)| *buf.get_mut(i).unwrap() += iteration_buffer[i])
+                .map(|(ind, buf)| *buf.get_mut(i).unwrap() += iteration_buffer[ind])
                 .count();
 
             t += delta_time;
