@@ -1,3 +1,5 @@
+use std::sync::{Mutex, Arc};
+
 use crate::error::Error;
 
 pub type Sample = f32;
@@ -12,6 +14,8 @@ pub struct SampleBuffer {
     buffers: Vec<SampleBufferMono>,
     samples_count: usize,
 }
+
+pub type SyncSampleBuffer = Arc<Mutex<SampleBuffer>>;
 
 pub struct SampleBufferBuilder {
     channels: Option<u8>,
