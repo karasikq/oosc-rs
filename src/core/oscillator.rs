@@ -21,6 +21,7 @@ impl Oscillator {
     pub fn evaluate_note(&mut self, note: &Note, delta_time: f32) -> Result<f32, Error> {
         let mut buffer = self.buffer.lock().expect("Cannot lock buffer");
         let mut t = note.play_time;
+        let mut iteration_buffer = [0.0; 2];
         for i in 0..buffer.len() {
             let envelope = match note.hold_on {
                 State::None => self.envelope.evaluate(t),
@@ -35,16 +36,20 @@ impl Oscillator {
             let freq = PI_2M * note.frequency * t;
             let sample = self.wavetable.evaluate(freq)?;
 
-            let samples = (sample * envelope * 1., sample * envelope * 1.);
-            buffer.add_at(0, i, samples.0)?;
-            buffer.add_at(1, i, samples.1)?;
+            iteration_buffer[0] = sample * envelope * 1.;
+            iteration_buffer[1] = sample * envelope * 1.;
+            buffer
+                .iter_buffers()
+                .enumerate()
+                .map(|(i, buf)| *buf.get_mut(i).unwrap() += iteration_buffer[i])
+                .count();
 
             t += delta_time;
         }
         Ok(t)
     }
 
-    pub fn get_buffer(&self) -> Arc<Mutex<SampleBuffer>>  {
+    pub fn get_buffer(&self) -> Arc<Mutex<SampleBuffer>> {
         self.buffer.clone()
     }
 }
