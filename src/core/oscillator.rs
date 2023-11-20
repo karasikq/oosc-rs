@@ -10,7 +10,7 @@ use crate::utils::{adsr_envelope::ADSREnvelope, sample_buffer::SampleBuffer};
 
 use super::wavetable::WaveTable;
 
-pub trait Oscillator<'a, T, R> {
+pub trait Oscillator<'a, T, R> : Send + Sync {
     fn evaluate(&mut self, t: f32, param: T) -> Result<R, Error>;
     fn get_buffer(&mut self) -> SyncSampleBuffer;
 }
@@ -22,11 +22,7 @@ pub struct WavetableOscillator {
 }
 
 impl Oscillator<'_, &Note, SyncSampleBuffer> for WavetableOscillator {
-    fn evaluate(
-        &mut self,
-        delta_time: f32,
-        note: &Note,
-    ) -> Result<SyncSampleBuffer, Error> {
+    fn evaluate(&mut self, delta_time: f32, note: &Note) -> Result<SyncSampleBuffer, Error> {
         let mut buffer = self.buffer.lock().expect("Cannot lock buffer");
         let mut t = note.play_time;
         let mut iteration_buffer = [0.0; 2];
@@ -49,8 +45,10 @@ impl Oscillator<'_, &Note, SyncSampleBuffer> for WavetableOscillator {
             buffer
                 .iter_buffers()
                 .enumerate()
-                .map(|(ind, buf)| *buf.get_mut(i).unwrap() += iteration_buffer[ind])
-                .count();
+                .try_for_each(|(ind, buf)| -> Result<(), Error> {
+                    *buf.get_mut(i)? += iteration_buffer[ind];
+                    Ok(())
+                })?;
 
             t += delta_time;
         }
