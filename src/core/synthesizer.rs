@@ -3,19 +3,21 @@ use std::sync::{Arc, Mutex};
 use super::{note::Note, oscillator::Oscillator};
 use crate::{
     error::Error,
-    utils::sample_buffer::{SampleBuffer, SampleBufferBuilder},
+    utils::sample_buffer::{SampleBuffer, SampleBufferBuilder, SyncSampleBuffer},
 };
 
+type Osc = Box<dyn for<'a> Oscillator<'a, &'a Note, SyncSampleBuffer>>;
+
 pub struct Synthesizer {
-    buffer: Arc<Mutex<SampleBuffer>>,
+    buffer: SyncSampleBuffer,
     notes: Arc<Mutex<Vec<Note>>>,
-    oscillators: Vec<Oscillator>,
+    oscillators: Vec<Osc>,
     sample_rate: f32,
     delta_time: f32,
 }
 
 impl Synthesizer {
-    pub fn new(buffer_size: usize, oscillators: Vec<Oscillator>) -> Self {
+    pub fn new(buffer_size: usize, oscillators: Vec<Osc>) -> Self {
         let buffer = SampleBufferBuilder::new()
             .set_channels(2)
             .set_samples(buffer_size)
@@ -36,7 +38,7 @@ impl Synthesizer {
         Ok(())
     }
 
-    fn output(&mut self, delta: f32) -> Result<Arc<Mutex<SampleBuffer>>, Error> {
+    fn output(&mut self, delta: f32) -> Result<SyncSampleBuffer, Error> {
         let mut notes = self.notes.lock().expect("Cannot lock notes");
         let mut buffer = self.buffer.lock().expect("Cannot lock buffer");
         buffer.fill(0.);
@@ -47,7 +49,7 @@ impl Synthesizer {
         }
         for note in notes.iter_mut() {
             for osc in self.oscillators.iter_mut() {
-                osc.evaluate_note(note, delta)?;
+                osc.evaluate(delta, note)?;
             }
             note.play_time += buffer.len() as f32 * delta;
         }
