@@ -39,6 +39,16 @@ impl Converter {
     pub fn note_to_freq(note: i32) -> f32 {
         8.175_799_f32 * 1.059_463_1_f32.powi(note)
     }
+
+    #[inline]
+    pub fn linear_to_power(value: f32) -> f32 {
+        10. * value.log10()
+    }
+
+    #[inline]
+    pub fn power_to_linear(value: f32) -> f32 {
+        10.0_f32.powf(value / 10.0)
+    }
 }
 
 #[cfg(test)]
