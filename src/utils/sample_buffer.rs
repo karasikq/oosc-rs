@@ -1,16 +1,16 @@
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 
 use crate::error::Error;
 
 pub type Sample = f32;
+type Channel = u32;
 
 pub struct SampleBufferMono {
     samples: Vec<Sample>,
-    extrema: (Sample, Sample),
 }
 
 pub struct SampleBuffer {
-    channels: u8,
+    channels: Channel,
     buffers: Vec<SampleBufferMono>,
     samples_count: usize,
 }
@@ -18,7 +18,7 @@ pub struct SampleBuffer {
 pub type SyncSampleBuffer = Arc<Mutex<SampleBuffer>>;
 
 pub struct SampleBufferBuilder {
-    channels: Option<u8>,
+    channels: Option<Channel>,
     samples: Option<usize>,
 }
 
@@ -30,7 +30,7 @@ impl SampleBufferBuilder {
         }
     }
 
-    pub fn set_channels(&mut self, n: u8) -> &mut Self {
+    pub fn set_channels(&mut self, n: Channel) -> &mut Self {
         self.channels = Some(n);
         self
     }
@@ -62,7 +62,7 @@ impl SampleBufferBuilder {
         Ok(SampleBuffer {
             channels,
             buffers: std::iter::repeat_with(|| SampleBufferMono::new(samples))
-                .take(channels.into())
+                .take(samples)
                 .collect::<Vec<_>>(),
             samples_count: samples,
         })
@@ -73,7 +73,6 @@ impl SampleBufferMono {
     pub fn new(s: usize) -> Self {
         Self {
             samples: vec![0.0; s],
-            extrema: (0.0, 0.0),
         }
     }
 
@@ -113,35 +112,20 @@ impl SampleBufferMono {
 
     pub fn from_array(a: &[Sample]) -> Self {
         let samples = a.to_vec();
-        Self {
-            samples,
-            extrema: Self::extremas(a),
-        }
+        Self { samples }
     }
 
     pub fn from_vec(a: Vec<Sample>) -> Self {
         let samples = a;
-        Self {
-            extrema: Self::extremas(&samples),
-            samples,
-        }
-    }
-
-    fn extremas(a: &[Sample]) -> (Sample, Sample) {
-        let (mut min, mut max) = (Sample::MAX, Sample::MIN);
-        for v in a {
-            if *v > max {
-                max = *v;
-            }
-            if *v < min {
-                min = *v;
-            }
-        }
-        (min, max)
+        Self { samples }
     }
 }
 
 impl SampleBuffer {
+    pub fn channels(&self) -> u32 {
+        self.channels
+    }
+
     pub fn len(&self) -> usize {
         self.samples_count
     }
@@ -150,17 +134,17 @@ impl SampleBuffer {
         self.len() == 0
     }
 
-    pub fn at(&self, channel: u8, index: usize) -> Result<Sample, Error> {
+    pub fn at(&self, channel: Channel, index: usize) -> Result<Sample, Error> {
         let sample = self.get_buffer_ref(channel)?.at(index)?;
         Ok(sample)
     }
 
-    pub fn set_at(&mut self, channel: u8, index: usize, value: Sample) -> Result<(), Error> {
+    pub fn set_at(&mut self, channel: Channel, index: usize, value: Sample) -> Result<(), Error> {
         self.get_mut_buffer_ref(channel)?.set_at(index, value)?;
         Ok(())
     }
 
-    pub fn add_at(&mut self, channel: u8, index: usize, value: Sample) -> Result<(), Error> {
+    pub fn add_at(&mut self, channel: Channel, index: usize, value: Sample) -> Result<(), Error> {
         let sample = self.get_mut_buffer_ref(channel)?.get_mut(index)?;
         *sample += value;
         Ok(())
@@ -170,13 +154,16 @@ impl SampleBuffer {
         if self.len() != buffer.len() {
             return Err("Buffers has different length".into());
         }
-        self.buffers.iter_mut().enumerate().for_each(|(index, buf)| {
-            let self_iter = buf.iter_mut();
-            let mut another_iter = buffer.iter(index as u8).unwrap();
-            self_iter.for_each(|s| {
-                *s += another_iter.next().unwrap();
+        self.buffers
+            .iter_mut()
+            .enumerate()
+            .for_each(|(index, buf)| {
+                let self_iter = buf.iter_mut();
+                let mut another_iter = buffer.iter(index as Channel).unwrap();
+                self_iter.for_each(|s| {
+                    *s += another_iter.next().unwrap();
+                });
             });
-        });
         Ok(())
     }
 
@@ -190,17 +177,20 @@ impl SampleBuffer {
         self.buffers.iter_mut()
     }
 
-    pub fn iter(&self, channel: u8) -> Result<impl Iterator<Item = Sample> + '_, Error> {
+    pub fn iter(&self, channel: Channel) -> Result<impl Iterator<Item = Sample> + '_, Error> {
         let buffer = self.get_buffer_ref(channel)?;
         Ok(buffer.iter())
     }
 
-    pub fn iter_mut(&mut self, channel: u8) -> Result<impl Iterator<Item = &mut Sample>, Error> {
+    pub fn iter_mut(
+        &mut self,
+        channel: Channel,
+    ) -> Result<impl Iterator<Item = &mut Sample>, Error> {
         let buffer = self.get_mut_buffer_ref(channel)?;
         Ok(buffer.iter_mut())
     }
 
-    pub fn get_mut_buffer_ref(&mut self, channel: u8) -> Result<&mut SampleBufferMono, Error> {
+    pub fn get_mut_buffer_ref(&mut self, channel: Channel) -> Result<&mut SampleBufferMono, Error> {
         let buffer = self
             .buffers
             .get_mut(channel as usize)
@@ -208,7 +198,7 @@ impl SampleBuffer {
         Ok(buffer)
     }
 
-    pub fn get_buffer_ref(&self, channel: u8) -> Result<&SampleBufferMono, Error> {
+    pub fn get_buffer_ref(&self, channel: Channel) -> Result<&SampleBufferMono, Error> {
         let buffer = self
             .buffers
             .get(channel as usize)
@@ -226,12 +216,6 @@ impl Default for SampleBufferBuilder {
 #[cfg(test)]
 mod tests {
     use crate::utils::sample_buffer::{SampleBufferBuilder, SampleBufferMono};
-
-    #[test]
-    fn test_mono_buffer() {
-        let buffer = SampleBufferMono::from_array(&[0.1, 0.2, 0.95, -0.93, -0.934]);
-        assert_eq!(buffer.extrema, (-0.934, 0.95));
-    }
 
     #[test]
     fn test_buffer_at() {
