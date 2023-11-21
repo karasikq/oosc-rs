@@ -8,7 +8,7 @@ pub enum WaveShape {
     Square,
     SquareFourier(u8),
     Saw,
-    Saw2,
+    Triangle,
 }
 
 impl Evaluate<f32> for WaveShape {
@@ -33,7 +33,7 @@ impl Evaluate<f32> for WaveShape {
                     / PI)
             }
             WaveShape::Saw => Ok((t % PI_2M - PI) / PI),
-            WaveShape::Saw2 => Ok(1.0 - 2.0 * (t % PI_2M - PI).abs() / PI),
+            WaveShape::Triangle => Ok(1.0 - 2.0 * (t % PI_2M - PI).abs() / PI),
         }
     }
 }
@@ -52,7 +52,7 @@ mod tests {
         let square = WaveShape::Square;
         let square_q = WaveShape::SquareFourier(50);
         let saw = WaveShape::Saw;
-        let saw2 = WaveShape::Saw2;
+        let saw2 = WaveShape::Triangle;
         assert_approx_eq!(sin.evaluate(1.0).unwrap(), 0.841_470_96);
         assert_approx_eq!(square.evaluate(PI + 0.3).unwrap(), -1.0);
         assert_approx_eq!(square.evaluate(PI - 0.3).unwrap(), 1.0);
