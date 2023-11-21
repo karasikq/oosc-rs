@@ -62,7 +62,7 @@ impl SampleBufferBuilder {
         Ok(SampleBuffer {
             channels,
             buffers: std::iter::repeat_with(|| SampleBufferMono::new(samples))
-                .take(samples)
+                .take(channels as usize)
                 .collect::<Vec<_>>(),
             samples_count: samples,
         })
