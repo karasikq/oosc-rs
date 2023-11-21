@@ -20,12 +20,19 @@ pub struct WavetableOscillator {
     buffer: SyncSampleBuffer,
     envelope: ADSREnvelope,
     wavetable: WaveTable,
-    octave_offset: i8,
+    octave_offset: i32,
+    pan: f32,
 }
 
 impl WavetableOscillator {
-    pub fn set_octave_offset(&mut self, octave_offset: i8) {
+    pub fn set_octave_offset(&mut self, octave_offset: i32) -> &mut Self {
         self.octave_offset = octave_offset * 12;
+        self
+    }
+
+    pub fn set_pan(&mut self, pan: f32) -> &mut Self {
+        self.pan = pan;
+        self
     }
 }
 
@@ -45,12 +52,11 @@ impl Oscillator<'_, &Note, SyncSampleBuffer> for WavetableOscillator {
                     }
                 }
             };
-            let freq =
-                PI_2M * Converter::note_to_freq((note.note as i8 + self.octave_offset) as u8) * t;
+            let freq = PI_2M * Converter::note_to_freq(note.note + self.octave_offset) * t;
             let sample = self.wavetable.evaluate(freq)?;
 
-            iteration_buffer[0] = sample * envelope * 0.2;
-            iteration_buffer[1] = sample * envelope * 0.2;
+            iteration_buffer[0] = sample * envelope * 0.2 * (1.0 - self.pan);
+            iteration_buffer[1] = sample * envelope * 0.2 * self.pan;
             buffer
                 .iter_buffers()
                 .enumerate()
@@ -112,6 +118,7 @@ impl OscillatorBuilder {
             envelope,
             wavetable,
             octave_offset: 0,
+            pan: 0.5,
         })
     }
 }

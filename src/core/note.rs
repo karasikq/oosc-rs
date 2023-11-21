@@ -1,7 +1,7 @@
 use crate::utils::adsr_envelope::State;
 
 pub struct Note {
-    pub note: u8,
+    pub note: i32,
     pub frequency: f32,
     pub velocity: f32,
     pub play_time: f32,
@@ -10,7 +10,7 @@ pub struct Note {
 }
 
 impl Note {
-    pub fn new(note: u8, velocity: u8) -> Self {
+    pub fn new(note: i32, velocity: i32) -> Self {
         Self {
             note,
             frequency: Converter::note_to_freq(note),
@@ -26,18 +26,18 @@ pub struct Converter;
 
 impl Converter {
     #[inline]
-    pub fn cents_to_freq(cents: u8) -> f32 {
+    pub fn cents_to_freq(cents: i32) -> f32 {
         2.0_f32.powf(cents as f32 / 1200.0)
     }
 
     #[inline]
-    pub fn velocity_to_float(velocity: u8) -> f32 {
+    pub fn velocity_to_float(velocity: i32) -> f32 {
         velocity as f32 / 255.0
     }
 
     #[inline]
-    pub fn note_to_freq(note: u8) -> f32 {
-        8.175_799_f32 * 1.059_463_1_f32.powi(note as i32)
+    pub fn note_to_freq(note: i32) -> f32 {
+        8.175_799_f32 * 1.059_463_1_f32.powi(note)
     }
 }
 
