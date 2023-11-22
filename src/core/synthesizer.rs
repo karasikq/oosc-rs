@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use super::{note::Note, oscillator::Oscillator};
 use crate::{
     error::Error,
-    utils::sample_buffer::{SampleBufferBuilder, SyncSampleBuffer},
+    utils::sample_buffer::{SampleBuffer, SampleBufferBuilder, SyncSampleBuffer},
 };
 use rayon::prelude::*;
 
@@ -13,6 +13,7 @@ type SyncNotes = Arc<Mutex<Vec<Note>>>;
 pub struct Synthesizer {
     buffer: SyncSampleBuffer,
     notes: SyncNotes,
+    note_buffer: SampleBuffer,
     oscillators: Vec<Osc>,
     sample_rate: u32,
     delta_time: f32,
@@ -21,6 +22,7 @@ pub struct Synthesizer {
 #[derive(Default)]
 pub struct SynthesizerBuilder {
     buffer: Option<SyncSampleBuffer>,
+    note_buffer: Option<SampleBuffer>,
     oscillators: Option<Vec<Osc>>,
     sample_rate: Option<u32>,
 }
@@ -33,25 +35,37 @@ impl Synthesizer {
     }
 
     pub fn output(&mut self) -> Result<SyncSampleBuffer, Error> {
-        let mut notes = self.notes.lock().expect("Cannot lock notes");
-        let mut buffer = self.buffer.lock().expect("Cannot lock buffer");
+        let mut notes = self
+            .notes
+            .lock()
+            .map_err(|e| Error::Generic(e.to_string()))?;
+        let mut buffer = self
+            .buffer
+            .lock()
+            .map_err(|e| Error::Generic(e.to_string()))?;
+        let note_buffer = &mut self.note_buffer;
         buffer.fill(0.);
-        for osc in self.oscillators.iter_mut() {
-            let buffer = osc.get_buffer();
-            let mut buf = buffer.lock().expect("Cannot lock buffer");
-            buf.fill(0.);
-        }
         for note in notes.iter_mut() {
-            self.oscillators.par_iter_mut().try_for_each(|osc| -> Result<(), Error> {
-                osc.evaluate(self.delta_time, note)?;
-                Ok(())
-            })?;
+            note_buffer.fill(0.);
+            self.oscillators
+                .par_iter_mut()
+                .try_for_each(|osc| -> Result<(), Error> {
+                    osc.evaluate(self.delta_time, note)?;
+                    Ok(())
+                })?;
+            self.oscillators
+                .iter_mut()
+                .try_for_each(|osc| -> Result<(), Error> {
+                    let sync_buffer = osc.get_buffer();
+                    let buffer = sync_buffer
+                        .lock()
+                        .map_err(|e| Error::Generic(e.to_string()))?;
+                    note_buffer.combine(&buffer)?;
+                    Ok(())
+                })?;
             note.play_time += buffer.len() as f32 * self.delta_time;
-        }
-        for osc in self.oscillators.iter_mut() {
-            let osc_buffer = osc.get_buffer();
-            let buf = osc_buffer.lock().expect("Cannot lock buffer");
-            buffer.combine(&buf)?;
+            buffer.combine(note_buffer)?;
+            // Need to DCA process here
         }
         Ok(self.buffer.clone())
     }
@@ -61,6 +75,7 @@ impl SynthesizerBuilder {
     pub fn new() -> Self {
         Self {
             buffer: None,
+            note_buffer: None,
             oscillators: None,
             sample_rate: None,
         }
@@ -73,6 +88,12 @@ impl SynthesizerBuilder {
                 .set_samples(buffer_size)
                 .build()?,
         )));
+        self.note_buffer = Some(
+            SampleBufferBuilder::new()
+                .set_channels(2)
+                .set_samples(buffer_size)
+                .build()?,
+        );
         Ok(self)
     }
 
@@ -92,6 +113,10 @@ impl SynthesizerBuilder {
 
     pub fn build(&mut self) -> Result<Synthesizer, Error> {
         let buffer = self.buffer.take().ok_or(Error::Specify("buffer size"))?;
+        let note_buffer = self
+            .note_buffer
+            .take()
+            .ok_or(Error::Specify("buffer size"))?;
         let oscillators = self
             .oscillators
             .take()
@@ -100,6 +125,7 @@ impl SynthesizerBuilder {
 
         Ok(Synthesizer {
             buffer,
+            note_buffer,
             notes: Arc::new(Mutex::new(Vec::<Note>::new())),
             oscillators,
             sample_rate,

@@ -55,13 +55,13 @@ impl Oscillator<'_, &Note, SyncSampleBuffer> for WavetableOscillator {
             let freq = PI_2M * Converter::note_to_freq(note.note + self.octave_offset) * t;
             let sample = self.wavetable.evaluate(freq)?;
 
-            iteration_buffer[0] = sample * envelope * 0.2 * (1.0 - self.pan);
-            iteration_buffer[1] = sample * envelope * 0.2 * self.pan;
+            iteration_buffer[0] = sample * envelope * (1.0 - self.pan);
+            iteration_buffer[1] = sample * envelope * self.pan;
             buffer
                 .iter_buffers()
                 .enumerate()
                 .try_for_each(|(ind, buf)| -> Result<(), Error> {
-                    *buf.get_mut(i)? += iteration_buffer[ind];
+                    buf.set_at(i, iteration_buffer[ind])?;
                     Ok(())
                 })?;
 
