@@ -1,6 +1,10 @@
 use std::sync::{Arc, Mutex};
 
-use super::{note::Note, oscillator::Oscillator};
+use super::{
+    dca::DCA,
+    note::{Converter, Note},
+    oscillator::Oscillator,
+};
 use crate::{
     error::Error,
     utils::sample_buffer::{SampleBuffer, SampleBufferBuilder, SyncSampleBuffer},
@@ -15,6 +19,7 @@ pub struct Synthesizer {
     notes: SyncNotes,
     note_buffer: SampleBuffer,
     oscillators: Vec<Osc>,
+    amplifier: DCA,
     sample_rate: u32,
     delta_time: f32,
 }
@@ -65,8 +70,8 @@ impl Synthesizer {
                 })?;
             note.play_time += buffer.len() as f32 * self.delta_time;
             buffer.combine(note_buffer)?;
-            // Need to DCA process here
         }
+        self.amplifier.process(&mut buffer)?;
         Ok(self.buffer.clone())
     }
 }
@@ -122,12 +127,16 @@ impl SynthesizerBuilder {
             .take()
             .ok_or(Error::Specify("oscillators"))?;
         let sample_rate = self.sample_rate.ok_or(Error::Specify("sample_rate"))?;
-
+        let dca = DCA::new(
+            Converter::voltage_to_linear(-3.0),
+            Converter::split_bipolar_pan(0.0),
+        );
         Ok(Synthesizer {
             buffer,
             note_buffer,
             notes: Arc::new(Mutex::new(Vec::<Note>::new())),
             oscillators,
+            amplifier: dca,
             sample_rate,
             delta_time: 1.0 / sample_rate as f32,
         })
