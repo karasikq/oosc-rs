@@ -32,7 +32,8 @@ impl Converter {
 
     #[inline]
     pub fn velocity_to_float(velocity: i32) -> f32 {
-        velocity as f32 / 255.0
+        let velocity_f32 = velocity as f32;
+        velocity_f32 * velocity_f32 / (127.0 * 127.0)
     }
 
     #[inline]
@@ -49,6 +50,11 @@ impl Converter {
     pub fn power_to_linear(value: f32) -> f32 {
         10.0_f32.powf(value / 10.0)
     }
+
+    #[inline]
+    pub fn voltage_to_linear(value: f32) -> f32 {
+        10.0_f32.powf(value / 10.0)
+    }
 }
 
 #[cfg(test)]
@@ -58,11 +64,11 @@ mod tests {
 
     #[test]
     fn test_note() {
-        let note = Note::new(60, 255);
+        let note = Note::new(60, 127);
         assert_approx_eq!(note.frequency, 261.6, 0.05);
-        let note = Note::new(69, 255);
+        let note = Note::new(69, 127);
         assert_approx_eq!(note.frequency, 440.0, 0.05);
-        let note = Note::new(47, 255);
+        let note = Note::new(47, 127);
         assert_approx_eq!(note.frequency, 123.47, 0.05);
     }
 }
