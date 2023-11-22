@@ -3,17 +3,25 @@ use crate::{
     utils::{
         consts::PI_2M,
         evaluate::Evaluate,
+        interpolation::{interpolate_linear, interpolate_lagrange},
         sample_buffer::{SampleBuffer, SampleBufferBuilder},
     },
 };
 
 use super::waveshape::WaveShape;
 
+pub enum InterpolateMethod {
+    Ceil,
+    Linear,
+    LaGrange,
+}
+
 pub struct WaveTable {
     buffer: SampleBuffer,
     chunk_size: usize,
     chunks: usize,
     position: usize,
+    interpolation: InterpolateMethod,
 }
 
 pub struct WaveTableBuilder {
@@ -61,6 +69,7 @@ impl WaveTableBuilder {
             chunk_size,
             chunks,
             position,
+            interpolation: InterpolateMethod::Linear,
         })
     }
 
@@ -106,9 +115,40 @@ impl WaveTable {
 
 impl Evaluate<f32> for WaveTable {
     fn evaluate(&self, t: f32) -> Result<f32, Error> {
-        let index = ((self.chunk_size as f32 * (t % PI_2M / PI_2M)).ceil() % self.chunk_size as f32)
-            as usize;
-        self.sample_at(self.position * self.chunk_size + index)
+        let chunk = self.chunk_size as f32;
+        let chunk_i32 = chunk as i32;
+        let index = (chunk * (t % PI_2M / PI_2M)) % chunk;
+        let fraction = index % 1.0;
+        let index_ceil = index.ceil();
+        if fraction == 0.0 {
+            return self.sample_at(index as usize);
+        }
+        Ok(match self.interpolation {
+            InterpolateMethod::Ceil => self.sample_at(index_ceil as usize)?,
+            InterpolateMethod::Linear => {
+                let sample1 = self.sample_at(index_ceil as usize)?;
+                let sample2 = self.sample_at((index_ceil as usize + 1) % chunk as usize)?;
+                interpolate_linear(sample1, sample2, fraction)
+            }
+            InterpolateMethod::LaGrange => {
+                let left_index = (index.ceil() - 1.) as i32;
+                let right_index = left_index + 3;
+                let vec = (left_index..right_index)
+                    .map(|index| {
+                        let mut end = index;
+                        if index < 0 {
+                            end = chunk_i32 + index;
+                        }
+                        if index >= chunk_i32 {
+                            end = index - chunk_i32
+                        }
+                        let sample = self.sample_at(end as usize).unwrap();
+                        cgmath::Vector2::<f32>::new(end as f32, sample)
+                    })
+                    .collect();
+                interpolate_lagrange(vec, t)
+            }
+        })
     }
 }
 
