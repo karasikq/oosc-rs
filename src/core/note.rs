@@ -1,4 +1,4 @@
-use crate::utils::adsr_envelope::State;
+use crate::utils::{adsr_envelope::State, consts::PI_4};
 
 pub struct Note {
     pub note: i32,
@@ -53,7 +53,17 @@ impl Converter {
 
     #[inline]
     pub fn voltage_to_linear(value: f32) -> f32 {
-        10.0_f32.powf(value / 10.0)
+        10.0_f32.powf(value / 20.0)
+    }
+
+    #[inline]
+    pub fn split_bipolar_pan(value: f32) -> (f32, f32) {
+        // Const-power pan
+        // Use tables for cos/sin ?
+        (
+            (PI_4 * (value + 1.0)).cos(),
+            (PI_4 * (value + 1.0)).sin(),
+        )
     }
 }
 
