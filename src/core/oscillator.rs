@@ -1,14 +1,14 @@
 use std::sync::{Arc, Mutex};
 
 use crate::core::note::Note;
+use crate::core::note::Converter;
 use crate::error::Error;
 use crate::utils::adsr_envelope::State;
-use crate::utils::consts::{PI_2M, PI_4};
+use crate::utils::consts::PI_2M;
 use crate::utils::evaluate::Evaluate;
 use crate::utils::sample_buffer::SyncSampleBuffer;
 use crate::utils::{adsr_envelope::ADSREnvelope, sample_buffer::SampleBuffer};
 
-use super::note::Converter;
 use super::wavetable::WaveTable;
 
 pub trait Oscillator<'a, T, R>: Send + Sync {
@@ -31,10 +31,7 @@ impl WavetableOscillator {
     }
 
     pub fn set_pan(&mut self, pan: f32) -> &mut Self {
-        // Const-power pan
-        // Use tables for cos/sin ?
-        self.pan.0 = (PI_4 * (pan + 1.0)).cos();
-        self.pan.1 = (PI_4 * (pan + 1.0)).sin();
+        self.pan = Converter::split_bipolar_pan(pan);
         self
     }
 }
