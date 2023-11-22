@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use crate::core::note::Note;
 use crate::error::Error;
 use crate::utils::adsr_envelope::State;
-use crate::utils::consts::PI_2M;
+use crate::utils::consts::{PI_2M, PI_4};
 use crate::utils::evaluate::Evaluate;
 use crate::utils::sample_buffer::SyncSampleBuffer;
 use crate::utils::{adsr_envelope::ADSREnvelope, sample_buffer::SampleBuffer};
@@ -21,7 +21,7 @@ pub struct WavetableOscillator {
     envelope: ADSREnvelope,
     wavetable: WaveTable,
     octave_offset: i32,
-    pan: f32,
+    pan: (f32, f32),
 }
 
 impl WavetableOscillator {
@@ -31,7 +31,10 @@ impl WavetableOscillator {
     }
 
     pub fn set_pan(&mut self, pan: f32) -> &mut Self {
-        self.pan = pan;
+        // Const-power pan
+        // Use tables for cos/sin ?
+        self.pan.0 = (PI_4 * (pan + 1.0)).cos();
+        self.pan.1 = (PI_4 * (pan + 1.0)).sin();
         self
     }
 }
@@ -55,8 +58,8 @@ impl Oscillator<'_, &Note, SyncSampleBuffer> for WavetableOscillator {
             let freq = PI_2M * Converter::note_to_freq(note.note + self.octave_offset) * t;
             let sample = self.wavetable.evaluate(freq)?;
 
-            iteration_buffer[0] = sample * envelope * (1.0 - self.pan);
-            iteration_buffer[1] = sample * envelope * self.pan;
+            iteration_buffer[0] = sample * envelope * self.pan.0;
+            iteration_buffer[1] = sample * envelope * self.pan.1;
             buffer
                 .iter_buffers()
                 .enumerate()
@@ -118,7 +121,7 @@ impl OscillatorBuilder {
             envelope,
             wavetable,
             octave_offset: 0,
-            pan: 0.5,
+            pan: (1.0, 1.0),
         })
     }
 }
