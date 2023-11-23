@@ -3,7 +3,7 @@ use crate::{
     utils::{
         consts::PI_2M,
         evaluate::Evaluate,
-        interpolation::{interpolate_linear, interpolate_lagrange},
+        interpolation::{interpolate_lagrange, interpolate_linear},
         sample_buffer::{SampleBuffer, SampleBufferBuilder},
     },
 };
@@ -120,14 +120,16 @@ impl Evaluate<f32> for WaveTable {
         let index = (chunk * (t % PI_2M / PI_2M)) % chunk;
         let fraction = index % 1.0;
         let index_ceil = index.ceil();
-        if fraction == 0.0 {
-            return self.sample_at(index as usize);
+        if fraction <= 10e-6 {
+            return self.sample_at(index_ceil as usize);
         }
         Ok(match self.interpolation {
             InterpolateMethod::Ceil => self.sample_at(index_ceil as usize)?,
             InterpolateMethod::Linear => {
-                let sample1 = self.sample_at(index_ceil as usize)?;
-                let sample2 = self.sample_at((index_ceil as usize + 1) % chunk as usize)?;
+                let index = index_ceil as usize % chunk as usize;
+                let sample1 = self.sample_at(index)?;
+                let index = (index_ceil as usize + 1) % chunk as usize;
+                let sample2 = self.sample_at(index % chunk as usize)?;
                 interpolate_linear(sample1, sample2, fraction)
             }
             InterpolateMethod::LaGrange => {
