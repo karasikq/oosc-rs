@@ -1,18 +1,23 @@
 type InPoint = cgmath::Vector2<f32>;
 
+pub enum InterpolateMethod {
+    Ceil,
+    Linear,
+    LaGrange,
+}
+
 pub fn interpolate_lagrange(fx: Vec<InPoint>, xm: f32) -> f32 {
     let n = fx.len();
     let mut result = 0.0;
 
     for i in 0..n {
-        let mut term = fx[i].y;
+        let mut term = 1.0;
         for j in 0..n {
-            if i == j {
-                continue;
+            if i != j {
+                let numerator = xm - fx[j].x;
+                let denominator = fx[i].x - fx[j].x;
+                term *= numerator / denominator;
             }
-            let denominator = fx[i].x - fx[j].x;
-            let numerator = xm - fx[j].x;
-            term *= numerator / denominator;
         }
         result += term * fx[i].y;
     }
