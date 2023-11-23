@@ -5,3 +5,4 @@ pub mod time_tick;
 pub mod oscillator;
 pub mod synthesizer;
 pub mod amplifier;
+pub mod parametrs;
