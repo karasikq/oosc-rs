@@ -1,11 +1,11 @@
 use crate::{error::Error, utils::sample_buffer::SampleBuffer};
 
-pub struct DCA {
+pub struct Amplifier {
     gain: f32,
     pan: (f32, f32),
 }
 
-impl DCA {
+impl Amplifier {
     pub fn new(gain: f32, pan: (f32, f32)) -> Self {
         Self { gain, pan }
     }

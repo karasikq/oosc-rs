@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use super::{
-    dca::DCA,
+    amplifier::Amplifier,
     note::{Converter, Note},
     oscillator::Oscillator,
 };
@@ -19,7 +19,7 @@ pub struct Synthesizer {
     notes: SyncNotes,
     note_buffer: SampleBuffer,
     oscillators: Vec<Osc>,
-    amplifier: DCA,
+    amplifier: Amplifier,
     sample_rate: u32,
     delta_time: f32,
 }
@@ -127,7 +127,7 @@ impl SynthesizerBuilder {
             .take()
             .ok_or(Error::Specify("oscillators"))?;
         let sample_rate = self.sample_rate.ok_or(Error::Specify("sample_rate"))?;
-        let dca = DCA::new(
+        let dca = Amplifier::new(
             Converter::voltage_to_linear(-3.0),
             Converter::split_bipolar_pan(0.0),
         );
