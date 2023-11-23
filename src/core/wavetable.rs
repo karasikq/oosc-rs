@@ -114,24 +114,36 @@ impl WaveTable {
         }
     }
 
-    pub fn get_samples_ranged(
+    pub fn get_samples_points_ranged(
         &self,
         start: i32,
         count: i32,
     ) -> impl Iterator<Item = cgmath::Vector2<f32>> + '_ {
         let end = start + count;
-        let chunk = self.chunk_size as i32;
         (start..end).map(move |index| {
-            let mut end = index;
-            if index < 0 {
-                end = chunk + index;
-            }
-            if index >= chunk {
-                end = index - chunk
-            }
-            let sample = self.sample_at(end as usize).unwrap();
-            cgmath::Vector2::<f32>::new(end as f32, sample)
+            let ind = self.bound_index(index);
+            let sample = self.sample_at(ind).unwrap();
+            cgmath::Vector2::<f32>::new(ind as f32, sample)
         })
+    }
+
+    pub fn get_samples_ranged(&self, start: i32, count: i32) -> impl Iterator<Item = f32> + '_ {
+        let end = start + count;
+        (start..end).map(move |index| {
+            let ind = self.bound_index(index);
+            self.sample_at(ind).unwrap()
+        })
+    }
+
+    fn bound_index(&self, index: i32) -> usize {
+        let chunk = self.chunk_size as i32;
+        if index < 0 {
+            return (chunk + index) as usize;
+        }
+        if index >= chunk {
+            return (index - chunk) as usize;
+        }
+        index as usize
     }
 }
 
@@ -147,14 +159,14 @@ impl Evaluate<f32> for WaveTable {
         Ok(match self.interpolation {
             InterpolateMethod::Ceil => self.sample_at(index_ceil as usize)?,
             InterpolateMethod::Linear => {
-                let mut samples = self.get_samples_ranged(index_ceil as i32, 2);
+                let mut samples = self.get_samples_points_ranged(index_ceil as i32, 2);
                 let s1 = samples.next().unwrap();
                 let s2 = samples.next().unwrap();
                 interpolate_linear(s1.y, s2.y, fraction)
             }
             InterpolateMethod::LaGrange => {
                 let left_index = (index.ceil() - 1.) as i32;
-                let vec = self.get_samples_ranged(left_index, 4).collect();
+                let vec = self.get_samples_points_ranged(left_index, 4).collect();
                 interpolate_lagrange(vec, index)
             }
         })
@@ -231,7 +243,7 @@ mod tests {
             .set_interpolation(InterpolateMethod::LaGrange)
             .build()
             .unwrap();
-        let mut samples = table.get_samples_ranged(0, 3);
+        let mut samples = table.get_samples_points_ranged(0, 3);
         assert_approx_eq!(samples.next().unwrap().y, (0. * step).sin(), 10e-3);
         assert_approx_eq!(samples.next().unwrap().y, (1. * step).sin(), 10e-3);
         assert_approx_eq!(samples.next().unwrap().y, (2. * step).sin(), 10e-3);
