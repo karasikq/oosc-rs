@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use rayon::prelude::*;
 
 use super::{
     amplifier::Amplifier,
@@ -7,16 +7,15 @@ use super::{
 };
 use crate::{
     error::Error,
-    utils::sample_buffer::{SampleBuffer, SampleBufferBuilder, SyncSampleBuffer},
+    utils::sample_buffer::{SampleBuffer, SampleBufferBuilder},
 };
 use rayon::prelude::*;
 
-type Osc = Box<dyn for<'a> Oscillator<'a, &'a Note, SyncSampleBuffer>>;
-type SyncNotes = Arc<Mutex<Vec<Note>>>;
+type Osc = Box<dyn for<'a> Oscillator<'a, &'a Note, ()>>;
 
 pub struct Synthesizer {
-    buffer: SyncSampleBuffer,
-    notes: SyncNotes,
+    buffer: SampleBuffer,
+    notes: Vec<Note>,
     note_buffer: SampleBuffer,
     oscillators: Vec<Osc>,
     amplifier: Amplifier,
@@ -26,7 +25,7 @@ pub struct Synthesizer {
 
 #[derive(Default)]
 pub struct SynthesizerBuilder {
-    buffer: Option<SyncSampleBuffer>,
+    buffer: Option<SampleBuffer>,
     note_buffer: Option<SampleBuffer>,
     oscillators: Option<Vec<Osc>>,
     sample_rate: Option<u32>,
@@ -34,45 +33,31 @@ pub struct SynthesizerBuilder {
 
 impl Synthesizer {
     pub fn note_on(&mut self, note: Note) -> Result<(), Error> {
-        let mut notes = self.notes.lock().expect("Cannot lock notes");
-        notes.push(note);
+        self.notes.push(note);
         Ok(())
     }
 
-    pub fn output(&mut self) -> Result<SyncSampleBuffer, Error> {
-        let mut notes = self
-            .notes
-            .lock()
-            .map_err(|e| Error::Generic(e.to_string()))?;
-        let mut buffer = self
-            .buffer
-            .lock()
-            .map_err(|e| Error::Generic(e.to_string()))?;
+    pub fn output(&mut self) -> Result<&SampleBuffer, Error> {
+        let buffer = &mut self.buffer;
         let note_buffer = &mut self.note_buffer;
         buffer.fill(0.);
-        for note in notes.iter_mut() {
+        for note in self.notes.iter_mut() {
             note_buffer.fill(0.);
             self.oscillators
                 .par_iter_mut()
-                .try_for_each(|osc| -> Result<(), Error> {
-                    osc.evaluate(self.delta_time, note)?;
-                    Ok(())
-                })?;
+                .try_for_each(|osc| -> Result<(), Error> { osc.evaluate(self.delta_time, note) })?;
             self.oscillators
                 .iter_mut()
                 .try_for_each(|osc| -> Result<(), Error> {
-                    let sync_buffer = osc.get_buffer();
-                    let buffer = sync_buffer
-                        .lock()
-                        .map_err(|e| Error::Generic(e.to_string()))?;
-                    note_buffer.combine(&buffer)?;
+                    let buffer = osc.get_buffer();
+                    note_buffer.combine(buffer)?;
                     Ok(())
                 })?;
             note.play_time += buffer.len() as f32 * self.delta_time;
             buffer.combine(note_buffer)?;
         }
-        self.amplifier.process(&mut buffer)?;
-        Ok(self.buffer.clone())
+        self.amplifier.process(buffer)?;
+        Ok(&self.buffer)
     }
 }
 
@@ -87,12 +72,12 @@ impl SynthesizerBuilder {
     }
 
     pub fn set_buffer(&mut self, buffer_size: usize) -> Result<&mut Self, Error> {
-        self.buffer = Some(Arc::new(Mutex::new(
+        self.buffer = Some(
             SampleBufferBuilder::new()
                 .set_channels(2)
                 .set_samples(buffer_size)
                 .build()?,
-        )));
+        );
         self.note_buffer = Some(
             SampleBufferBuilder::new()
                 .set_channels(2)
@@ -134,7 +119,7 @@ impl SynthesizerBuilder {
         Ok(Synthesizer {
             buffer,
             note_buffer,
-            notes: Arc::new(Mutex::new(Vec::<Note>::new())),
+            notes: Vec::<Note>::new(),
             oscillators,
             amplifier: dca,
             sample_rate,

@@ -1,10 +1,10 @@
-use std::sync::{Arc, Mutex};
-
+use super::note::Converter;
 use crate::error::Error;
 
-use super::note::Converter;
-
-pub trait Parametr<'a, T>: Send + Sync {
+pub trait Parametr<'a, T>
+where
+    T: Clone,
+{
     fn set_value(&mut self, value: T) -> Result<&mut Self, Error>;
     fn get_value(&self) -> Result<T, Error>;
     fn range(&self) -> Result<(T, T), Error>;
@@ -12,7 +12,7 @@ pub trait Parametr<'a, T>: Send + Sync {
 
 pub struct ValueParametr<T>
 where
-    T: Send + Sync + Copy,
+    T: Clone,
 {
     value: T,
     range: (T, T),
@@ -20,18 +20,16 @@ where
 
 impl<T> ValueParametr<T>
 where
-    T: Send + Sync + Copy,
+    T: Clone,
 {
     pub fn new(value: T, range: (T, T)) -> Self {
         Self { value, range }
     }
 }
 
-pub type SyncValueParametr<T> = Arc<Mutex<T>>;
-
 impl<'a, T> Parametr<'a, T> for ValueParametr<T>
 where
-    T: Send + Sync + Copy,
+    T: Clone,
 {
     fn set_value(&mut self, value: T) -> Result<&mut Self, Error> {
         self.value = value;
@@ -39,11 +37,11 @@ where
     }
 
     fn get_value(&self) -> Result<T, Error> {
-        Ok(self.value)
+        Ok(self.value.clone())
     }
 
     fn range(&self) -> Result<(T, T), Error> {
-        Ok(self.range)
+        Ok(self.range.clone())
     }
 }
 
@@ -67,7 +65,7 @@ impl<'a> Parametr<'a, i32> for OctaveParametr {
     }
 
     fn range(&self) -> Result<(i32, i32), Error> {
-        Ok(self.0.range()?)
+        self.0.range()
     }
 }
 
@@ -93,10 +91,10 @@ impl<'a> Parametr<'a, f32> for PanParametr {
     }
 
     fn get_value(&self) -> Result<f32, Error> {
-        Ok(self.bipolar.get_value()?)
+        self.bipolar.get_value()
     }
 
     fn range(&self) -> Result<(f32, f32), Error> {
-        Ok(self.bipolar.range()?)
+        self.bipolar.range()
     }
 }

@@ -1,37 +1,28 @@
-use std::sync::{Arc, Mutex};
-
 use crate::core::note::Converter;
 use crate::core::note::Note;
 use crate::error::Error;
 use crate::utils::adsr_envelope::State;
 use crate::utils::consts::PI_2M;
 use crate::utils::evaluate::Evaluate;
-use crate::utils::sample_buffer::SyncSampleBuffer;
 use crate::utils::{adsr_envelope::ADSREnvelope, sample_buffer::SampleBuffer};
 
 use super::parametrs::OctaveParametr;
 use super::parametrs::PanParametr;
 use super::parametrs::Parametr;
-use super::parametrs::SyncValueParametr;
 use super::parametrs::ValueParametr;
 use super::wavetable::WaveTable;
 
-type SyncEnvelope = Arc<Mutex<ADSREnvelope>>;
-type SyncWavetable = Arc<Mutex<WaveTable>>;
-
 pub trait Oscillator<'a, T, R>: Send + Sync {
     fn evaluate(&mut self, t: f32, param: T) -> Result<R, Error>;
-    fn get_buffer(&mut self) -> SyncSampleBuffer;
+    fn get_buffer(&mut self) -> &mut SampleBuffer;
 }
 
-// Make parametrs Atomic ?
-// Block on each sample or buffer ?
 pub struct WavetableOscillator {
-    buffer: SyncSampleBuffer,
+    buffer: SampleBuffer,
     envelope: ADSREnvelope,
     wavetable: WaveTable,
-    octave_offset: SyncValueParametr<OctaveParametr>,
-    pan: SyncValueParametr<PanParametr>,
+    octave_offset: OctaveParametr,
+    pan: PanParametr,
 }
 
 impl WavetableOscillator {
@@ -39,20 +30,20 @@ impl WavetableOscillator {
         &mut self.envelope
     }
 
-    pub fn get_octave_offset(&mut self) -> Arc<Mutex<impl Parametr<i32>>> {
-        self.octave_offset.clone()
+    pub fn get_octave_offset(&mut self) -> &mut impl Parametr<i32> {
+        &mut self.octave_offset
     }
 
-    pub fn get_pan(&mut self) -> Arc<Mutex<impl Parametr<f32>>> {
-        self.pan.clone()
+    pub fn get_pan(&mut self) -> &mut impl Parametr<f32> {
+        &mut self.pan
     }
 }
 
-impl Oscillator<'_, &Note, SyncSampleBuffer> for WavetableOscillator {
-    fn evaluate(&mut self, delta_time: f32, note: &Note) -> Result<SyncSampleBuffer, Error> {
-        let mut buffer = self.buffer.lock().expect("Cannot lock buffer");
-        let pan = self.pan.lock().unwrap();
-        let octave_offset = self.octave_offset.lock().unwrap();
+impl Oscillator<'_, &Note, ()> for WavetableOscillator {
+    fn evaluate(&mut self, delta_time: f32, note: &Note) -> Result<(), Error> {
+        let buffer = &mut self.buffer;
+        let pan = &self.pan;
+        let octave_offset = &self.octave_offset;
         let mut t = note.play_time;
         let mut iteration_buffer = [0.0; 2];
         for i in 0..buffer.len() {
@@ -81,11 +72,11 @@ impl Oscillator<'_, &Note, SyncSampleBuffer> for WavetableOscillator {
 
             t += delta_time;
         }
-        Ok(self.buffer.clone())
+        Ok(())
     }
 
-    fn get_buffer(&mut self) -> SyncSampleBuffer {
-        self.buffer.clone()
+    fn get_buffer(&mut self) -> &mut SampleBuffer {
+        &mut self.buffer
     }
 }
 
@@ -121,19 +112,11 @@ impl OscillatorBuilder {
     }
 
     pub fn build(&mut self) -> Result<WavetableOscillator, Error> {
-        let buffer = Arc::new(Mutex::new(
-            self.buffer.take().ok_or(Error::Specify("samples buffer"))?,
-        ));
+        let buffer = self.buffer.take().ok_or(Error::Specify("samples buffer"))?;
         let envelope = self.envelope.take().ok_or(Error::Specify("envelope"))?;
         let wavetable = self.wavetable.take().ok_or(Error::Specify("wavetable"))?;
-        let octave_offset = Arc::new(Mutex::new(OctaveParametr::new(ValueParametr::new(
-            0,
-            (-2, 2),
-        ))));
-        let pan = Arc::new(Mutex::new(PanParametr::new(ValueParametr::new(
-            0.,
-            (-1., 1.),
-        ))));
+        let octave_offset = OctaveParametr::new(ValueParametr::new(0, (-2, 2)));
+        let pan = PanParametr::new(ValueParametr::new(0., (-1., 1.)));
 
         Ok(WavetableOscillator {
             buffer,
