@@ -28,11 +28,3 @@ pub fn interpolate_lagrange(fx: Vec<InPoint>, xm: f32) -> f32 {
 pub fn interpolate_linear(y1: f32, y2: f32, fraction: f32) -> f32 {
     y1 + (y2 - y1) * fraction
 }
-
-fn mod_euc(lhs: f32, rhs: f32) -> f32 {
-    let r = lhs % rhs;
-    if r < 0.0 {
-        return if rhs > 0.0 { r + rhs } else { r - rhs };
-    }
-    r
-}

@@ -11,8 +11,8 @@ use crate::{
     error::Error,
     utils::sample_buffer::{SampleBuffer, SampleBufferBuilder},
 };
-use rayon::prelude::*;
 
+// Use structs instead of traits for serialization ?
 type Osc = Box<dyn for<'a> Oscillator<'a, &'a Note, ()>>;
 type SynEffect = Box<dyn for<'a> Effect<'a>>;
 
