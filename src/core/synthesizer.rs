@@ -1,9 +1,11 @@
+use crate::effects::amplifier::Amplifier;
+use crate::effects::effect::Effect;
 use rayon::prelude::*;
 
 use super::{
-    amplifier::Amplifier,
-    note::{Converter, Note},
+    note::Note,
     oscillator::Oscillator,
+    parametrs::{PanParametr, ValueParametr, VolumeParametr},
 };
 use crate::{
     error::Error,
@@ -12,23 +14,16 @@ use crate::{
 use rayon::prelude::*;
 
 type Osc = Box<dyn for<'a> Oscillator<'a, &'a Note, ()>>;
+type SynEffect = Box<dyn for<'a> Effect<'a>>;
 
 pub struct Synthesizer {
     buffer: SampleBuffer,
     notes: Vec<Note>,
     note_buffer: SampleBuffer,
     oscillators: Vec<Osc>,
-    amplifier: Amplifier,
+    effects: Vec<SynEffect>,
     sample_rate: u32,
     delta_time: f32,
-}
-
-#[derive(Default)]
-pub struct SynthesizerBuilder {
-    buffer: Option<SampleBuffer>,
-    note_buffer: Option<SampleBuffer>,
-    oscillators: Option<Vec<Osc>>,
-    sample_rate: Option<u32>,
 }
 
 impl Synthesizer {
@@ -56,9 +51,20 @@ impl Synthesizer {
             note.play_time += buffer.len() as f32 * self.delta_time;
             buffer.combine(note_buffer)?;
         }
-        self.amplifier.process(buffer)?;
+        self.effects
+            .iter()
+            .try_for_each(|effect| -> Result<(), Error> { effect.process(buffer) })?;
         Ok(&self.buffer)
     }
+}
+
+#[derive(Default)]
+pub struct SynthesizerBuilder {
+    buffer: Option<SampleBuffer>,
+    note_buffer: Option<SampleBuffer>,
+    oscillators: Option<Vec<Osc>>,
+    effects: Option<Vec<SynEffect>>,
+    sample_rate: Option<u32>,
 }
 
 impl SynthesizerBuilder {
@@ -67,6 +73,7 @@ impl SynthesizerBuilder {
             buffer: None,
             note_buffer: None,
             oscillators: None,
+            effects: None,
             sample_rate: None,
         }
     }
@@ -96,6 +103,15 @@ impl SynthesizerBuilder {
         self
     }
 
+    pub fn add_effect(&mut self, effect: SynEffect) -> &mut Self {
+        if let Some(effects) = self.effects.as_mut() {
+            effects.push(effect);
+        } else {
+            self.effects = Some(vec![effect]);
+        }
+        self
+    }
+
     pub fn set_sample_rate(&mut self, sample_rate: u32) -> &mut Self {
         self.sample_rate = Some(sample_rate);
         self
@@ -112,16 +128,19 @@ impl SynthesizerBuilder {
             .take()
             .ok_or(Error::Specify("oscillators"))?;
         let sample_rate = self.sample_rate.ok_or(Error::Specify("sample_rate"))?;
-        let dca = Amplifier::new(
-            Converter::voltage_to_linear(-3.0),
-            Converter::split_bipolar_pan(0.0),
+        let amplifier = Amplifier::new(
+            VolumeParametr::from(ValueParametr::new(-3.0, (-60.0, 3.0))),
+            PanParametr::from(ValueParametr::new(0.0, (-1.0, 1.0))),
         );
+        self.add_effect(Box::new(amplifier));
+        let effects = self.effects.take().unwrap();
+
         Ok(Synthesizer {
             buffer,
             note_buffer,
             notes: Vec::<Note>::new(),
             oscillators,
-            amplifier: dca,
+            effects,
             sample_rate,
             delta_time: 1.0 / sample_rate as f32,
         })
