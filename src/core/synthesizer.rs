@@ -12,9 +12,8 @@ use crate::{
     utils::sample_buffer::{SampleBuffer, SampleBufferBuilder},
 };
 
-// Use structs instead of traits for serialization ?
-type Osc = Box<dyn for<'a> Oscillator<'a, &'a Note, ()>>;
-type SynEffect = Box<dyn for<'a> Effect<'a>>;
+type Osc = Box<dyn for<'a> Oscillator<'a, &'a Note, ()> + Sync + Send>;
+type SynEffect = Box<dyn for<'a> Effect<'a> + Sync + Send>;
 
 pub struct Synthesizer {
     buffer: SampleBuffer,
@@ -55,6 +54,10 @@ impl Synthesizer {
             .iter()
             .try_for_each(|effect| -> Result<(), Error> { effect.process(buffer) })?;
         Ok(&self.buffer)
+    }
+
+    pub fn get_buffer(&self) -> &SampleBuffer {
+        &self.buffer
     }
 }
 
