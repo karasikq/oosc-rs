@@ -29,8 +29,9 @@ use self::{
     },
 };
 
-// wtf? *
-static BUFFER_SIZE: usize = 941;
+// need to load sample rate from device info
+static BUFFER_SIZE: usize = 512;
+static SAMPLE_RATE: u32 = 48000;
 
 fn main() -> Result<(), Error> {
     #[cfg(any(
@@ -50,9 +51,8 @@ fn main() -> Result<(), Error> {
 
     let config = cpal::StreamConfig {
         channels: 2,
-        sample_rate: cpal::SampleRate(44100),
-        // * why?
-        buffer_size: cpal::BufferSize::Fixed(1024),
+        sample_rate: cpal::SampleRate(SAMPLE_RATE),
+        buffer_size: cpal::BufferSize::Fixed(512),
     };
 
     let syn = create_syn();
@@ -72,7 +72,7 @@ fn main() -> Result<(), Error> {
                         *f = s;
                     }
                     let mut t = time.lock().unwrap();
-                    *t += 1.0 / 44100.0;
+                    *t += 1.0 / SAMPLE_RATE as f32;
                 }
 
                 println!("{}", time.lock().unwrap());
@@ -109,14 +109,14 @@ fn test_render() {
 
     let spec = hound::WavSpec {
         channels: 1,
-        sample_rate: 44100,
+        sample_rate: SAMPLE_RATE,
         bits_per_sample: 16,
         sample_format: hound::SampleFormat::Int,
     };
 
     let now = Instant::now();
     let mut writer = hound::WavWriter::create("output.wav", spec).unwrap();
-    let chunks = 44100 * 13 / BUFFER_SIZE;
+    let chunks = SAMPLE_RATE as usize * 13 / BUFFER_SIZE;
     for _ in 0..chunks {
         let s = syn.output().unwrap();
         for i in 0..BUFFER_SIZE {
@@ -135,7 +135,7 @@ fn create_syn() -> Arc<Mutex<Synthesizer>> {
             .set_buffer(BUFFER_SIZE)
             .unwrap()
             .add_osc(Box::new(osc1))
-            .set_sample_rate(44100)
+            .set_sample_rate(SAMPLE_RATE)
             .build()
             .unwrap(),
     ))
