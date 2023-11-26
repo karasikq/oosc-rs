@@ -1,5 +1,7 @@
+#[derive(Copy, Clone)]
 pub struct Config {
-    sample_rate: usize,
-    delta_time: f32,
-    buffer_size: usize,
+    pub channels: u32,
+    pub sample_rate: u32,
+    pub delta_time: f32,
+    pub buffer_size: usize,
 }
