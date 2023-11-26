@@ -31,6 +31,16 @@ impl Synthesizer {
         Ok(())
     }
 
+    pub fn note_off(&mut self, note: i32) -> Result<(), Error> {
+        let index = self.notes.iter().position(|x| x.note == note);
+        if index.is_none() {
+            return Err(format!("Note {} is already off", note))?;
+        }
+        let index = index.unwrap();
+        self.notes.remove(index);
+        Ok(())
+    }
+
     pub fn output(&mut self) -> Result<&SampleBuffer, Error> {
         let buffer = &mut self.buffer;
         let note_buffer = &mut self.note_buffer;
