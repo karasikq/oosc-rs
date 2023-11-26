@@ -64,11 +64,11 @@ impl ADSREnvelope {
             State::Sustain => {
                 let decay = self.time_range_of(State::Decay);
                 (decay.1, decay.1)
-            },
+            }
             State::Release => {
                 let decay = self.time_range_of(State::Decay);
                 (decay.1, decay.1 + self.release.difference().x)
-            },
+            }
         }
     }
 }
@@ -156,6 +156,20 @@ impl ADSREnvelopeBuilder {
 impl Default for ADSREnvelopeBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Default for ADSREnvelope {
+    fn default() -> Self {
+        ADSREnvelopeBuilder::new()
+            .set_attack(0.2, 1.)
+            .unwrap()
+            .set_decay(0.5, 0.6)
+            .unwrap()
+            .set_release(2.)
+            .unwrap()
+            .build()
+            .unwrap()
     }
 }
 
