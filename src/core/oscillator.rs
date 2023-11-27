@@ -57,6 +57,7 @@ impl WavetableOscillator {
 impl Oscillator<'_, ()> for WavetableOscillator {
     fn evaluate(&mut self, delta_time: f32) -> Result<(), Error> {
         let buffer = &mut self.buffer;
+        buffer.fill(0.);
         let pan = &self.pan;
         let octave_offset = self.octave_offset.get_value()?;
         self.notes
