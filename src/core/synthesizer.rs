@@ -31,7 +31,7 @@ impl Synthesizer {
             .par_iter_mut()
             .try_for_each(|osc| -> Result<(), Error> { osc.evaluate(self.delta_time) })?;
         self.oscillators
-            .iter_mut()
+            .iter()
             .try_for_each(|osc| -> Result<(), Error> { buffer.combine(osc.get_buffer()) })?;
         self.effects
             .iter()

@@ -15,7 +15,8 @@ use super::wavetable::WaveTable;
 
 pub trait Oscillator<'a, T>: Send + Sync + NoteEventReceiver {
     fn evaluate(&mut self, t: f32) -> Result<T, Error>;
-    fn get_buffer(&mut self) -> &mut SampleBuffer;
+    fn get_buffer_mut(&mut self) -> &mut SampleBuffer;
+    fn get_buffer(&self) -> &SampleBuffer;
 }
 
 pub struct WavetableOscillator {
@@ -96,7 +97,11 @@ impl Oscillator<'_, ()> for WavetableOscillator {
         Ok(())
     }
 
-    fn get_buffer(&mut self) -> &mut SampleBuffer {
+    fn get_buffer(&self) -> &SampleBuffer {
+        &self.buffer
+    }
+
+    fn get_buffer_mut(&mut self) -> &mut SampleBuffer {
         &mut self.buffer
     }
 }
