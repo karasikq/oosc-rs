@@ -58,7 +58,7 @@ impl Oscillator<'_, ()> for WavetableOscillator {
     fn evaluate(&mut self, delta_time: f32) -> Result<(), Error> {
         let buffer = &mut self.buffer;
         let pan = &self.pan;
-        let octave_offset = &self.octave_offset;
+        let octave_offset = self.octave_offset.get_value()?;
         self.notes
             .iter_mut()
             .try_for_each(|note| -> Result<(), Error> {
@@ -76,7 +76,7 @@ impl Oscillator<'_, ()> for WavetableOscillator {
                         }
                     };
                     let freq =
-                        PI_2M * Converter::note_to_freq(note.note + octave_offset.get_value()?) * t;
+                        PI_2M * Converter::note_to_freq(note.note + octave_offset) * t;
                     let sample = self.wavetable.evaluate(freq)?;
 
                     iteration_buffer[0] = sample * envelope * pan.polar.0 * note.velocity;
