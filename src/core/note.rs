@@ -1,5 +1,6 @@
-use crate::utils::{adsr_envelope::State, consts::PI_4};
+use crate::{utils::{adsr_envelope::State, consts::PI_4}, error::Error};
 
+#[derive(Copy, Clone)]
 pub struct Note {
     pub note: i32,
     pub frequency: f32,
@@ -20,6 +21,17 @@ impl Note {
             state: State::Attack,
         }
     }
+}
+
+impl From<i32> for Note {
+    fn from(value: i32) -> Self {
+        Note::new(value, 127)
+    }
+}
+
+pub trait NoteEventReceiver {
+    fn note_on(&mut self, note: Note) -> Result<(), Error>;
+    fn note_off(&mut self, note: i32) -> Result<(), Error>;
 }
 
 pub struct Converter;
