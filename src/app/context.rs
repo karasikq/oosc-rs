@@ -65,7 +65,7 @@ impl Context {
         let config = cpal::StreamConfig {
             channels: config.channels as u16,
             sample_rate: cpal::SampleRate(config.sample_rate),
-            buffer_size: cpal::BufferSize::Fixed(config.buffer_size as u32 - 42),
+            buffer_size: cpal::BufferSize::Fixed(config.buffer_size as u32),
         };
         println!("{:?}", config);
 

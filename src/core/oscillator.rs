@@ -82,15 +82,15 @@ impl Oscillator<'_, ()> for WavetableOscillator {
                     iteration_buffer[1] = sample * envelope * pan.polar.1 * note.velocity;
                     buffer.iter_buffers().enumerate().try_for_each(
                         |(ind, buf)| -> Result<(), Error> {
-                            buf.set_at(i, iteration_buffer[ind])?;
+                            *(buf.get_mut(i)?) += iteration_buffer[ind];
                             Ok(())
                         },
                     )?;
 
                     t += delta_time;
-                    note.play_time = t;
                     Ok(())
                 })?;
+                note.play_time = t;
                 Ok(())
             })?;
         Ok(())
