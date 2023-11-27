@@ -3,7 +3,7 @@ use crate::effects::effect::Effect;
 use rayon::prelude::*;
 
 use super::{
-    note::Note,
+    note::{Note, NoteEventReceiver},
     oscillator::Oscillator,
     parametrs::{PanParametr, ValueParametr, VolumeParametr},
 };
@@ -12,13 +12,11 @@ use crate::{
     utils::sample_buffer::{SampleBuffer, SampleBufferBuilder},
 };
 
-type Osc = Box<dyn for<'a> Oscillator<'a, &'a Note, ()> + Sync + Send>;
+type Osc = Box<dyn for<'a> Oscillator<'a, ()>>;
 type SynEffect = Box<dyn for<'a> Effect<'a> + Sync + Send>;
 
 pub struct Synthesizer {
     buffer: SampleBuffer,
-    notes: Vec<Note>,
-    note_buffer: SampleBuffer,
     oscillators: Vec<Osc>,
     effects: Vec<SynEffect>,
     sample_rate: u32,
@@ -26,40 +24,15 @@ pub struct Synthesizer {
 }
 
 impl Synthesizer {
-    pub fn note_on(&mut self, note: Note) -> Result<(), Error> {
-        self.notes.push(note);
-        Ok(())
-    }
-
-    pub fn note_off(&mut self, note: i32) -> Result<(), Error> {
-        let index = self.notes.iter().position(|x| x.note == note);
-        if index.is_none() {
-            return Err(format!("Note {} is already off", note))?;
-        }
-        let index = index.unwrap();
-        self.notes.remove(index);
-        Ok(())
-    }
-
     pub fn output(&mut self) -> Result<&SampleBuffer, Error> {
         let buffer = &mut self.buffer;
-        let note_buffer = &mut self.note_buffer;
         buffer.fill(0.);
-        for note in self.notes.iter_mut() {
-            note_buffer.fill(0.);
-            self.oscillators
-                .par_iter_mut()
-                .try_for_each(|osc| -> Result<(), Error> { osc.evaluate(self.delta_time, note) })?;
-            self.oscillators
-                .iter_mut()
-                .try_for_each(|osc| -> Result<(), Error> {
-                    let buffer = osc.get_buffer();
-                    note_buffer.combine(buffer)?;
-                    Ok(())
-                })?;
-            note.play_time += buffer.len() as f32 * self.delta_time;
-            buffer.combine(note_buffer)?;
-        }
+        self.oscillators
+            .par_iter_mut()
+            .try_for_each(|osc| -> Result<(), Error> { osc.evaluate(self.delta_time) })?;
+        self.oscillators
+            .iter_mut()
+            .try_for_each(|osc| -> Result<(), Error> { buffer.combine(osc.get_buffer()) })?;
         self.effects
             .iter()
             .try_for_each(|effect| -> Result<(), Error> { effect.process(buffer) })?;
@@ -69,12 +42,23 @@ impl Synthesizer {
     pub fn get_buffer(&self) -> &SampleBuffer {
         &self.buffer
     }
+
+    pub fn note_on(&mut self, note: Note) -> Result<(), Error> {
+        self.oscillators
+            .par_iter_mut()
+            .try_for_each(|osc| -> Result<(), Error> { osc.note_on(note) })
+    }
+
+    pub fn note_off(&mut self, note: i32) -> Result<(), Error> {
+        self.oscillators
+            .par_iter_mut()
+            .try_for_each(|osc| -> Result<(), Error> { osc.note_off(note) })
+    }
 }
 
 #[derive(Default)]
 pub struct SynthesizerBuilder {
     buffer: Option<SampleBuffer>,
-    note_buffer: Option<SampleBuffer>,
     oscillators: Option<Vec<Osc>>,
     effects: Option<Vec<SynEffect>>,
     sample_rate: Option<u32>,
@@ -84,7 +68,6 @@ impl SynthesizerBuilder {
     pub fn new() -> Self {
         Self {
             buffer: None,
-            note_buffer: None,
             oscillators: None,
             effects: None,
             sample_rate: None,
@@ -93,12 +76,6 @@ impl SynthesizerBuilder {
 
     pub fn set_buffer(&mut self, buffer_size: usize) -> Result<&mut Self, Error> {
         self.buffer = Some(
-            SampleBufferBuilder::new()
-                .set_channels(2)
-                .set_samples(buffer_size)
-                .build()?,
-        );
-        self.note_buffer = Some(
             SampleBufferBuilder::new()
                 .set_channels(2)
                 .set_samples(buffer_size)
@@ -113,6 +90,11 @@ impl SynthesizerBuilder {
         } else {
             self.oscillators = Some(vec![osc]);
         }
+        self
+    }
+
+    pub fn empty_osc(&mut self) -> &mut Self {
+        self.oscillators = Some(vec![]);
         self
     }
 
@@ -132,10 +114,6 @@ impl SynthesizerBuilder {
 
     pub fn build(&mut self) -> Result<Synthesizer, Error> {
         let buffer = self.buffer.take().ok_or(Error::Specify("buffer size"))?;
-        let note_buffer = self
-            .note_buffer
-            .take()
-            .ok_or(Error::Specify("buffer size"))?;
         let oscillators = self
             .oscillators
             .take()
@@ -150,8 +128,6 @@ impl SynthesizerBuilder {
 
         Ok(Synthesizer {
             buffer,
-            note_buffer,
-            notes: Vec::<Note>::new(),
             oscillators,
             effects,
             sample_rate,
@@ -159,3 +135,4 @@ impl SynthesizerBuilder {
         })
     }
 }
+

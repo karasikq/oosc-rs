@@ -6,14 +6,15 @@ use crate::utils::consts::PI_2M;
 use crate::utils::evaluate::Evaluate;
 use crate::utils::{adsr_envelope::ADSREnvelope, sample_buffer::SampleBuffer};
 
+use super::note::NoteEventReceiver;
 use super::parametrs::OctaveParametr;
 use super::parametrs::PanParametr;
 use super::parametrs::Parametr;
 use super::parametrs::ValueParametr;
 use super::wavetable::WaveTable;
 
-pub trait Oscillator<'a, T, R>: Send + Sync {
-    fn evaluate(&mut self, t: f32, param: T) -> Result<R, Error>;
+pub trait Oscillator<'a, T>: Send + Sync + NoteEventReceiver {
+    fn evaluate(&mut self, t: f32) -> Result<T, Error>;
     fn get_buffer(&mut self) -> &mut SampleBuffer;
 }
 
@@ -23,6 +24,7 @@ pub struct WavetableOscillator {
     wavetable: WaveTable,
     octave_offset: OctaveParametr,
     pan: PanParametr,
+    notes: Vec<Note>,
 }
 
 impl WavetableOscillator {
@@ -37,46 +39,83 @@ impl WavetableOscillator {
     pub fn get_pan(&mut self) -> &mut impl Parametr<f32> {
         &mut self.pan
     }
+
+    fn get_note(&self, note: i32) -> Result<usize, Error> {
+        Ok(self
+            .notes
+            .iter()
+            .position(|x| x.note == note)
+            .ok_or(format!("Note {} not playing", note))?)
+    }
+
+    fn remove_note(&mut self, index: usize) {
+        self.notes.remove(index);
+    }
 }
 
-impl Oscillator<'_, &Note, ()> for WavetableOscillator {
-    fn evaluate(&mut self, delta_time: f32, note: &Note) -> Result<(), Error> {
+impl Oscillator<'_, ()> for WavetableOscillator {
+    fn evaluate(&mut self, delta_time: f32) -> Result<(), Error> {
         let buffer = &mut self.buffer;
         let pan = &self.pan;
         let octave_offset = &self.octave_offset;
-        let mut t = note.play_time;
-        let mut iteration_buffer = [0.0; 2];
-        for i in 0..buffer.len() {
-            let envelope = match note.hold_on {
-                State::None => self.envelope.evaluate(t),
-                _ => {
-                    if t > self.envelope.time_range_of(note.hold_on).1 {
-                        self.envelope.peak_at(note.hold_on)
-                    } else {
-                        self.envelope.evaluate(t)
-                    }
-                }
-            };
-            let freq = PI_2M * Converter::note_to_freq(note.note + octave_offset.get_value()?) * t;
-            let sample = self.wavetable.evaluate(freq)?;
+        self.notes
+            .iter_mut()
+            .try_for_each(|note| -> Result<(), Error> {
+                let mut t = note.play_time;
+                let mut iteration_buffer = [0.0; 2];
+                (0..buffer.len()).try_for_each(|i| -> Result<(), Error> {
+                    let envelope = match note.hold_on {
+                        State::None => self.envelope.evaluate(t),
+                        _ => {
+                            if t > self.envelope.time_range_of(note.hold_on).1 {
+                                self.envelope.peak_at(note.hold_on)
+                            } else {
+                                self.envelope.evaluate(t)
+                            }
+                        }
+                    };
+                    let freq =
+                        PI_2M * Converter::note_to_freq(note.note + octave_offset.get_value()?) * t;
+                    let sample = self.wavetable.evaluate(freq)?;
 
-            iteration_buffer[0] = sample * envelope * pan.polar.0 * note.velocity;
-            iteration_buffer[1] = sample * envelope * pan.polar.1 * note.velocity;
-            buffer
-                .iter_buffers()
-                .enumerate()
-                .try_for_each(|(ind, buf)| -> Result<(), Error> {
-                    buf.set_at(i, iteration_buffer[ind])?;
+                    iteration_buffer[0] = sample * envelope * pan.polar.0 * note.velocity;
+                    iteration_buffer[1] = sample * envelope * pan.polar.1 * note.velocity;
+                    buffer.iter_buffers().enumerate().try_for_each(
+                        |(ind, buf)| -> Result<(), Error> {
+                            buf.set_at(i, iteration_buffer[ind])?;
+                            Ok(())
+                        },
+                    )?;
+
+                    t += delta_time;
+                    note.play_time = t;
                     Ok(())
                 })?;
-
-            t += delta_time;
-        }
+                Ok(())
+            })?;
         Ok(())
     }
 
     fn get_buffer(&mut self) -> &mut SampleBuffer {
         &mut self.buffer
+    }
+}
+
+impl NoteEventReceiver for WavetableOscillator {
+    fn note_on(&mut self, note: Note) -> std::result::Result<(), Error> {
+        let index = self.get_note(note.note);
+        if index.is_ok() {
+            let n = index?;
+            self.remove_note(n);
+        }
+        self.notes.push(note);
+        Ok(())
+    }
+
+    fn note_off(&mut self, note: i32) -> std::result::Result<(), Error> {
+        let index = self.get_note(note)?;
+        self.notes[index].play_time = self.envelope.time_range_of(State::Release).0;
+        Ok(())
     }
 }
 
@@ -124,6 +163,49 @@ impl OscillatorBuilder {
             wavetable,
             octave_offset,
             pan,
+            notes: vec![],
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        core::{
+            note::{Note, NoteEventReceiver},
+            oscillator::OscillatorBuilder,
+            waveshape::WaveShape,
+            wavetable::WaveTableBuilder,
+        },
+        utils::{
+            adsr_envelope::ADSREnvelope, interpolation::InterpolateMethod,
+            sample_buffer::SampleBufferBuilder,
+        },
+    };
+
+    #[test]
+    fn test_osc_notes() {
+        let adsr = ADSREnvelope::default();
+        let buffer = SampleBufferBuilder::new()
+            .set_channels(2)
+            .set_samples(10)
+            .build()
+            .unwrap();
+        let table = WaveTableBuilder::new()
+            .from_shape(WaveShape::Sin, 10)
+            .set_interpolation(InterpolateMethod::Linear)
+            .build()
+            .unwrap();
+        let mut osc = OscillatorBuilder::new()
+            .set_buffer(buffer)
+            .set_envelope(adsr)
+            .set_wavetable(table)
+            .build()
+            .unwrap();
+        osc.note_on(Note::from(60)).unwrap();
+        let get = osc.get_note(60);
+        assert!(get.is_ok());
+        let get = osc.get_note(61);
+        assert!(get.is_err());
     }
 }
