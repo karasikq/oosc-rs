@@ -7,7 +7,7 @@ use crate::{
         oscillator::{OscillatorBuilder, WavetableOscillator},
         synthesizer::{Synthesizer, SynthesizerBuilder},
         waveshape::WaveShape,
-        wavetable::WaveTableBuilder,
+        wavetable::WaveTableBuilder, parametrs::Parametr,
     },
     error::Error,
     utils::{
@@ -26,8 +26,8 @@ pub struct Context {
 
 impl Context {
     pub fn build_default(config: &Config) -> Result<Self, Error> {
-        let osc1 = Self::build_osc(config)?;
-        let osc2 = Self::build_osc(config)?;
+        let osc1 = Self::build_osc(config, WaveShape::Sin)?;
+        let osc2 = Self::build_osc(config, WaveShape::Square)?;
         let synthesizer = Arc::new(Mutex::new(
             SynthesizerBuilder::new()
                 .set_buffer(config.buffer_size)?
@@ -72,14 +72,14 @@ impl Context {
         Ok((host, device, config))
     }
 
-    fn build_osc(config: &Config) -> Result<Box<WavetableOscillator>, Error> {
+    fn build_osc(config: &Config, shape: WaveShape) -> Result<Box<WavetableOscillator>, Error> {
         let adsr = ADSREnvelope::default();
         let buffer = SampleBufferBuilder::new()
             .set_channels(2)
             .set_samples(config.buffer_size)
             .build()?;
         let table = WaveTableBuilder::new()
-            .from_shape(WaveShape::Sin, config.buffer_size)
+            .from_shape(shape, config.buffer_size)
             .set_interpolation(InterpolateMethod::Linear)
             .build()?;
         Ok(Box::new(
