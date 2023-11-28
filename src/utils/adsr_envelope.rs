@@ -4,7 +4,7 @@ use crate::error::Error;
 
 use super::cubic_bezier::CubicBezierCurve;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum State {
     None,
     Attack,
