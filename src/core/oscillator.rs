@@ -53,6 +53,13 @@ impl WavetableOscillator {
     fn remove_note(&mut self, index: usize) -> Note {
         self.notes.remove(index)
     }
+
+    fn remove_released_notes(&mut self) {
+        self.release_notes
+            .retain(|note| {
+                note.state != State::None && note.play_time < self.envelope.time_range_of(State::Release).1
+            });
+    }
 }
 
 impl Oscillator<'_, ()> for WavetableOscillator {
@@ -98,6 +105,7 @@ impl Oscillator<'_, ()> for WavetableOscillator {
                 note.play_time = t;
                 Ok(())
             })?;
+        self.remove_released_notes();
         Ok(())
     }
 
