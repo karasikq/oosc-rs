@@ -41,7 +41,7 @@ impl WavetableOscillator {
         &mut self.pan
     }
 
-    fn get_note(&self, note: i32) -> Result<usize, Error> {
+    fn get_note(&self, note: u32) -> Result<usize, Error> {
         Ok(self
             .notes
             .iter()
@@ -77,7 +77,7 @@ impl Oscillator<'_, ()> for WavetableOscillator {
                         }
                     };
                     let freq =
-                        PI_2M * Converter::note_to_freq(note.note + octave_offset) * t;
+                        PI_2M * Converter::note_to_freq((note.note as i32 + octave_offset) as u32) * t;
                     let sample = self.wavetable.evaluate(freq)?;
 
                     iteration_buffer[0] = sample * envelope * pan.polar.0 * note.velocity;
@@ -118,7 +118,7 @@ impl NoteEventReceiver for WavetableOscillator {
         Ok(())
     }
 
-    fn note_off(&mut self, note: i32) -> std::result::Result<(), Error> {
+    fn note_off(&mut self, note: u32) -> std::result::Result<(), Error> {
         let index = self.get_note(note)?;
         self.notes[index].play_time = self.envelope.time_range_of(State::Release).0;
         Ok(())

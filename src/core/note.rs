@@ -2,7 +2,7 @@ use crate::{utils::{adsr_envelope::State, consts::PI_4}, error::Error};
 
 #[derive(Copy, Clone)]
 pub struct Note {
-    pub note: i32,
+    pub note: u32,
     pub frequency: f32,
     pub velocity: f32,
     pub play_time: f32,
@@ -11,7 +11,7 @@ pub struct Note {
 }
 
 impl Note {
-    pub fn new(note: i32, velocity: i32) -> Self {
+    pub fn new(note: u32, velocity: u32) -> Self {
         Self {
             note,
             frequency: Converter::note_to_freq(note),
@@ -23,15 +23,15 @@ impl Note {
     }
 }
 
-impl From<i32> for Note {
-    fn from(value: i32) -> Self {
+impl From<u32> for Note {
+    fn from(value: u32) -> Self {
         Note::new(value, 127)
     }
 }
 
 pub trait NoteEventReceiver {
     fn note_on(&mut self, note: Note) -> Result<(), Error>;
-    fn note_off(&mut self, note: i32) -> Result<(), Error>;
+    fn note_off(&mut self, note: u32) -> Result<(), Error>;
 }
 
 pub struct Converter;
@@ -43,14 +43,14 @@ impl Converter {
     }
 
     #[inline]
-    pub fn velocity_to_float(velocity: i32) -> f32 {
+    pub fn velocity_to_float(velocity: u32) -> f32 {
         let velocity_f32 = velocity as f32;
         velocity_f32 * velocity_f32 / (127.0 * 127.0)
     }
 
     #[inline]
-    pub fn note_to_freq(note: i32) -> f32 {
-        8.175_799_f32 * 1.059_463_1_f32.powi(note)
+    pub fn note_to_freq(note: u32) -> f32 {
+        8.175_799_f32 * 1.059_463_1_f32.powi(note as i32)
     }
 
     #[inline]

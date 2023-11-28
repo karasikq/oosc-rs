@@ -87,7 +87,7 @@ impl Application {
                 return Ok(match key.code {
                     KeyCode::Char('q') => false,
                     KeyCode::Char(c) => {
-                        self.play_note(c as i32 - 37);
+                        self.play_note(c as u32 - 37);
                         true
                     }
                     _ => false,
@@ -97,7 +97,7 @@ impl Application {
         Ok(true)
     }
 
-    fn play_note(&mut self, note: i32) {
+    fn play_note(&mut self, note: u32) {
         let syn = self.ctx.synthesizer.clone();
         let mut locked = syn.lock().unwrap();
         let mut note = Note::new(note, 127);

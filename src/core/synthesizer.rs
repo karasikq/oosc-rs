@@ -49,7 +49,7 @@ impl Synthesizer {
             .try_for_each(|osc| -> Result<(), Error> { osc.note_on(note) })
     }
 
-    pub fn note_off(&mut self, note: i32) -> Result<(), Error> {
+    pub fn note_off(&mut self, note: u32) -> Result<(), Error> {
         self.oscillators
             .par_iter_mut()
             .try_for_each(|osc| -> Result<(), Error> { osc.note_off(note) })
