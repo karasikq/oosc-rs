@@ -1,20 +1,20 @@
-use std::{thread, time::Duration};
-
 use cpal::traits::{DeviceTrait, StreamTrait};
 
 use crate::app::context;
 
 use self::{
     app::application::Application,
-    core::{note::Note, synthesizer::Synthesizer},
+    core::note::Note,
     error::Error,
+    midi::playback::Playback,
 };
-use midly::{Smf, Timing};
+use midly::Smf;
 
 pub mod app;
 pub mod core;
 pub mod effects;
 pub mod error;
+pub mod midi;
 pub mod utils;
 
 fn main() -> Result<(), Error> {
@@ -24,8 +24,9 @@ fn main() -> Result<(), Error> {
     let syn = app.ctx.synthesizer.clone();
 
     // MIDI file
-    let smf = Smf::parse(include_bytes!("../test.mid")).unwrap();
-    let mut midi_total_ticks: u32 = 0;
+    let smf = Smf::parse(include_bytes!("../resources/midi/Beethoven-Moonlight-Sonata.mid")).unwrap();
+    let mut midi_playback = Playback::new(smf);
+    midi_playback.set_bpm(69.0);
 
     let mut total_playback_seconds = 0.;
     let delta = app.config.buffer_size as f32 / app.config.sample_rate as f32;
@@ -54,7 +55,31 @@ fn main() -> Result<(), Error> {
 
                 {
                     let mut s = syn.lock().unwrap();
-                    check_midi(&smf, &mut midi_total_ticks, total_playback_seconds, &mut s)
+                    midi_playback
+                        .play(total_playback_seconds, |event| -> Result<(), Error> {
+                            match event.kind {
+                                midly::TrackEventKind::Midi { message, .. } => match message {
+                                    midly::MidiMessage::NoteOn { key, vel } => {
+                                        let key = key.as_int();
+                                        let vel = vel.as_int();
+                                        s.note_on(Note::new(key.into(), vel.into()))?;
+                                    }
+                                    midly::MidiMessage::NoteOff { key, .. } => {
+                                        let key = key.as_int();
+                                        let action = s.note_off(key.into());
+                                        match action {
+                                            Ok(_) => (),
+                                            Err(e) => println!("{}", e.to_string()),
+                                        }
+                                    }
+                                    _ => (),
+                                },
+                                midly::TrackEventKind::SysEx(_) => (),
+                                midly::TrackEventKind::Escape(_) => (),
+                                midly::TrackEventKind::Meta(_) => (),
+                            };
+                            Ok(())
+                        })
                         .unwrap();
                 }
             },
@@ -64,83 +89,6 @@ fn main() -> Result<(), Error> {
         .map_err(|e| e.to_string())?;
     stream.play().map_err(|e| e.to_string())?;
     app.run()?;
-    // thread::sleep(Duration::from_millis(60000));
+    // std::thread::sleep(std::time::Duration::from_millis(60000));
     Ok(())
-}
-
-fn check_midi(
-    data: &Smf,
-    midi_time: &mut u32,
-    time: f32,
-    syn: &mut Synthesizer,
-) -> Result<(), Error> {
-    let ppq = match data.header.timing {
-        Timing::Metrical(v) => v.into(),
-        Timing::Timecode(_, _) => 192,
-    };
-    let tps = (120.0 * ppq as f32) / 60.;
-
-    let playback_time_ticks: u32 = (time * tps) as u32;
-    let playback_midi_ticks: u32 = *midi_time;
-    let delta_ticks = playback_time_ticks - playback_midi_ticks;
-    let mut last_event_ticks: u32 = playback_midi_ticks;
-    let mut current_ticks: u32 = 0;
-
-    for track in data.tracks.iter().skip(1) {
-        for event in track.iter() {
-            current_ticks += event.delta.as_int();
-            if current_ticks > playback_midi_ticks + delta_ticks {
-                *midi_time = match last_event_ticks {
-                    0 => 1,
-                    v => v,
-                };
-                return Ok(());
-            }
-            if current_ticks > playback_midi_ticks
-                || (current_ticks == 0 && playback_midi_ticks == 0)
-            {
-                log(format!(
-                    "MidiTick {}. Ticks {}. Kind {:?}\n",
-                    *midi_time, current_ticks, event.kind
-                ));
-                match event.kind {
-                    midly::TrackEventKind::Midi { channel, message } => match message {
-                        midly::MidiMessage::NoteOn { key, vel } => {
-                            let key = key.as_int();
-                            let vel = vel.as_int();
-                            syn.note_on(Note::new(key.into(), vel.into()))?;
-                        }
-                        midly::MidiMessage::NoteOff { key, .. } => {
-                            let key = key.as_int();
-                            let action = syn.note_off(key.into());
-                            match action {
-                                Ok(_) => (),
-                                Err(e) => println!("{}", e.to_string()),
-                            }
-                        }
-                        _ => (),
-                    },
-                    midly::TrackEventKind::SysEx(_) => (),
-                    midly::TrackEventKind::Escape(_) => (),
-                    midly::TrackEventKind::Meta(_) => (),
-                };
-                last_event_ticks = current_ticks;
-            }
-        }
-    }
-
-    *midi_time = match last_event_ticks {
-        0 => 1,
-        v => v,
-    };
-    Ok(())
-}
-
-fn log(str: String) {
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .append(true)
-        .open("log.txt")
-        .unwrap();
-    std::io::Write::write(&mut file, str.as_bytes()).unwrap();
 }
