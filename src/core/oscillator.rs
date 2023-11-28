@@ -26,6 +26,7 @@ pub struct WavetableOscillator {
     octave_offset: OctaveParametr,
     pan: PanParametr,
     notes: Vec<Note>,
+    release_notes: Vec<Note>,
 }
 
 impl WavetableOscillator {
@@ -49,8 +50,8 @@ impl WavetableOscillator {
             .ok_or(format!("Note {} not playing", note))?)
     }
 
-    fn remove_note(&mut self, index: usize) {
-        self.notes.remove(index);
+    fn remove_note(&mut self, index: usize) -> Note {
+        self.notes.remove(index)
     }
 }
 
@@ -62,6 +63,7 @@ impl Oscillator<'_, ()> for WavetableOscillator {
         let octave_offset = self.octave_offset.get_value()?;
         self.notes
             .iter_mut()
+            .chain(self.release_notes.iter_mut())
             .try_for_each(|note| -> Result<(), Error> {
                 let mut t = note.play_time;
                 let mut iteration_buffer = [0.0; 2];
@@ -76,8 +78,9 @@ impl Oscillator<'_, ()> for WavetableOscillator {
                             }
                         }
                     };
-                    let freq =
-                        PI_2M * Converter::note_to_freq((note.note as i32 + octave_offset) as u32) * t;
+                    let freq = PI_2M
+                        * Converter::note_to_freq((note.note as i32 + octave_offset) as u32)
+                        * t;
                     let sample = self.wavetable.evaluate(freq)?;
 
                     iteration_buffer[0] = sample * envelope * pan.polar.0 * note.velocity;
@@ -111,8 +114,7 @@ impl NoteEventReceiver for WavetableOscillator {
     fn note_on(&mut self, note: Note) -> std::result::Result<(), Error> {
         let index = self.get_note(note.note);
         if index.is_ok() {
-            let n = index?;
-            self.remove_note(n);
+            self.note_off(note.note)?;
         }
         self.notes.push(note);
         Ok(())
@@ -120,7 +122,11 @@ impl NoteEventReceiver for WavetableOscillator {
 
     fn note_off(&mut self, note: u32) -> std::result::Result<(), Error> {
         let index = self.get_note(note)?;
-        self.notes[index].play_time = self.envelope.time_range_of(State::Release).0;
+        let mut note = self.remove_note(index);
+        note.hold_on = State::None;
+        // Makes "clipping" sound. How to smoothly release note??
+        // note.play_time = self.envelope.time_range_of(State::Release).0;
+        self.release_notes.push(note);
         Ok(())
     }
 }
@@ -170,6 +176,7 @@ impl OscillatorBuilder {
             octave_offset,
             pan,
             notes: vec![],
+            release_notes: vec![],
         })
     }
 }
