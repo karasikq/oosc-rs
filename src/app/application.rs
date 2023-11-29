@@ -4,7 +4,7 @@ use crate::{core::note::Note, utils::adsr_envelope::State};
 
 use super::{config::Config, context};
 use anyhow::Context;
-use cpal::{traits::{DeviceTrait, StreamTrait, HostTrait}, StreamConfig};
+use cpal::traits::DeviceTrait;
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
@@ -35,8 +35,30 @@ impl Application {
         Ok(())
     }
 
-    pub fn detach_stream(&mut self) -> Result<(), crate::error::Error> {
-        Ok(())
+    pub fn detach_stream(&mut self) -> Result<cpal::Stream, crate::error::Error> {
+        let (_, device, config) = context::Context::get_default_device(&self.config)?;
+        let err_fn = |err| println!("an error occurred on stream: {}", err);
+        let callbacks = self.ctx.stream_callbacks.clone();
+        let mut total_playback_seconds = 0.;
+        let delta = self.config.buffer_size as f32 / self.config.sample_rate as f32;
+        Ok(device
+            .build_output_stream(
+                &config,
+                move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                    let mut callbacks = callbacks.lock().unwrap();
+                    callbacks
+                        .iter_mut()
+                        .try_for_each(|callback| -> Result<(), crate::error::Error> {
+                            let callback = callback.as_mut();
+                            callback.process_stream(data, total_playback_seconds)
+                        })
+                        .unwrap();
+                    total_playback_seconds += delta;
+                },
+                err_fn,
+                None,
+            )
+            .map_err(|e| e.to_string())?)
     }
 
     // MOVE THIS TO UI MOD

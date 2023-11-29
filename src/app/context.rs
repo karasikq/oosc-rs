@@ -1,13 +1,16 @@
 use std::sync::{Arc, Mutex};
 
-use cpal::{traits::{HostTrait, DeviceTrait}, Device, StreamConfig, Host};
+use cpal::{
+    traits::{DeviceTrait, HostTrait},
+    Device, Host, StreamConfig,
+};
 
 use crate::{
     core::{
         oscillator::{OscillatorBuilder, WavetableOscillator},
         synthesizer::{Synthesizer, SynthesizerBuilder},
         waveshape::WaveShape,
-        wavetable::WaveTableBuilder, parametrs::Parametr,
+        wavetable::WaveTableBuilder,
     },
     error::Error,
     utils::{
@@ -16,10 +19,16 @@ use crate::{
     },
 };
 
-use super::config::Config;
+use super::{
+    config::Config,
+    stream_callback::{StreamCallback, SynthesizerStreamCallback},
+};
+
+type Callbacks = Vec<Box<dyn StreamCallback>>;
 
 pub struct Context {
     pub synthesizer: Arc<Mutex<Synthesizer>>,
+    pub stream_callbacks: Arc<Mutex<Callbacks>>,
     /* pub device: Device,
     pub stream_config: StreamConfig, */
 }
@@ -36,9 +45,14 @@ impl Context {
                 .set_sample_rate(config.sample_rate)
                 .build()?,
         ));
+        let synthesizer_cloned = synthesizer.clone();
+        let synthesizer_callback: Box<dyn StreamCallback> =
+            Box::new(SynthesizerStreamCallback(synthesizer_cloned));
+        let stream_callbacks = Arc::new(Mutex::new(vec![synthesizer_callback]));
         // let (device, stream_config) = Self::get_default_device(config)?;
         Ok(Self {
             synthesizer,
+            stream_callbacks,
             /* device,
             stream_config, */
         })
