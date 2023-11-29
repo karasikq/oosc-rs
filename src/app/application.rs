@@ -38,18 +38,17 @@ impl Application {
     pub fn detach_stream(&mut self) -> Result<cpal::Stream, crate::error::Error> {
         let (_, device, config) = context::Context::get_default_device(&self.config)?;
         let err_fn = |err| println!("an error occurred on stream: {}", err);
-        let callbacks = self.ctx.stream_callbacks.clone();
+        let callbacks = self.ctx.callbacks.get_callbacks();
         let mut total_playback_seconds = 0.;
         let delta = self.config.buffer_size as f32 / self.config.sample_rate as f32;
         Ok(device
             .build_output_stream(
                 &config,
                 move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                    let mut callbacks = callbacks.lock().unwrap();
                     callbacks
-                        .iter_mut()
+                        .iter()
                         .try_for_each(|callback| -> Result<(), crate::error::Error> {
-                            let callback = callback.as_mut();
+                            let mut callback = callback.lock().unwrap();
                             callback.process_stream(data, total_playback_seconds)
                         })
                         .unwrap();
