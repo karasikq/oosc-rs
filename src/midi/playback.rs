@@ -1,6 +1,8 @@
-use midly::{Smf, Timing, TrackEvent};
+use midly::{Smf, Timing};
 
 use crate::error::Error;
+
+use super::mediator::MidiEventReceiver;
 
 pub struct Playback<'a> {
     midi_ticks: u32,
@@ -32,9 +34,9 @@ impl<'a> Playback<'a> {
         self.tps = Self::calculate_tps(self.bpm, self.ppq);
     }
 
-    pub fn play<F, R>(&mut self, t: f32, mut callback: F) -> Result<(), Error>
+    pub fn play<T>(&mut self, t: f32, event_receiver: &'a mut T) -> Result<(), Error>
     where
-        F: FnMut(&TrackEvent) -> Result<R, Error>,
+        T: MidiEventReceiver<'a>,
     {
         let playback_time_ticks: u32 = (t * self.tps) as u32;
         let playback_midi_ticks: u32 = self.midi_ticks;
@@ -55,7 +57,7 @@ impl<'a> Playback<'a> {
                 if current_ticks > playback_midi_ticks
                     || (current_ticks == 0 && playback_midi_ticks == 0)
                 {
-                    callback(event)?;
+                    event_receiver.receive_event(event)?;
                     last_event_ticks = current_ticks;
                 }
             }
