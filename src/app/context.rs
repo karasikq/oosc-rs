@@ -13,6 +13,7 @@ use crate::{
         wavetable::WaveTableBuilder,
     },
     error::Error,
+    midi::playback::{BoxedMidiPlayback, PlaybackControl},
     utils::{
         adsr_envelope::ADSREnvelope, interpolation::InterpolateMethod,
         sample_buffer::SampleBufferBuilder,
@@ -21,14 +22,27 @@ use crate::{
 
 use super::{
     config::Config,
-    stream_callback::{StreamCallback, SynthesizerStreamCallback},
+    stream_callback::{MidiStreamCallback, StreamCallback, SynthesizerStreamCallback},
 };
 
-type Callbacks = Vec<Box<dyn StreamCallback>>;
+pub struct CallbacksData {
+    pub synthesizer_callback: Arc<Mutex<SynthesizerStreamCallback>>,
+    pub midi_callback: Arc<Mutex<MidiStreamCallback>>,
+}
+
+impl CallbacksData {
+    pub fn get_callbacks(&self) -> Vec<Arc<Mutex<dyn StreamCallback>>> {
+        vec![
+            self.synthesizer_callback.clone(),
+            self.midi_callback.clone(),
+        ]
+    }
+}
 
 pub struct Context {
     pub synthesizer: Arc<Mutex<Synthesizer>>,
-    pub stream_callbacks: Arc<Mutex<Callbacks>>,
+    pub callbacks: CallbacksData,
+    pub midi_control: Arc<Mutex<BoxedMidiPlayback>>,
     /* pub device: Device,
     pub stream_config: StreamConfig, */
 }
@@ -45,14 +59,29 @@ impl Context {
                 .set_sample_rate(config.sample_rate)
                 .build()?,
         ));
+
         let synthesizer_cloned = synthesizer.clone();
-        let synthesizer_callback: Box<dyn StreamCallback> =
-            Box::new(SynthesizerStreamCallback(synthesizer_cloned));
-        let stream_callbacks = Arc::new(Mutex::new(vec![synthesizer_callback]));
+        let synthesizer_callback =
+            Arc::new(Mutex::new(SynthesizerStreamCallback(synthesizer_cloned)));
+
+        let synthesizer_cloned = synthesizer.clone();
+        let midi_control = Arc::new(Mutex::new(None));
+        let midi_control_cloned = midi_control.clone();
+        let midi_callback = Arc::new(Mutex::new(MidiStreamCallback(
+            midi_control_cloned,
+            synthesizer_cloned,
+        )));
+
+        let callbacks = CallbacksData {
+            synthesizer_callback,
+            midi_callback,
+        };
+
         // let (device, stream_config) = Self::get_default_device(config)?;
         Ok(Self {
             synthesizer,
-            stream_callbacks,
+            callbacks,
+            midi_control,
             /* device,
             stream_config, */
         })

@@ -1,9 +1,14 @@
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
+
+use midly::Smf;
 
 use crate::{
     core::synthesizer::Synthesizer,
     error::Error,
-    midi::{mediator::MidiSynthesizerMediator, playback::Playback},
+    midi::{
+        mediator::{MidiEventReceiver, MidiSynthesizerMediator},
+        playback::{BoxedMidiPlayback, OptionalPlayback, PlaybackControl, SmfPlayback},
+    },
 };
 
 pub trait StreamCallback: Send + Sync {
@@ -11,10 +16,13 @@ pub trait StreamCallback: Send + Sync {
 }
 
 pub struct SynthesizerStreamCallback(pub Arc<Mutex<Synthesizer>>);
-pub struct MidiStreamCallback<'a>(&'a mut Playback<'a>, &'a mut Synthesizer);
+pub struct MidiStreamCallback(
+    pub Arc<Mutex<BoxedMidiPlayback>>,
+    pub Arc<Mutex<Synthesizer>>,
+);
 
-impl<'a> StreamCallback for SynthesizerStreamCallback {
-    fn process_stream(&mut self, data: &mut [f32], time: f32) -> std::result::Result<(), Error> {
+impl StreamCallback for SynthesizerStreamCallback {
+    fn process_stream(&mut self, data: &mut [f32], _time: f32) -> std::result::Result<(), Error> {
         let mut syn = self.0.lock().unwrap();
         let buf = syn.output()?;
         let mut b = buf.iter(0)?;
@@ -29,11 +37,17 @@ impl<'a> StreamCallback for SynthesizerStreamCallback {
     }
 }
 
-impl<'a> StreamCallback for MidiStreamCallback<'a> {
+impl StreamCallback for MidiStreamCallback {
     fn process_stream(&mut self, _data: &mut [f32], time: f32) -> std::result::Result<(), Error> {
-        let mut synth_mediator = MidiSynthesizerMediator::new(self.1);
-        // self.0.play(time, synth_mediator).unwrap();
-
+        let mut playback = self.0.lock().unwrap();
+        if playback.is_none() {
+            return Ok(());
+        }
+        let playback = playback.as_mut().unwrap();
+        let syn = self.1.clone();
+        let mut synth_mediator: Box<dyn MidiEventReceiver> =
+            Box::new(MidiSynthesizerMediator::new(syn));
+        playback.play(time, &mut synth_mediator).unwrap();
         Ok(())
     }
 }
