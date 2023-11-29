@@ -1,9 +1,11 @@
+use std::sync::{Arc, Mutex};
+
 use crate::effects::amplifier::Amplifier;
 use crate::effects::effect::Effect;
 use rayon::prelude::*;
 
 use super::{
-    note::{Note, NoteEventReceiver},
+    note::Note,
     oscillator::Oscillator,
     parametrs::{PanParametr, ValueParametr, VolumeParametr},
 };
@@ -14,6 +16,8 @@ use crate::{
 
 type Osc = Box<dyn for<'a> Oscillator<'a, ()>>;
 type SynEffect = Box<dyn for<'a> Effect<'a> + Sync + Send>;
+
+pub type SyncSynthesizer = Arc<Mutex<Synthesizer>>;
 
 pub struct Synthesizer {
     buffer: SampleBuffer,
@@ -135,4 +139,3 @@ impl SynthesizerBuilder {
         })
     }
 }
-
