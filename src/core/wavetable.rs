@@ -200,7 +200,7 @@ impl Evaluate<f32> for WaveTable {
                 let vec =
                     Self::get_samples_points_ranged(chunk_slice, self.chunk_size, left_index, 4)
                         .collect();
-                interpolate_lagrange(vec, index)
+                interpolate_lagrange(&vec, index)
             }
         })
     }
