@@ -13,7 +13,6 @@ use super::waveshape::WaveShape;
 pub struct WaveTable {
     buffer: SampleBufferMono,
     chunk_size: usize,
-    chunks: usize,
     position: usize,
     interpolation: InterpolateMethod,
 }
@@ -69,7 +68,6 @@ impl WaveTableBuilder {
         Ok(WaveTable {
             buffer,
             chunk_size,
-            chunks,
             position,
             interpolation,
         })
@@ -106,7 +104,7 @@ impl WaveTable {
     }
 
     fn set_position(&mut self, position: usize) -> Result<(), Error> {
-        if position >= self.chunks {
+        if position >= self.chunks() {
             Err("Position should be less than chunks count")?
         } else {
             self.position = position;
@@ -114,29 +112,45 @@ impl WaveTable {
         }
     }
 
+    fn get_sample_at_chunk(chunk: &[f32], index: usize) -> Result<f32, Error> {
+        Ok(*chunk
+            .get(index)
+            .ok_or("Index out of bounds of wavetable chunk")?)
+    }
+
+    pub fn chunks(&self) -> usize {
+        self.buffer.len() / self.chunk_size
+    }
+
     pub fn get_samples_points_ranged(
-        &self,
+        chunk: &[f32],
+        chunk_size: usize,
         start: i32,
         count: i32,
     ) -> impl Iterator<Item = cgmath::Vector2<f32>> + '_ {
         let end = start + count;
         (start..end).map(move |index| {
-            let ind = self.bound_index(index);
-            let sample = self.sample_at(ind).unwrap();
+            let ind = Self::bound_index(chunk_size, index);
+            let sample = Self::get_sample_at_chunk(chunk, ind).unwrap();
             cgmath::Vector2::<f32>::new(ind as f32, sample)
         })
     }
 
-    pub fn get_samples_ranged(&self, start: i32, count: i32) -> impl Iterator<Item = f32> + '_ {
+    pub fn get_samples_ranged(
+        chunk: &[f32],
+        chunk_size: usize,
+        start: i32,
+        count: i32,
+    ) -> impl Iterator<Item = f32> + '_ {
         let end = start + count;
         (start..end).map(move |index| {
-            let ind = self.bound_index(index);
-            self.sample_at(ind).unwrap()
+            let ind = Self::bound_index(chunk_size, index);
+            Self::get_sample_at_chunk(chunk, ind).unwrap()
         })
     }
 
-    fn bound_index(&self, index: i32) -> usize {
-        let chunk = self.chunk_size as i32;
+    fn bound_index(chunk_size: usize, index: i32) -> usize {
+        let chunk = chunk_size as i32;
         if index < 0 {
             return (chunk + index) as usize;
         }
@@ -145,28 +159,48 @@ impl WaveTable {
         }
         index as usize
     }
+
+    fn get_slice(&self) -> Result<&[f32], Error> {
+        Ok(self
+            .buffer
+            .get_slice()
+            .chunks_exact(self.chunk_size)
+            .nth(self.position)
+            .ok_or(format!(
+                "Cannot get {} position of wavetable",
+                self.position
+            ))?)
+    }
 }
 
 impl Evaluate<f32> for WaveTable {
     fn evaluate(&self, t: f32) -> Result<f32, Error> {
+        let chunk_slice = self.get_slice()?;
         let chunk = self.chunk_size as f32;
-        let index = (chunk * (t % PI_2M / PI_2M)) % chunk;
+        let index = chunk * (t % PI_2M / PI_2M);
         let fraction = index % 1.0;
         let index_ceil = index.ceil();
         if fraction <= 10e-6 {
             return self.sample_at(index_ceil as usize);
         }
         Ok(match self.interpolation {
-            InterpolateMethod::Ceil => self.sample_at(index_ceil as usize)?,
+            InterpolateMethod::Ceil => Self::get_sample_at_chunk(chunk_slice, index_ceil as usize)?,
             InterpolateMethod::Linear => {
-                let mut samples = self.get_samples_points_ranged(index_ceil as i32, 2);
+                let mut samples = Self::get_samples_points_ranged(
+                    chunk_slice,
+                    self.chunk_size,
+                    index_ceil as i32,
+                    2,
+                );
                 let s1 = samples.next().unwrap();
                 let s2 = samples.next().unwrap();
                 interpolate_linear(s1.y, s2.y, fraction)
             }
             InterpolateMethod::LaGrange => {
                 let left_index = (index.ceil() - 1.) as i32;
-                let vec = self.get_samples_points_ranged(left_index, 4).collect();
+                let vec =
+                    Self::get_samples_points_ranged(chunk_slice, self.chunk_size, left_index, 4)
+                        .collect();
                 interpolate_lagrange(vec, index)
             }
         })
@@ -175,6 +209,7 @@ impl Evaluate<f32> for WaveTable {
 
 #[cfg(test)]
 mod tests {
+    use crate::core::wavetable::WaveTable;
     use crate::utils::consts::PI;
     use crate::utils::evaluate::Evaluate;
     use crate::utils::interpolation::InterpolateMethod;
@@ -243,7 +278,8 @@ mod tests {
             .set_interpolation(InterpolateMethod::LaGrange)
             .build()
             .unwrap();
-        let mut samples = table.get_samples_points_ranged(0, 3);
+        let slice = table.get_slice().unwrap();
+        let mut samples = WaveTable::get_samples_points_ranged(slice, table.chunk_size, 0, 3);
         assert_approx_eq!(samples.next().unwrap().y, (0. * step).sin(), 10e-3);
         assert_approx_eq!(samples.next().unwrap().y, (1. * step).sin(), 10e-3);
         assert_approx_eq!(samples.next().unwrap().y, (2. * step).sin(), 10e-3);
