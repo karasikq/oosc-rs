@@ -62,7 +62,6 @@ impl WaveTableBuilder {
                 "Cannot split sample buffer into the same length chunks",
             ));
         }
-        let chunks = buffer.len() / chunk_size;
         let position = self.position.unwrap_or(0);
         let interpolation = self.interpolation.take().unwrap_or(InterpolateMethod::Ceil);
         Ok(WaveTable {
@@ -210,7 +209,7 @@ impl Evaluate<f32> for WaveTable {
 #[cfg(test)]
 mod tests {
     use crate::core::wavetable::WaveTable;
-    use crate::utils::consts::PI;
+    use crate::utils::consts::{PI, PI_2};
     use crate::utils::evaluate::Evaluate;
     use crate::utils::interpolation::InterpolateMethod;
     use crate::utils::sample_buffer::SampleBufferMono;
@@ -251,11 +250,15 @@ mod tests {
     fn test_wavetable_position() {
         let samples = [0.1, -0.2, 0.6, 0.96, 0.3, 0.55];
         let mut table = WaveTableBuilder::new()
-            .from_array(&samples, 3)
+            .from_array(&samples, 2)
+            .set_interpolation(InterpolateMethod::Linear)
             .build()
             .unwrap();
-        assert!(table.set_position(1).is_ok());
-        assert!(table.set_position(2).is_err());
+        table.set_position(0).unwrap();
+        assert_approx_eq!(table.evaluate(PI_2).unwrap(), -0.05);
+        table.set_position(1).unwrap();
+        assert_approx_eq!(table.evaluate(PI_2).unwrap(), 0.78);
+        assert!(table.set_position(3).is_err());
     }
 
     #[test]
