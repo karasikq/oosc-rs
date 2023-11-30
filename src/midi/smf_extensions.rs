@@ -100,7 +100,7 @@ impl<'a> TryFrom<&TrackEvent<'a>> for OwnedTrackEvent {
 
 type OwnedTrack = Vec<OwnedTrackEvent>;
 
-fn to_owned_track<'a>(track: &Track<'a>) -> Result<OwnedTrack, crate::error::Error> {
+fn to_owned_track(track: &Track<'_>) -> Result<OwnedTrack, crate::error::Error> {
     track.iter().map(OwnedTrackEvent::try_from).collect()
 }
 

@@ -80,6 +80,11 @@ impl SampleBufferMono {
         self.samples.len()
     }
 
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn at(&self, index: usize) -> Result<Sample, Error> {
         let sample = self
             .samples

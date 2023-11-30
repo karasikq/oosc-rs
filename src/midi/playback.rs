@@ -5,7 +5,7 @@ use crate::error::Error;
 use super::{mediator::MidiEventReceiver, smf_extensions::OwnedSmf};
 
 pub trait PlaybackControl: Sync + Send {
-    fn load<'a>(&mut self, data: Smf<'a>);
+    fn load(&mut self, data: Smf<'_>);
     fn set_bpm(&mut self, bpm: f32);
     fn process_events(
         &mut self,

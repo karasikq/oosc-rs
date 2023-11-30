@@ -13,7 +13,7 @@ use crate::{
         wavetable::WaveTableBuilder,
     },
     error::Error,
-    midi::playback::{BoxedMidiPlayback, PlaybackControl},
+    midi::playback::BoxedMidiPlayback,
     utils::{
         adsr_envelope::ADSREnvelope, interpolation::InterpolateMethod,
         sample_buffer::SampleBufferBuilder,

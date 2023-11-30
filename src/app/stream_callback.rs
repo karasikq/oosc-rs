@@ -1,13 +1,11 @@
 use std::sync::{Arc, Mutex};
 
-use midly::Smf;
-
 use crate::{
     core::synthesizer::Synthesizer,
     error::Error,
     midi::{
         mediator::{MidiEventReceiver, MidiSynthesizerMediator},
-        playback::{BoxedMidiPlayback, OptionalPlayback, PlaybackControl, SmfPlayback},
+        playback::BoxedMidiPlayback,
     },
 };
 

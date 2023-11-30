@@ -24,16 +24,16 @@ pub struct Synthesizer {
     oscillators: Vec<Osc>,
     effects: Vec<SynEffect>,
     sample_rate: u32,
-    delta_time: f32,
 }
 
 impl Synthesizer {
     pub fn output(&mut self) -> Result<&SampleBuffer, Error> {
         let buffer = &mut self.buffer;
+        let delta_time = 1.0 / self.sample_rate as f32;
         buffer.fill(0.);
         self.oscillators
             .par_iter_mut()
-            .try_for_each(|osc| -> Result<(), Error> { osc.evaluate(self.delta_time) })?;
+            .try_for_each(|osc| -> Result<(), Error> { osc.evaluate(delta_time) })?;
         self.oscillators
             .iter()
             .try_for_each(|osc| -> Result<(), Error> { buffer.combine(osc.get_buffer()) })?;
@@ -141,7 +141,6 @@ impl SynthesizerBuilder {
             oscillators,
             effects,
             sample_rate,
-            delta_time: 1.0 / sample_rate as f32,
         })
     }
 }
