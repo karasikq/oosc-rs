@@ -2,7 +2,7 @@ use midly::{Smf, Timing};
 
 use crate::error::Error;
 
-use super::mediator::MidiEventReceiver;
+use super::{mediator::MidiEventReceiver, smf_extensions::OwnedSmf};
 
 pub trait PlaybackControl: Sync + Send {
     // fn load<'a>(&mut self, data: Smf<'a>);
@@ -17,33 +17,34 @@ pub trait PlaybackControl: Sync + Send {
 
 pub type BoxedMidiPlayback = Option<Box<dyn PlaybackControl>>;
 
-pub struct SmfPlayback<'a> {
+pub struct SmfPlayback {
     time: f32,
     midi_ticks: u32,
     tps: f32,
     bpm: f32,
     ppq: u32,
-    data: Smf<'a>,
+    data: OwnedSmf,
 }
 
-pub type OptionalPlayback<'a> = Option<SmfPlayback<'a>>;
+pub type OptionalPlayback = Option<SmfPlayback>;
 
-impl<'a> SmfPlayback<'a> {
-    pub fn new(data: Smf<'a>) -> Self {
+impl SmfPlayback {
+    pub fn new<'a>(data: Smf<'a>) -> Result<Self, Error> {
+        let data = OwnedSmf::try_from(&data)?;
         let ppq = match data.header.timing {
             Timing::Metrical(v) => v.into(),
             Timing::Timecode(_, _) => 192,
         };
         let bpm = 120.0;
         let tps = Self::calculate_tps(bpm, ppq.into());
-        Self {
+        Ok(Self {
             time: 0.0,
             midi_ticks: 0,
             tps,
             bpm,
             ppq: ppq.into(),
             data,
-        }
+        })
     }
 
     fn calculate_tps(bpm: f32, ppq: u32) -> f32 {
@@ -51,7 +52,7 @@ impl<'a> SmfPlayback<'a> {
     }
 }
 
-impl<'a> PlaybackControl for SmfPlayback<'a> {
+impl PlaybackControl for SmfPlayback {
     fn play<'b>(
         &mut self,
         delta_time: f32,
@@ -66,7 +67,7 @@ impl<'a> PlaybackControl for SmfPlayback<'a> {
 
         for track in self.data.tracks.iter().skip(1) {
             for event in track.iter() {
-                current_ticks += event.delta.as_int();
+                current_ticks += event.delta;
                 if current_ticks > playback_midi_ticks + delta_ticks {
                     self.midi_ticks = match last_event_ticks {
                         0 => 1,

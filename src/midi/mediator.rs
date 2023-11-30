@@ -1,15 +1,12 @@
-use midly::TrackEvent;
-
 use crate::{
-    core::{
-        note::Note,
-        synthesizer::{SyncSynthesizer, Synthesizer},
-    },
+    core::{note::Note, synthesizer::SyncSynthesizer},
     error::Error,
 };
 
+use super::smf_extensions::{OwnedTrackEvent, OwnedTrackEventKind};
+
 pub trait MidiEventReceiver {
-    fn receive_event(&mut self, event: &TrackEvent) -> Result<(), Error>;
+    fn receive_event(&mut self, event: &OwnedTrackEvent) -> Result<(), Error>;
 }
 
 pub struct MidiSynthesizerMediator {
@@ -23,10 +20,10 @@ impl MidiSynthesizerMediator {
 }
 
 impl MidiEventReceiver for MidiSynthesizerMediator {
-    fn receive_event(&mut self, event: &TrackEvent) -> Result<(), Error> {
+    fn receive_event(&mut self, event: &OwnedTrackEvent) -> Result<(), Error> {
         let mut syn = self.synthesizer.lock().unwrap();
         match event.kind {
-            midly::TrackEventKind::Midi { message, .. } => match message {
+            OwnedTrackEventKind::Midi { message, .. } => match message {
                 midly::MidiMessage::NoteOn { key, vel } => {
                     let key = key.as_int();
                     let vel = vel.as_int();
@@ -38,9 +35,9 @@ impl MidiEventReceiver for MidiSynthesizerMediator {
                 }
                 _ => (),
             },
-            midly::TrackEventKind::SysEx(_) => (),
-            midly::TrackEventKind::Escape(_) => (),
-            midly::TrackEventKind::Meta(_) => (),
+            OwnedTrackEventKind::SysEx(_) => (),
+            OwnedTrackEventKind::Escape(_) => (),
+            OwnedTrackEventKind::Meta(_) => (),
         };
         Ok(())
     }
