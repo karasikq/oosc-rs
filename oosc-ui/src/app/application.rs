@@ -1,9 +1,9 @@
 use std::{io::Stdout, time::Duration};
 
-use crate::{core::note::Note, utils::adsr_envelope::State};
+use oosc_core::{core::note::Note, utils::adsr_envelope::State};
 
 use super::{config::Config, context};
-use anyhow::Context;
+use anyhow::{Context, Result};
 use cpal::traits::DeviceTrait;
 use crossterm::{
     event::{self, Event, KeyCode},
@@ -18,7 +18,7 @@ pub struct Application {
 }
 
 impl Application {
-    pub fn new() -> Result<Self, crate::error::Error> {
+    pub fn new() -> Result<Self> {
         let config = Config {
             channels: 2,
             sample_rate: 48000,
@@ -29,46 +29,43 @@ impl Application {
         Ok(Application { ctx, config })
     }
 
-    pub fn run(&mut self) -> Result<(), crate::error::Error> {
-        // self.detach_stream()?;
-        self.detach_keyboard().map_err(|e| e.to_string())?;
+    pub fn run(&mut self) -> Result<()> {
+        self.detach_keyboard()?;
         Ok(())
     }
 
-    pub fn detach_stream(&mut self) -> Result<cpal::Stream, crate::error::Error> {
+    pub fn detach_stream(&mut self) -> Result<cpal::Stream> {
         let (_, device, config) = context::Context::get_default_device(&self.config)?;
         let err_fn = |err| println!("an error occurred on stream: {}", err);
         let callbacks = self.ctx.callbacks.get_callbacks();
         let mut total_playback_seconds = 0.;
         let delta = self.config.buffer_size as f32 / self.config.sample_rate as f32;
-        Ok(device
-            .build_output_stream(
-                &config,
-                move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                    callbacks
-                        .iter()
-                        .try_for_each(|callback| -> Result<(), crate::error::Error> {
-                            let mut callback = callback.lock().unwrap();
-                            callback.process_stream(data, total_playback_seconds)
-                        })
-                        .unwrap();
-                    total_playback_seconds += delta;
-                },
-                err_fn,
-                None,
-            )
-            .map_err(|e| e.to_string())?)
+        Ok(device.build_output_stream(
+            &config,
+            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                callbacks
+                    .iter()
+                    .try_for_each(|callback| -> Result<()> {
+                        let mut callback = callback.lock().unwrap();
+                        Ok(callback.process_stream(data, total_playback_seconds)?)
+                    })
+                    .unwrap();
+                total_playback_seconds += delta;
+            },
+            err_fn,
+            None,
+        )?)
     }
 
     // MOVE THIS TO UI MOD
-    pub fn detach_keyboard(&mut self) -> Result<(), anyhow::Error> {
+    pub fn detach_keyboard(&mut self) -> Result<()> {
         let mut terminal = self.setup_terminal().context("setup failed")?;
         self.run_term(&mut terminal).context("app loop failed")?;
         Self::restore_terminal(&mut terminal).context("restore terminal failed")?;
         Ok(())
     }
 
-    fn setup_terminal(&mut self) -> Result<Terminal<CrosstermBackend<Stdout>>, anyhow::Error> {
+    fn setup_terminal(&mut self) -> Result<Terminal<CrosstermBackend<Stdout>>> {
         let mut stdout = std::io::stdout();
         enable_raw_mode().context("failed to enable raw mode")?;
         execute!(stdout, EnterAlternateScreen).context("unable to enter alternate screen")?;
@@ -102,7 +99,7 @@ impl Application {
         frame.render_widget(greeting, frame.size());
     }
 
-    fn read_key(&mut self) -> Result<bool, anyhow::Error> {
+    fn read_key(&mut self) -> Result<bool> {
         if event::poll(Duration::from_millis(250)).context("event poll failed")? {
             if let Event::Key(key) = event::read().context("event read failed")? {
                 return Ok(match key.code {

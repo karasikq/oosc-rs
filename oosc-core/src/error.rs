@@ -3,23 +3,11 @@ pub enum Error {
     Order(String),
     Specify(&'static str),
     Generic(String),
-    Sync(String),
 }
 
 impl Error {
     pub fn new<T: Into<String>>(msg: T) -> Self {
         Self::Generic(msg.into())
-    }
-}
-
-impl ToString for Error {
-    fn to_string(&self) -> String {
-        match self {
-            Self::Order(err) => err.to_string(),
-            Self::Generic(err) => err.to_string(),
-            Self::Specify(err) => format!("Need to specify {} first", err),
-            Error::Sync(err) => err.to_string(),
-        }
     }
 }
 
@@ -40,3 +28,15 @@ impl From<String> for Error {
         Self::Generic(err)
     }
 }
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Order(err) => write!(f, "{}", err),
+            Self::Generic(err) => write!(f, "{}", err),
+            Self::Specify(err) => write!(f, "Need to specify {} first", err),
+        }
+    }
+}
+
+impl std::error::Error for Error {}

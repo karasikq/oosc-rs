@@ -1,0 +1,14 @@
+[package]
+name = "oosc-rs"
+version = "0.1.0"
+edition = "2021"
+authors     = [ "karasikq <romastepanuik@gmail.com>" ]
+description = "TUI synthesizer"
+
+[dependencies]
+oosc-core = { path = "../oosc-core", version = "0.1.0" }
+cpal = "0.15.2"
+ratatui = "0.24.0"
+crossterm = "0.27.0"
+anyhow = "1.0.75"
+midly = "0.5.3"

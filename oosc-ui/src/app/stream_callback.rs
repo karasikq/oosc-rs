@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{
+use oosc_core::{
     core::synthesizer::Synthesizer,
     error::Error,
     midi::{

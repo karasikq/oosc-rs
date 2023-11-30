@@ -5,7 +5,7 @@ use cpal::{
     Device, Host, StreamConfig,
 };
 
-use crate::{
+use oosc_core::{
     core::{
         oscillator::{OscillatorBuilder, WavetableOscillator},
         synthesizer::{Synthesizer, SynthesizerBuilder},

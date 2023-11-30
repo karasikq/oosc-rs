@@ -1,25 +1,18 @@
-use cpal::traits::StreamTrait;
-
-use self::{
-    app::application::Application,
-    error::Error,
-    midi::playback::{PlaybackControl, SmfPlayback},
-};
-use midly::Smf;
-
 pub mod app;
-pub mod core;
-pub mod effects;
-pub mod error;
-pub mod midi;
-pub mod utils;
+
+use anyhow::Error;
+use cpal::traits::StreamTrait;
+use midly::Smf;
+use oosc_core::midi::playback::{PlaybackControl, SmfPlayback};
+
+use self::app::application::Application;
 
 fn main() -> Result<(), Error> {
     let mut app = Application::new()?;
 
     {
         let smf = Smf::parse(include_bytes!(
-            "../resources/midi/Beethoven-Moonlight-Sonata.mid"
+            "../test-resources/midi/Beethoven-Moonlight-Sonata.mid"
         ))
         .unwrap();
         let mut midi_playback = SmfPlayback::new(smf)?;

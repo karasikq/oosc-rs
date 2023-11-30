@@ -14,4 +14,4 @@ Cargo.lock
 *.pdb
 
 **/.DS_Store
-resources/*
+**/test-resources/*
