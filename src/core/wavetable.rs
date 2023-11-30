@@ -4,14 +4,14 @@ use crate::{
         consts::PI_2M,
         evaluate::Evaluate,
         interpolation::{interpolate_lagrange, interpolate_linear, InterpolateMethod},
-        sample_buffer::{SampleBuffer, SampleBufferBuilder},
+        sample_buffer::SampleBufferMono,
     },
 };
 
 use super::waveshape::WaveShape;
 
 pub struct WaveTable {
-    buffer: SampleBuffer,
+    buffer: SampleBufferMono,
     chunk_size: usize,
     chunks: usize,
     position: usize,
@@ -19,7 +19,7 @@ pub struct WaveTable {
 }
 
 pub struct WaveTableBuilder {
-    buffer: Option<SampleBuffer>,
+    buffer: Option<SampleBufferMono>,
     chunk_size: Option<usize>,
     position: Option<usize>,
     interpolation: Option<InterpolateMethod>,
@@ -35,7 +35,7 @@ impl WaveTableBuilder {
         }
     }
 
-    pub fn set_buffer(&mut self, buffer: SampleBuffer) -> &mut Self {
+    pub fn set_buffer(&mut self, buffer: SampleBufferMono) -> &mut Self {
         self.buffer = Some(buffer);
         self
     }
@@ -76,7 +76,7 @@ impl WaveTableBuilder {
     }
 
     pub fn from_array(&mut self, a: &[f32], chunk_size: usize) -> &mut Self {
-        let buffer = SampleBufferBuilder::from_array(a);
+        let buffer = SampleBufferMono::from_array(a);
         self.set_buffer(buffer);
         self.set_chunk_size(chunk_size);
         self
@@ -87,7 +87,7 @@ impl WaveTableBuilder {
         let vec: Vec<f32> = (0..chunk_size)
             .map(|v| shape.evaluate(v as f32 * step).unwrap())
             .collect();
-        let buffer = SampleBufferBuilder::from_vec(vec);
+        let buffer = SampleBufferMono::from_vec(vec);
         self.set_buffer(buffer);
         self.set_chunk_size(chunk_size);
         self
@@ -102,7 +102,7 @@ impl Default for WaveTableBuilder {
 
 impl WaveTable {
     fn sample_at(&self, index: usize) -> Result<f32, Error> {
-        self.buffer.at(0, index)
+        self.buffer.at(index)
     }
 
     fn set_position(&mut self, position: usize) -> Result<(), Error> {
@@ -178,7 +178,7 @@ mod tests {
     use crate::utils::consts::PI;
     use crate::utils::evaluate::Evaluate;
     use crate::utils::interpolation::InterpolateMethod;
-    use crate::utils::sample_buffer::SampleBufferBuilder;
+    use crate::utils::sample_buffer::SampleBufferMono;
     use crate::{
         core::{waveshape::WaveShape, wavetable::WaveTableBuilder},
         utils::consts::PI_2M,
@@ -227,7 +227,7 @@ mod tests {
     fn test_wavetable_builder() {
         let samples = [0.1, -0.2, 0.6, 0.96, 0.3, 0.55];
         WaveTableBuilder::new()
-            .set_buffer(SampleBufferBuilder::from_array(&samples))
+            .set_buffer(SampleBufferMono::from_array(&samples))
             .set_chunk_size(2)
             .set_position(0)
             .build()
