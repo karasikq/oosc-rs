@@ -17,6 +17,7 @@ pub trait Oscillator<'a, T>: Send + Sync + NoteEventReceiver {
     fn evaluate(&mut self, t: f32) -> Result<T, Error>;
     fn get_buffer_mut(&mut self) -> &mut SampleBuffer;
     fn get_buffer(&self) -> &SampleBuffer;
+    fn release_all(&mut self);
 }
 
 pub struct WavetableOscillator {
@@ -55,10 +56,10 @@ impl WavetableOscillator {
     }
 
     fn remove_released_notes(&mut self) {
-        self.release_notes
-            .retain(|note| {
-                note.state != State::None && note.play_time < self.envelope.time_range_of(State::Release).1
-            });
+        self.release_notes.retain(|note| {
+            note.state != State::None
+                && note.play_time < self.envelope.time_range_of(State::Release).1
+        });
     }
 }
 
@@ -116,6 +117,12 @@ impl Oscillator<'_, ()> for WavetableOscillator {
     fn get_buffer_mut(&mut self) -> &mut SampleBuffer {
         &mut self.buffer
     }
+
+    fn release_all(&mut self) {
+        while let Some(note) = self.notes.pop() {
+            self.release_notes.push(note);
+        }
+    }
 }
 
 impl NoteEventReceiver for WavetableOscillator {
@@ -129,7 +136,11 @@ impl NoteEventReceiver for WavetableOscillator {
     }
 
     fn note_off(&mut self, note: u32) -> std::result::Result<(), Error> {
-        let index = self.get_note(note)?;
+        let index = self.get_note(note);
+        let index = match index {
+            Ok(i) => i,
+            Err(_) => return Ok(()),
+        };
         let mut note = self.remove_note(index);
         note.hold_on = State::None;
         // Makes "clipping" sound. How to smoothly release note??

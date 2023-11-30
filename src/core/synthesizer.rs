@@ -47,6 +47,12 @@ impl Synthesizer {
         &self.buffer
     }
 
+    pub fn release_all(&mut self) {
+        self.oscillators
+            .par_iter_mut()
+            .for_each(|osc| { osc.release_all(); })
+    }
+
     pub fn note_on(&mut self, note: Note) -> Result<(), Error> {
         self.oscillators
             .par_iter_mut()
