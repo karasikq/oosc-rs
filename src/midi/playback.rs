@@ -5,9 +5,9 @@ use crate::error::Error;
 use super::{mediator::MidiEventReceiver, smf_extensions::OwnedSmf};
 
 pub trait PlaybackControl: Sync + Send {
-    // fn load<'a>(&mut self, data: Smf<'a>);
+    fn load<'a>(&mut self, data: Smf<'a>);
     fn set_bpm(&mut self, bpm: f32);
-    fn play<'b>(
+    fn process_events(
         &mut self,
         delta_time: f32,
         event_receiver: &mut Box<dyn MidiEventReceiver>,
@@ -29,7 +29,7 @@ pub struct SmfPlayback {
 pub type OptionalPlayback = Option<SmfPlayback>;
 
 impl SmfPlayback {
-    pub fn new<'a>(data: Smf<'a>) -> Result<Self, Error> {
+    pub fn new(data: Smf<'_>) -> Result<Self, Error> {
         let data = OwnedSmf::try_from(&data)?;
         let ppq = match data.header.timing {
             Timing::Metrical(v) => v.into(),
@@ -53,7 +53,7 @@ impl SmfPlayback {
 }
 
 impl PlaybackControl for SmfPlayback {
-    fn play<'b>(
+    fn process_events(
         &mut self,
         delta_time: f32,
         event_receiver: &mut Box<dyn MidiEventReceiver>,
@@ -102,13 +102,17 @@ impl PlaybackControl for SmfPlayback {
         self.midi_ticks = 0;
     }
 
-    /* fn load<'b>(&mut self, data: Smf<'b>) {
-        self.data = data;
-        self.ppq = match data.header.timing {
-            Timing::Metrical(v) => v.into() as u32,
+    fn load(&mut self, data: Smf<'_>) {
+        self.data = OwnedSmf::try_from(&data).unwrap();
+        let ppq = match data.header.timing {
+            Timing::Metrical(v) => v.into(),
             Timing::Timecode(_, _) => 192,
         };
+        self.ppq = ppq as u32;
         self.bpm = 120.0;
-        self.tps = Self::calculate_tps(bpm, self.ppq);
-    } */
+        self.tps = Self::calculate_tps(self.bpm, self.ppq);
+        self.midi_ticks = 0;
+        self.time = 0.0;
+    }
+
 }

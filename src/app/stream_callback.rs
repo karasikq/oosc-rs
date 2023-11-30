@@ -47,7 +47,7 @@ impl StreamCallback for MidiStreamCallback {
         let syn = self.1.clone();
         let mut synth_mediator: Box<dyn MidiEventReceiver> =
             Box::new(MidiSynthesizerMediator::new(syn));
-        playback.play(time, &mut synth_mediator).unwrap();
+        playback.process_events(time, &mut synth_mediator)?;
         Ok(())
     }
 }
