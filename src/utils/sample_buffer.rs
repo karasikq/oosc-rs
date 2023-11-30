@@ -76,6 +76,10 @@ impl SampleBufferMono {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.samples.len()
+    }
+
     pub fn at(&self, index: usize) -> Result<Sample, Error> {
         let sample = self
             .samples
@@ -118,6 +122,14 @@ impl SampleBufferMono {
     pub fn from_vec(a: Vec<Sample>) -> Self {
         let samples = a;
         Self { samples }
+    }
+
+    pub fn get_slice(&self) -> &[f32] {
+        &self.samples
+    }
+
+    pub fn get_slice_mut(&mut self) -> &mut [f32] {
+        &mut self.samples
     }
 }
 
