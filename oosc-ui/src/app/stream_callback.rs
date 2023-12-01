@@ -5,7 +5,7 @@ use oosc_core::{
     error::Error,
     midi::{
         mediator::{MidiEventReceiver, MidiSynthesizerMediator},
-        playback::BoxedMidiPlayback,
+        playback::{PlaybackControl, PlaybackState},
     },
 };
 
@@ -15,7 +15,7 @@ pub trait StreamCallback: Send + Sync {
 
 pub struct SynthesizerStreamCallback(pub Arc<Mutex<Synthesizer>>);
 pub struct MidiStreamCallback(
-    pub Arc<Mutex<BoxedMidiPlayback>>,
+    pub Arc<Mutex<dyn PlaybackControl>>,
     pub Arc<Mutex<Synthesizer>>,
 );
 
@@ -38,10 +38,9 @@ impl StreamCallback for SynthesizerStreamCallback {
 impl StreamCallback for MidiStreamCallback {
     fn process_stream(&mut self, _data: &mut [f32], time: f32) -> std::result::Result<(), Error> {
         let mut playback = self.0.lock().unwrap();
-        if playback.is_none() {
+        if let PlaybackState::None = playback.get_state() {
             return Ok(());
         }
-        let playback = playback.as_mut().unwrap();
         let syn = self.1.clone();
         let mut synth_mediator: Box<dyn MidiEventReceiver> =
             Box::new(MidiSynthesizerMediator::new(syn));

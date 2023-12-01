@@ -13,7 +13,7 @@ use oosc_core::{
         wavetable::WaveTableBuilder,
     },
     error::Error,
-    midi::playback::BoxedMidiPlayback,
+    midi::playback::{PlaybackControl, SmfPlayback},
     utils::{
         adsr_envelope::ADSREnvelope, interpolation::InterpolateMethod,
         sample_buffer::SampleBufferBuilder,
@@ -42,9 +42,7 @@ impl CallbacksData {
 pub struct Context {
     pub synthesizer: Arc<Mutex<Synthesizer>>,
     pub callbacks: CallbacksData,
-    pub midi_control: Arc<Mutex<BoxedMidiPlayback>>,
-    /* pub device: Device,
-    pub stream_config: StreamConfig, */
+    pub midi_control: Arc<Mutex<dyn PlaybackControl>>,
 }
 
 impl Context {
@@ -65,7 +63,7 @@ impl Context {
             Arc::new(Mutex::new(SynthesizerStreamCallback(synthesizer_cloned)));
 
         let synthesizer_cloned = synthesizer.clone();
-        let midi_control = Arc::new(Mutex::new(None));
+        let midi_control = Arc::new(Mutex::new(SmfPlayback::default()));
         let midi_control_cloned = midi_control.clone();
         let midi_callback = Arc::new(Mutex::new(MidiStreamCallback(
             midi_control_cloned,
@@ -77,13 +75,10 @@ impl Context {
             midi_callback,
         };
 
-        // let (device, stream_config) = Self::get_default_device(config)?;
         Ok(Self {
             synthesizer,
             callbacks,
             midi_control,
-            /* device,
-            stream_config, */
         })
     }
 
