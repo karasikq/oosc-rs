@@ -17,7 +17,6 @@ pub trait Oscillator<'a, T>: Send + Sync + NoteEventReceiver {
     fn evaluate(&mut self, t: f32) -> Result<T, Error>;
     fn get_buffer_mut(&mut self) -> &mut SampleBuffer;
     fn get_buffer(&self) -> &SampleBuffer;
-    fn release_all(&mut self);
 }
 
 pub struct WavetableOscillator {
@@ -117,12 +116,6 @@ impl Oscillator<'_, ()> for WavetableOscillator {
     fn get_buffer_mut(&mut self) -> &mut SampleBuffer {
         &mut self.buffer
     }
-
-    fn release_all(&mut self) {
-        while let Some(note) = self.notes.pop() {
-            self.release_notes.push(note);
-        }
-    }
 }
 
 impl NoteEventReceiver for WavetableOscillator {
@@ -147,6 +140,12 @@ impl NoteEventReceiver for WavetableOscillator {
         // note.play_time = self.envelope.time_range_of(State::Release).0;
         self.release_notes.push(note);
         Ok(())
+    }
+
+    fn release_all(&mut self) {
+        while let Some(note) = self.notes.pop() {
+            self.release_notes.push(note);
+        }
     }
 }
 

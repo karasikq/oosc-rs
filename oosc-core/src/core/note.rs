@@ -32,6 +32,7 @@ impl From<u32> for Note {
 pub trait NoteEventReceiver {
     fn note_on(&mut self, note: Note) -> Result<(), Error>;
     fn note_off(&mut self, note: u32) -> Result<(), Error>;
+    fn release_all(&mut self);
 }
 
 pub struct Converter;
