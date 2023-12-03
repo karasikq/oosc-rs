@@ -1,11 +1,11 @@
 use super::note::Converter;
-use crate::error::Error;
+use crate::{error::Error, utils::math::clamp};
 
-pub trait Parametr<'a, T>
+pub trait Parametr<T>
 where
-    T: Clone,
+    T: Clone + PartialOrd,
 {
-    fn set_value(&mut self, value: T) -> Result<&mut Self, Error>;
+    fn set_value(&mut self, value: T) -> Result<(), Error>;
     fn get_value(&self) -> Result<T, Error>;
     fn range(&self) -> Result<(T, T), Error>;
 }
@@ -27,13 +27,13 @@ where
     }
 }
 
-impl<'a, T> Parametr<'a, T> for ValueParametr<T>
+impl<T> Parametr<T> for ValueParametr<T>
 where
-    T: Clone,
+    T: Clone + PartialOrd,
 {
-    fn set_value(&mut self, value: T) -> Result<&mut Self, Error> {
-        self.value = value;
-        Ok(self)
+    fn set_value(&mut self, value: T) -> Result<(), Error> {
+        self.value = clamp(value, &self.range);
+        Ok(())
     }
 
     fn get_value(&self) -> Result<T, Error> {
@@ -53,10 +53,10 @@ impl OctaveParametr {
     }
 }
 
-impl<'a> Parametr<'a, i32> for OctaveParametr {
-    fn set_value(&mut self, value: i32) -> Result<&mut Self, Error> {
+impl Parametr<i32> for OctaveParametr {
+    fn set_value(&mut self, value: i32) -> Result<(), Error> {
         self.0.set_value(value * 12)?;
-        Ok(self)
+        Ok(())
     }
 
     fn get_value(&self) -> Result<i32, Error> {
@@ -89,11 +89,11 @@ impl From<ValueParametr<f32>> for PanParametr {
     }
 }
 
-impl<'a> Parametr<'a, f32> for PanParametr {
-    fn set_value(&mut self, value: f32) -> Result<&mut Self, Error> {
+impl Parametr<f32> for PanParametr {
+    fn set_value(&mut self, value: f32) -> Result<(), Error> {
         self.bipolar.set_value(value)?;
         self.polar = Converter::split_bipolar_pan(value);
-        Ok(self)
+        Ok(())
     }
 
     fn get_value(&self) -> Result<f32, Error> {
@@ -125,11 +125,11 @@ impl From<ValueParametr<f32>> for VolumeParametr {
     }
 }
 
-impl<'a> Parametr<'a, f32> for VolumeParametr {
-    fn set_value(&mut self, value: f32) -> Result<&mut Self, Error> {
+impl Parametr<f32> for VolumeParametr {
+    fn set_value(&mut self, value: f32) -> Result<(), Error> {
         self.db.set_value(value)?;
         self.linear = Converter::power_to_linear(value);
-        Ok(self)
+        Ok(())
     }
 
     fn get_value(&self) -> Result<f32, Error> {
