@@ -2,6 +2,8 @@ use std::{io::Stdout, time::Duration};
 
 use oosc_core::{core::note::Note, utils::adsr_envelope::State};
 
+use crate::ui::renderer::Renderer;
+
 use super::{config::Config, context};
 use anyhow::{Context, Result};
 use cpal::traits::DeviceTrait;
@@ -86,7 +88,10 @@ impl Application {
         terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     ) -> Result<(), anyhow::Error> {
         loop {
-            terminal.draw(Self::render_app)?;
+            let render = Renderer::new(self);
+            terminal.draw(|f| {
+                Self::render_app(f, render);
+            })?;
             if !Self::read_key(self)? {
                 break;
             }
@@ -94,9 +99,9 @@ impl Application {
         Ok(())
     }
 
-    fn render_app(frame: &mut Frame) {
+    fn render_app(frame: &mut Frame, renderer: Renderer) {
         let greeting = Paragraph::new("Hello World! (press 'q' to quit)");
-        frame.render_widget(greeting, frame.size());
+        frame.render_widget(renderer, frame.size());
     }
 
     fn read_key(&mut self) -> Result<bool> {

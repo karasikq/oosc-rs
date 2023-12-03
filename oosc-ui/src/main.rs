@@ -1,4 +1,5 @@
 pub mod app;
+pub mod ui;
 
 use anyhow::Error;
 use cpal::traits::StreamTrait;
@@ -19,8 +20,8 @@ fn main() -> Result<(), Error> {
         midi_control.play();
     }
 
-    let stream = app.detach_stream()?;
-    stream.play().unwrap();
+    // let stream = app.detach_stream()?;
+    // stream.play().unwrap();
     app.run()?;
     // std::thread::sleep(std::time::Duration::from_millis(60000));
     Ok(())
