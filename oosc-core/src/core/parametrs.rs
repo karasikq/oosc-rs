@@ -3,10 +3,17 @@ use crate::{error::Error, utils::math::clamp};
 
 pub trait Parametr<T>
 where
-    T: Clone + PartialOrd,
+    T: Clone + PartialOrd + Default,
 {
     fn set_value(&mut self, value: T) -> Result<(), Error>;
     fn get_value(&self) -> Result<T, Error>;
+    fn get_value_or_default(&self) -> T {
+        let value = self.get_value().ok();
+        match value {
+            Some(v) => v,
+            None => T::default(),
+        }
+    }
     fn range(&self) -> Result<(T, T), Error>;
 }
 
@@ -20,7 +27,7 @@ where
 
 impl<T> ValueParametr<T>
 where
-    T: Clone,
+    T: Clone + PartialOrd + Default,
 {
     pub fn new(value: T, range: (T, T)) -> Self {
         Self { value, range }
@@ -29,7 +36,7 @@ where
 
 impl<T> Parametr<T> for ValueParametr<T>
 where
-    T: Clone + PartialOrd,
+    T: Clone + PartialOrd + Default,
 {
     fn set_value(&mut self, value: T) -> Result<(), Error> {
         self.value = clamp(value, &self.range);
