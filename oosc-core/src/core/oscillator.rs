@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use crate::core::note::Converter;
 use crate::core::note::Note;
 use crate::error::Error;
@@ -13,10 +15,12 @@ use super::parametrs::Parametr;
 use super::parametrs::ValueParametr;
 use super::wavetable::WaveTable;
 
-pub trait Oscillator<'a, T>: Send + Sync + NoteEventReceiver {
-    fn evaluate(&mut self, t: f32) -> Result<T, Error>;
+pub trait Oscillator: Send + Sync + NoteEventReceiver {
+    fn evaluate(&mut self, t: f32) -> Result<(), Error>;
     fn get_buffer_mut(&mut self) -> &mut SampleBuffer;
     fn get_buffer(&self) -> &SampleBuffer;
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 pub struct WavetableOscillator {
@@ -62,7 +66,7 @@ impl WavetableOscillator {
     }
 }
 
-impl Oscillator<'_, ()> for WavetableOscillator {
+impl Oscillator for WavetableOscillator {
     fn evaluate(&mut self, delta_time: f32) -> Result<(), Error> {
         let buffer = &mut self.buffer;
         buffer.fill(0.);
@@ -115,6 +119,14 @@ impl Oscillator<'_, ()> for WavetableOscillator {
 
     fn get_buffer_mut(&mut self) -> &mut SampleBuffer {
         &mut self.buffer
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 

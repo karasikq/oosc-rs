@@ -14,8 +14,8 @@ use crate::{
     utils::sample_buffer::{SampleBuffer, SampleBufferBuilder},
 };
 
-type Osc = Box<dyn for<'a> Oscillator<'a, ()>>;
-type SynEffect = Box<dyn for<'a> Effect<'a> + Sync + Send>;
+type Osc = Box<dyn Oscillator>;
+type SynEffect = Box<dyn Effect + Sync + Send>;
 
 pub type SyncSynthesizer = Arc<Mutex<Synthesizer>>;
 
@@ -48,9 +48,9 @@ impl Synthesizer {
     }
 
     pub fn release_all(&mut self) {
-        self.oscillators
-            .par_iter_mut()
-            .for_each(|osc| { osc.release_all(); })
+        self.oscillators.par_iter_mut().for_each(|osc| {
+            osc.release_all();
+        })
     }
 
     pub fn note_on(&mut self, note: Note) -> Result<(), Error> {
@@ -63,6 +63,15 @@ impl Synthesizer {
         self.oscillators
             .par_iter_mut()
             .try_for_each(|osc| -> Result<(), Error> { osc.note_off(note) })
+    }
+
+    pub fn get_oscillators<'a, T>(&'a mut self) -> impl Iterator<Item = &'a mut T>
+    where
+        T: Oscillator + 'a + 'static,
+    {
+        self.oscillators
+            .iter_mut()
+            .filter_map(|osc| osc.as_any_mut().downcast_mut::<T>())
     }
 }
 

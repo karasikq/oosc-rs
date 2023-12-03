@@ -17,7 +17,7 @@ impl Amplifier {
     }
 }
 
-impl<'a> Effect<'a> for Amplifier {
+impl Effect for Amplifier {
     fn process(&self, buffer: &mut SampleBuffer) -> Result<(), Error> {
         let gain = &self.gain;
         let pan = &self.pan;
