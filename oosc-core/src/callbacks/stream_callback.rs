@@ -5,8 +5,8 @@ use crate::{
     error::Error,
     midi::{
         mediator::{MidiEventReceiver, MidiSynthesizerMediator},
-        playback::{MidiPlaybackControl, PlaybackState},
-    },
+        playback::{MidiPlayback, PlaybackState},
+    }, render::stream_renderer::{StreamRenderer, RenderState},
 };
 
 pub trait StreamCallback: Send + Sync {
@@ -32,7 +32,7 @@ impl StreamCallback for SynthesizerStreamCallback {
 }
 
 pub struct MidiStreamCallback(
-    pub Arc<Mutex<dyn MidiPlaybackControl>>,
+    pub Arc<Mutex<dyn MidiPlayback>>,
     pub Arc<Mutex<Synthesizer>>,
 );
 
@@ -51,20 +51,16 @@ impl StreamCallback for MidiStreamCallback {
 }
 
 pub struct RenderStreamCallback(
-    pub Arc<Mutex<dyn MidiPlaybackControl>>,
-    pub Arc<Mutex<Synthesizer>>,
+    pub Arc<Mutex<dyn StreamRenderer>>,
 );
 
 impl StreamCallback for RenderStreamCallback {
-    fn process_stream(&mut self, _data: &mut [f32], time: f32) -> std::result::Result<(), Error> {
-        let mut playback = self.0.lock().unwrap();
-        if let PlaybackState::None = playback.get_state() {
+    fn process_stream(&mut self, data: &mut [f32], _time: f32) -> std::result::Result<(), Error> {
+        let mut renderer = self.0.lock().unwrap();
+        if let RenderState::None = renderer.get_state() {
             return Ok(());
         }
-        let syn = self.1.clone();
-        let mut synth_mediator: Box<dyn MidiEventReceiver> =
-            Box::new(MidiSynthesizerMediator::new(syn));
-        playback.process_events(time, &mut synth_mediator)?;
+        renderer.record(data)?;
         Ok(())
     }
 }

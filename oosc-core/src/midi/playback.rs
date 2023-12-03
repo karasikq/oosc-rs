@@ -12,7 +12,7 @@ pub enum PlaybackState {
     Stoped,
 }
 
-pub trait MidiPlaybackControl: Sync + Send {
+pub trait MidiPlayback: Sync + Send {
     fn load(&mut self, data: Smf<'_>);
     fn play(&mut self);
     fn set_bpm(&mut self, bpm: f32);
@@ -78,7 +78,7 @@ impl Default for SmfPlayback {
     }
 }
 
-impl MidiPlaybackControl for SmfPlayback {
+impl MidiPlayback for SmfPlayback {
     fn process_events(
         &mut self,
         delta_time: f32,

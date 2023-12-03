@@ -1,3 +1,5 @@
+// Use this only in not nested features??
+// And anyhow in other cases
 #[derive(Debug)]
 pub enum Error {
     Order(String),
