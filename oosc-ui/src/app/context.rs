@@ -6,6 +6,7 @@ use cpal::{
 };
 
 use oosc_core::{
+    callbacks::stream_callback::{MidiStreamCallback, StreamCallback, SynthesizerStreamCallback},
     core::{
         oscillator::{OscillatorBuilder, WavetableOscillator},
         synthesizer::{Synthesizer, SynthesizerBuilder},
@@ -13,17 +14,14 @@ use oosc_core::{
         wavetable::WaveTableBuilder,
     },
     error::Error,
-    midi::playback::{PlaybackControl, SmfPlayback},
+    midi::playback::{MidiPlayback, SmfPlayback},
     utils::{
         adsr_envelope::ADSREnvelope, interpolation::InterpolateMethod,
         sample_buffer::SampleBufferBuilder,
     },
 };
 
-use super::{
-    config::Config,
-    stream_callback::{MidiStreamCallback, StreamCallback, SynthesizerStreamCallback},
-};
+use super::config::Config;
 
 pub struct CallbacksData {
     pub synthesizer_callback: Arc<Mutex<SynthesizerStreamCallback>>,
@@ -42,7 +40,7 @@ impl CallbacksData {
 pub struct Context {
     pub synthesizer: Arc<Mutex<Synthesizer>>,
     pub callbacks: CallbacksData,
-    pub midi_control: Arc<Mutex<dyn PlaybackControl>>,
+    pub midi_control: Arc<Mutex<dyn MidiPlayback>>,
 }
 
 impl Context {

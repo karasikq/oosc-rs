@@ -12,7 +12,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{prelude::*, widgets::*};
+use ratatui::prelude::*;
 
 pub struct Application {
     pub ctx: context::Context,
@@ -100,7 +100,6 @@ impl Application {
     }
 
     fn render_app(frame: &mut Frame, renderer: Renderer) {
-        let greeting = Paragraph::new("Hello World! (press 'q' to quit)");
         frame.render_widget(renderer, frame.size());
     }
 
