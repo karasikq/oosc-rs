@@ -34,6 +34,10 @@ pub struct WavetableOscillator {
 }
 
 impl WavetableOscillator {
+    pub fn get_wavetable(&self) -> &WaveTable {
+        &self.wavetable
+    }
+
     pub fn get_envelope(&mut self) -> &mut ADSREnvelope {
         &mut self.envelope
     }
