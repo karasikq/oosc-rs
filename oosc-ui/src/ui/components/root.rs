@@ -1,6 +1,6 @@
 use crate::app::application::Application;
 
-use super::{Component, Container, FocusableComponent};
+use super::{Component, FocusableComponent};
 
 #[derive(Clone, Copy, Debug)]
 pub enum Mode {
@@ -22,10 +22,8 @@ pub enum RootAction {
 
 pub struct Root<'a> {
     pub app: &'a Application,
-    components: Container<dyn FocusableComponent>,
 }
 
 impl<'a> Root<'a> {
-    pub fn new(app: &'a Application) {
-    }
+    pub fn new(app: &'a Application) {}
 }

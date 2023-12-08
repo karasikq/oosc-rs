@@ -1,7 +1,6 @@
 pub mod oscillator;
 pub mod root;
-
-use std::any::Any;
+pub mod synthesizer;
 
 use anyhow::Result;
 use crossterm::event::{KeyEvent, MouseEvent};
@@ -10,30 +9,35 @@ use ratatui::{layout::Rect, Frame};
 use super::utils::Event;
 
 pub trait Component {
+    type Action;
+
     fn init(&mut self) -> Result<()> {
         Ok(())
     }
 
     fn handle_events(&mut self, event: Option<Event>) -> Result<()> {
-        match event {
+        let result = match event {
             Some(Event::Key(key_event)) => self.handle_key_events(key_event)?,
             Some(Event::Mouse(mouse_event)) => self.handle_mouse_events(mouse_event)?,
-            _ => (),
+            _ => None,
         };
+        self.update(result)?;
         Ok(())
     }
 
-    fn handle_key_events(&mut self, key: KeyEvent) -> Result<()> {
-        Ok(())
+    fn handle_key_events(&mut self, key: KeyEvent) -> Result<Option<Self::Action>> {
+        Ok(None)
     }
 
-    fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Result<()> {
+    fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Result<Option<Self::Action>> {
+        Ok(None)
+    }
+
+    fn update(&mut self, action: Option<Self::Action>) -> Result<()> {
         Ok(())
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> Result<()>;
-    fn as_any(&self) -> &dyn Any;
-    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 pub trait Focus {
@@ -44,7 +48,7 @@ pub trait Focus {
 
 pub trait FocusableComponent: Component + Focus {}
 
-pub struct Container<T>
+/* pub struct Container<T>
 where
     T: ?Sized + Component,
 {
@@ -71,4 +75,4 @@ impl<T: Component> Container<T> {
     {
         self.get_components::<C>().next()
     }
-}
+} */
