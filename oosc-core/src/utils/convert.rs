@@ -1,4 +1,4 @@
-use super::consts::PI_4;
+use crate::utils::consts::{INVERSE_E, PI_4};
 
 #[inline]
 pub fn cents_to_freq(cents: i32) -> f32 {
@@ -36,4 +36,13 @@ pub fn split_bipolar_pan(value: f32) -> (f32, f32) {
     // Const-power pan
     // Use tables for cos/sin ?
     ((PI_4 * (value + 1.0)).cos(), (PI_4 * (value + 1.0)).sin())
+}
+
+#[inline]
+pub fn exponential_time(value: f32, sample_rate: f32) -> f32 {
+    if value == 0.0 {
+        0.0
+    } else {
+        INVERSE_E.powf(value / sample_rate)
+    }
 }
