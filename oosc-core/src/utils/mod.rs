@@ -5,3 +5,4 @@ pub mod consts;
 pub mod sample_buffer;
 pub mod interpolation;
 pub mod math;
+pub mod convert;

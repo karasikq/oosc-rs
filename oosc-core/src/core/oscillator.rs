@@ -1,19 +1,20 @@
 use std::any::Any;
 
-use crate::core::note::Converter;
 use crate::core::note::Note;
 use crate::error::Error;
-use crate::utils::adsr_envelope::State;
-use crate::utils::consts::PI_2M;
-use crate::utils::evaluate::Evaluate;
-use crate::utils::{adsr_envelope::ADSREnvelope, sample_buffer::SampleBuffer};
+use crate::utils::convert::note_to_freq;
+use crate::utils::{
+    adsr_envelope::{ADSREnvelope, State},
+    consts::PI_2M,
+    evaluate::Evaluate,
+    sample_buffer::SampleBuffer,
+};
 
 use super::note::NoteEventReceiver;
-use super::parametrs::OctaveParametr;
-use super::parametrs::PanParametr;
-use super::parametrs::Parametr;
-use super::parametrs::ValueParametr;
-use super::wavetable::WaveTable;
+use super::{
+    parametrs::{OctaveParametr, PanParametr, Parametr, ValueParametr},
+    wavetable::WaveTable,
+};
 
 pub trait Oscillator: Send + Sync + NoteEventReceiver {
     fn evaluate(&mut self, t: f32) -> Result<(), Error>;
@@ -94,7 +95,7 @@ impl Oscillator for WavetableOscillator {
                         }
                     };
                     let freq = PI_2M
-                        * Converter::note_to_freq((note.note as i32 + octave_offset) as u32)
+                        * note_to_freq((note.note as i32 + octave_offset) as u32)
                         * t;
                     let sample = self.wavetable.evaluate(freq)?;
 

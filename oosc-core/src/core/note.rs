@@ -1,4 +1,10 @@
-use crate::{utils::{adsr_envelope::State, consts::PI_4}, error::Error};
+use crate::{
+    error::Error,
+    utils::{
+        adsr_envelope::State,
+        convert::{note_to_freq, velocity_to_float},
+    },
+};
 
 #[derive(Copy, Clone)]
 pub struct Note {
@@ -14,8 +20,8 @@ impl Note {
     pub fn new(note: u32, velocity: u32) -> Self {
         Self {
             note,
-            frequency: Converter::note_to_freq(note),
-            velocity: Converter::velocity_to_float(velocity),
+            frequency: note_to_freq(note),
+            velocity: velocity_to_float(velocity),
             play_time: 0.0,
             hold_on: State::Sustain,
             state: State::Attack,
@@ -33,51 +39,6 @@ pub trait NoteEventReceiver {
     fn note_on(&mut self, note: Note) -> Result<(), Error>;
     fn note_off(&mut self, note: u32) -> Result<(), Error>;
     fn release_all(&mut self);
-}
-
-pub struct Converter;
-
-impl Converter {
-    #[inline]
-    pub fn cents_to_freq(cents: i32) -> f32 {
-        2.0_f32.powf(cents as f32 / 1200.0)
-    }
-
-    #[inline]
-    pub fn velocity_to_float(velocity: u32) -> f32 {
-        let velocity_f32 = velocity as f32;
-        velocity_f32 * velocity_f32 / (127.0 * 127.0)
-    }
-
-    #[inline]
-    pub fn note_to_freq(note: u32) -> f32 {
-        8.175_799_f32 * 1.059_463_1_f32.powi(note as i32)
-    }
-
-    #[inline]
-    pub fn linear_to_power(value: f32) -> f32 {
-        10. * value.log10()
-    }
-
-    #[inline]
-    pub fn power_to_linear(value: f32) -> f32 {
-        10.0_f32.powf(value / 10.0)
-    }
-
-    #[inline]
-    pub fn voltage_to_linear(value: f32) -> f32 {
-        10.0_f32.powf(value / 20.0)
-    }
-
-    #[inline]
-    pub fn split_bipolar_pan(value: f32) -> (f32, f32) {
-        // Const-power pan
-        // Use tables for cos/sin ?
-        (
-            (PI_4 * (value + 1.0)).cos(),
-            (PI_4 * (value + 1.0)).sin(),
-        )
-    }
 }
 
 #[cfg(test)]

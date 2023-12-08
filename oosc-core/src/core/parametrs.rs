@@ -1,5 +1,10 @@
-use super::note::Converter;
-use crate::{error::Error, utils::math::clamp};
+use crate::{
+    error::Error,
+    utils::{
+        convert::{power_to_linear, split_bipolar_pan},
+        math::clamp,
+    },
+};
 
 pub trait Parametr<T>
 where
@@ -84,7 +89,7 @@ pub struct PanParametr {
 impl PanParametr {
     pub fn new(parametr: ValueParametr<f32>) -> Self {
         Self {
-            polar: Converter::split_bipolar_pan(parametr.get_value().unwrap()),
+            polar: split_bipolar_pan(parametr.get_value().unwrap()),
             bipolar: parametr,
         }
     }
@@ -99,7 +104,7 @@ impl From<ValueParametr<f32>> for PanParametr {
 impl Parametr<f32> for PanParametr {
     fn set_value(&mut self, value: f32) -> Result<(), Error> {
         self.bipolar.set_value(value)?;
-        self.polar = Converter::split_bipolar_pan(value);
+        self.polar = split_bipolar_pan(value);
         Ok(())
     }
 
@@ -120,7 +125,7 @@ pub struct VolumeParametr {
 impl VolumeParametr {
     pub fn new(parametr: ValueParametr<f32>) -> Self {
         Self {
-            linear: Converter::power_to_linear(parametr.get_value().unwrap()),
+            linear: power_to_linear(parametr.get_value().unwrap()),
             db: parametr,
         }
     }
@@ -135,7 +140,7 @@ impl From<ValueParametr<f32>> for VolumeParametr {
 impl Parametr<f32> for VolumeParametr {
     fn set_value(&mut self, value: f32) -> Result<(), Error> {
         self.db.set_value(value)?;
-        self.linear = Converter::power_to_linear(value);
+        self.linear = power_to_linear(value);
         Ok(())
     }
 
