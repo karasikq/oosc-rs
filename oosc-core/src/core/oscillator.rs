@@ -76,7 +76,7 @@ impl Oscillator for WavetableOscillator {
         let buffer = &mut self.buffer;
         buffer.fill(0.);
         let pan = &self.pan;
-        let octave_offset = self.octave_offset.get_value()?;
+        let octave_offset = self.octave_offset.get_value();
         self.notes
             .iter_mut()
             .chain(self.release_notes.iter_mut())
@@ -94,9 +94,7 @@ impl Oscillator for WavetableOscillator {
                             }
                         }
                     };
-                    let freq = PI_2M
-                        * note_to_freq((note.note as i32 + octave_offset) as u32)
-                        * t;
+                    let freq = PI_2M * note_to_freq((note.note as i32 + octave_offset) as u32) * t;
                     let sample = self.wavetable.evaluate(freq)?;
 
                     iteration_buffer[0] = sample * envelope * pan.polar.0 * note.velocity;
