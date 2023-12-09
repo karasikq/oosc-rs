@@ -37,7 +37,7 @@ impl Synthesizer {
             .iter()
             .try_for_each(|osc| -> Result<(), Error> { buffer.combine(osc.get_buffer()) })?;
         self.effects
-            .iter()
+            .iter_mut()
             .try_for_each(|effect| -> Result<(), Error> { effect.process(buffer) })?;
         Ok(&self.buffer)
     }

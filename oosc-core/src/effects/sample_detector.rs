@@ -1,24 +1,20 @@
+use std::rc::Rc;
+
 use crate::{core::parametrs::ExponentialTimeParametr, utils::convert::linear_to_voltage};
 
 use super::SampleProcessor;
 
 pub struct SampleDetector {
-    attack: ExponentialTimeParametr,
-    release: ExponentialTimeParametr,
-    sample_rate: f32,
+    attack: Rc<ExponentialTimeParametr>,
+    release: Rc<ExponentialTimeParametr>,
     last_output: f32,
 }
 
 impl SampleDetector {
-    pub fn new(
-        attack: ExponentialTimeParametr,
-        release: ExponentialTimeParametr,
-        sample_rate: f32,
-    ) -> Self {
+    pub fn new(attack: Rc<ExponentialTimeParametr>, release: Rc<ExponentialTimeParametr>) -> Self {
         Self {
             attack,
             release,
-            sample_rate,
             last_output: 0.0,
         }
     }

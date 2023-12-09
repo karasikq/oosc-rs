@@ -145,10 +145,11 @@ pub struct ExponentialTimeParametr {
 }
 
 impl ExponentialTimeParametr {
-    pub fn new(parametr: ValueParametr<f32>, sample_rate: f32) -> Self {
+    pub fn new(value: f32, sample_rate: f32) -> Self {
+        let linear_time = ValueParametr::new(value, (0.0, value * 100.0));
         Self {
-            exponential_time: power_to_linear(parametr.get_value()),
-            linear_time: parametr,
+            exponential_time: power_to_linear(linear_time.get_value()),
+            linear_time,
             sample_rate,
         }
     }
