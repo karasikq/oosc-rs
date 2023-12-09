@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::effects::amplifier::Amplifier;
-use crate::effects::effect::Effect;
+use crate::effects::{amplifier::Amplifier, Effect};
 use rayon::prelude::*;
 
 use super::{

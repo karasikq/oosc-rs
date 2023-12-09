@@ -4,7 +4,7 @@ use crate::{
     utils::sample_buffer::SampleBuffer,
 };
 
-use super::effect::Effect;
+use super::Effect;
 
 pub struct Amplifier {
     gain: VolumeParametr,
@@ -18,7 +18,7 @@ impl Amplifier {
 }
 
 impl Effect for Amplifier {
-    fn process(&self, buffer: &mut SampleBuffer) -> Result<(), Error> {
+    fn process(&mut self, buffer: &mut SampleBuffer) -> Result<(), Error> {
         let gain = &self.gain;
         let pan = &self.pan;
         buffer.iter_mut(0)?.for_each(|s| *s *= pan.polar.0 * gain.linear);
