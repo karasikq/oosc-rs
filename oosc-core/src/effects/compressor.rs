@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::effects::Effect;
@@ -8,7 +9,7 @@ use crate::{
     utils::sample_buffer::SampleBuffer,
 };
 
-use super::sample_detector::SampleDetector;
+use super::sample_detector::{SampleDetector, TimeParametr};
 use super::SampleProcessor;
 
 pub enum KneeType {
@@ -20,8 +21,8 @@ pub struct Compressor {
     threshold: VolumeParametr,
     ratio: ValueParametr<f32>,
     knee_type: KneeType,
-    attack: Rc<ExponentialTimeParametr>,
-    release: Rc<ExponentialTimeParametr>,
+    attack: TimeParametr,
+    release: TimeParametr,
     detectors: Vec<SampleDetector>,
 }
 
@@ -34,8 +35,8 @@ impl Compressor {
         release: ExponentialTimeParametr,
         channels: usize,
     ) -> Self {
-        let attack = Rc::new(attack);
-        let release = Rc::new(release);
+        let attack = Rc::new(RefCell::new(attack));
+        let release = Rc::new(RefCell::new(release));
         let detectors = (0..channels)
             .map(|_| SampleDetector::new(attack.clone(), release.clone()))
             .collect();
@@ -48,6 +49,18 @@ impl Compressor {
             release,
             detectors,
         }
+    }
+
+    pub fn default(channels: usize, sample_rate: f32) -> Self {
+        let threshold = VolumeParametr::new(ValueParametr::new(-3.0, (-96.0, 0.0)));
+        let ratio = ValueParametr::new(50.0, (1.0, 100.0));
+        let knee_type = KneeType::Soft(VolumeParametr::new(ValueParametr::new(12.0, (0.0, 36.0))));
+        let attack =
+            ExponentialTimeParametr::new(ValueParametr::new(0.005, (0.001, 0.5)), sample_rate);
+        let release =
+            ExponentialTimeParametr::new(ValueParametr::new(0.5, (0.001, 5.0)), sample_rate);
+
+        Self::new(threshold, ratio, knee_type, attack, release, channels)
     }
 
     fn proccess_sample(&mut self, sample: &mut f32, processor: usize) {
