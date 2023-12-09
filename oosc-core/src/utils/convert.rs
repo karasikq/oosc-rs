@@ -22,6 +22,11 @@ pub fn linear_to_power(value: f32) -> f32 {
 }
 
 #[inline]
+pub fn linear_to_voltage(value: f32) -> f32 {
+    20. * value.log10()
+}
+
+#[inline]
 pub fn power_to_linear(value: f32) -> f32 {
     10.0_f32.powf(value / 10.0)
 }
