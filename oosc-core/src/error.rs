@@ -3,6 +3,8 @@
 #[derive(Debug)]
 pub enum Error {
     Order(String),
+    Option(&'static str),
+    OutOfRange(usize, usize),
     Specify(&'static str),
     Generic(String),
 }
@@ -35,6 +37,12 @@ impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Order(err) => write!(f, "{}", err),
+            Self::Option(err) => write!(f, "Cannot take {} option", err),
+            Self::OutOfRange(index, range) => write!(
+                f,
+                "Buffer index out of range. Found {}, expected <= {}",
+                index, range
+            ),
             Self::Generic(err) => write!(f, "{}", err),
             Self::Specify(err) => write!(f, "Need to specify {} first", err),
         }
