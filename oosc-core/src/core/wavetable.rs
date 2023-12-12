@@ -4,7 +4,7 @@ use crate::{
         consts::PI_2M,
         evaluate::Evaluate,
         interpolation::{interpolate_lagrange, interpolate_linear, InterpolateMethod},
-        sample_buffer::SampleBufferMono,
+        sample_buffer::{BufferSettings, SampleBufferMono},
     },
 };
 
@@ -97,6 +97,28 @@ impl Default for WaveTableBuilder {
     }
 }
 
+impl From<&BufferSettings> for WaveTable {
+    fn from(value: &BufferSettings) -> Self {
+        Self {
+            buffer: SampleBufferMono::new(value.samples),
+            chunk_size: value.samples,
+            position: 0,
+            interpolation: InterpolateMethod::Linear,
+        }
+    }
+}
+
+impl From<usize> for WaveTable {
+    fn from(value: usize) -> Self {
+        Self {
+            buffer: SampleBufferMono::new(value),
+            chunk_size: value,
+            position: 0,
+            interpolation: InterpolateMethod::Linear,
+        }
+    }
+}
+
 impl WaveTable {
     fn sample_at(&self, index: usize) -> Result<f32, Error> {
         self.buffer.at(index)
@@ -112,9 +134,19 @@ impl WaveTable {
     }
 
     fn get_sample_at_chunk(chunk: &[f32], index: usize) -> Result<f32, Error> {
-        Ok(*chunk
-            .get(index)
-            .ok_or("Index out of bounds of wavetable chunk")?)
+        Ok(*chunk.get(index).ok_or(format!(
+            "Index out of bounds of wavetable chunk. Found {}, expected < {}",
+            index,
+            chunk.len(),
+        ))?)
+    }
+
+    fn get_sample_at_chunk_mut(chunk: &mut [f32], index: usize) -> Result<&mut f32, Error> {
+        let len = chunk.len();
+        Ok(chunk.get_mut(index).ok_or(format!(
+            "Index out of bounds of wavetable chunk. Found {}, expected < {}",
+            index, len,
+        ))?)
     }
 
     pub fn chunks(&self) -> usize {
@@ -159,7 +191,7 @@ impl WaveTable {
         index as usize
     }
 
-    fn get_slice(&self) -> Result<&[f32], Error> {
+    pub fn get_slice(&self) -> Result<&[f32], Error> {
         Ok(self
             .buffer
             .get_slice()
@@ -170,12 +202,32 @@ impl WaveTable {
                 self.position
             ))?)
     }
+
+    pub fn get_slice_mut(&mut self) -> Result<&mut [f32], Error> {
+        Ok(self
+            .buffer
+            .get_slice_mut()
+            .chunks_exact_mut(self.chunk_size)
+            .nth(self.position)
+            .ok_or(format!(
+                "Cannot get {} position of wavetable",
+                self.position
+            ))?)
+    }
+
+    pub fn get_mut_evaluate(&mut self, t: f32) -> Result<&mut f32, Error> {
+        let chunk = (self.chunk_size - 1) as f32;
+        let chunk_slice = self.get_slice_mut()?;
+        let index = chunk * (t % PI_2M / PI_2M);
+        let index_ceil = index.ceil();
+        Self::get_sample_at_chunk_mut(chunk_slice, index_ceil as usize)
+    }
 }
 
 impl Evaluate<f32> for WaveTable {
     fn evaluate(&self, t: f32) -> Result<f32, Error> {
         let chunk_slice = self.get_slice()?;
-        let chunk = self.chunk_size as f32;
+        let chunk = (self.chunk_size - 1) as f32;
         let index = chunk * (t % PI_2M / PI_2M);
         let fraction = index % 1.0;
         let index_ceil = index.ceil();
@@ -209,7 +261,7 @@ impl Evaluate<f32> for WaveTable {
 #[cfg(test)]
 mod tests {
     use crate::core::wavetable::WaveTable;
-    use crate::utils::consts::{PI, PI_2};
+    use crate::utils::consts::PI;
     use crate::utils::evaluate::Evaluate;
     use crate::utils::interpolation::InterpolateMethod;
     use crate::utils::sample_buffer::SampleBufferMono;
@@ -255,9 +307,9 @@ mod tests {
             .build()
             .unwrap();
         table.set_position(0).unwrap();
-        assert_approx_eq!(table.evaluate(PI_2).unwrap(), -0.05);
+        assert_approx_eq!(table.evaluate(PI).unwrap(), -0.05);
         table.set_position(1).unwrap();
-        assert_approx_eq!(table.evaluate(PI_2).unwrap(), 0.78);
+        assert_approx_eq!(table.evaluate(PI).unwrap(), 0.78);
         assert!(table.set_position(3).is_err());
     }
 
