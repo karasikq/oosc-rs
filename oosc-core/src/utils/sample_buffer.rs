@@ -7,9 +7,9 @@ type Channel = u32;
 
 #[derive(Clone, Copy)]
 pub struct BufferSettings {
-    samples: usize,
-    channels: usize,
-    sample_rate: f32,
+    pub samples: usize,
+    pub channels: usize,
+    pub sample_rate: f32,
 }
 
 pub struct SampleBufferMono {
