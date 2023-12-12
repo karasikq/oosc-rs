@@ -77,12 +77,10 @@ impl Delay {
             let index = (current_time - delay + len_f32) % len_f32;
             let out = interpolate_sample_mut(InterpolateMethod::Linear, delay_buffer, index)?;
             *s = dry + mix * (out - dry);
-            let ts = delay_buffer.get_mut(*last_time).unwrap();
+            let index = *last_time % len;
+            let ts = delay_buffer.get_mut(index).unwrap();
             *ts = dry + out * feedback;
             *last_time += 1;
-            if *last_time >= len {
-                *last_time = 0;
-            }
             Ok(())
         })?;
 
@@ -95,7 +93,6 @@ impl Effect for Delay {
         buffer
             .iter_buffers()
             .enumerate()
-            .try_for_each(|(i, buffer)| self.proccess_channel(buffer, i))?;
-        Ok(())
+            .try_for_each(|(i, buffer)| self.proccess_channel(buffer, i))
     }
 }
