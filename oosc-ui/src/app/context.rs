@@ -13,11 +13,13 @@ use oosc_core::{
         waveshape::WaveShape,
         wavetable::WaveTableBuilder,
     },
+    effects::{chorus::Chorus, delay::Delay},
     error::Error,
     midi::playback::{MidiPlayback, SmfPlayback},
     utils::{
-        adsr_envelope::ADSREnvelope, interpolation::InterpolateMethod,
-        sample_buffer::SampleBufferBuilder,
+        adsr_envelope::ADSREnvelope,
+        interpolation::InterpolateMethod,
+        sample_buffer::{BufferSettings, SampleBufferBuilder},
     },
 };
 
@@ -47,11 +49,17 @@ impl Context {
     pub fn build_default(config: &Config) -> Result<Self, Error> {
         let osc1 = Self::build_osc(config, WaveShape::Sin)?;
         let osc2 = Self::build_osc(config, WaveShape::Square)?;
+        let chorus = Box::new(Chorus::default(&BufferSettings {
+            samples: config.buffer_size,
+            channels: config.channels as usize,
+            sample_rate: config.sample_rate as f32,
+        }));
         let synthesizer = Arc::new(Mutex::new(
             SynthesizerBuilder::new()
                 .set_buffer(config.buffer_size)?
                 .add_osc(osc1)
                 .add_osc(osc2)
+                .add_effect(chorus)
                 .set_sample_rate(config.sample_rate)
                 .build()?,
         ));
