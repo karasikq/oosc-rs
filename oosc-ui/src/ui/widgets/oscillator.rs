@@ -21,7 +21,7 @@ impl<'a> Widget for OscillatorWidget<'a> {
         };
         wavetable.render(layout[0], buf);
 
-        let pan = self.oscillator.get_pan().get_value_or_default();
+        let pan = self.oscillator.get_pan().get_value();
         let p = Paragraph::new(format!("Pan: {}", pan)).style(Style::default().fg(Color::White));
         p.render(layout[1], buf);
         let b = Block::default()
