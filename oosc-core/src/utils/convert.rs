@@ -1,5 +1,7 @@
 use crate::utils::consts::{INVERSE_E, PI_4};
 
+use super::consts::ANALOG_TC;
+
 #[inline]
 pub fn cents_to_freq(cents: i32) -> f32 {
     2.0_f32.powf(cents as f32 / 1200.0)
@@ -45,9 +47,5 @@ pub fn split_bipolar_pan(value: f32) -> (f32, f32) {
 
 #[inline]
 pub fn exponential_time(value: f32, sample_rate: f32) -> f32 {
-    if value == 0.0 {
-        0.0
-    } else {
-        INVERSE_E.powf(value / sample_rate)
-    }
+    (ANALOG_TC / (value * sample_rate)).exp()
 }
