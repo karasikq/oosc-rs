@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use crate::effects::{amplifier::Amplifier, Effect};
 use rayon::prelude::*;
@@ -13,15 +13,15 @@ use crate::{
     utils::sample_buffer::{SampleBuffer, SampleBufferBuilder},
 };
 
-type Osc = Box<dyn Oscillator>;
-type SynEffect = Box<dyn Effect + Sync + Send>;
+pub type LockedOscillator = Arc<RwLock<dyn Oscillator>>;
+pub type LockedEffect = Arc<RwLock<dyn Effect + Sync + Send>>;
 
 pub type SyncSynthesizer = Arc<Mutex<Synthesizer>>;
 
 pub struct Synthesizer {
     buffer: SampleBuffer,
-    oscillators: Vec<Osc>,
-    effects: Vec<SynEffect>,
+    oscillators: Vec<LockedOscillator>,
+    effects: Vec<LockedEffect>,
     sample_rate: u32,
 }
 
@@ -32,13 +32,19 @@ impl Synthesizer {
         buffer.fill(0.);
         self.oscillators
             .par_iter_mut()
-            .try_for_each(|osc| -> Result<(), Error> { osc.evaluate(delta_time) })?;
+            .try_for_each(|osc| -> Result<(), Error> {
+                osc.write().unwrap().evaluate(delta_time)
+            })?;
         self.oscillators
             .iter()
-            .try_for_each(|osc| -> Result<(), Error> { buffer.combine(osc.get_buffer()) })?;
+            .try_for_each(|osc| -> Result<(), Error> {
+                buffer.combine(osc.write().unwrap().get_buffer())
+            })?;
         self.effects
             .iter_mut()
-            .try_for_each(|effect| -> Result<(), Error> { effect.process(buffer) })?;
+            .try_for_each(|effect| -> Result<(), Error> {
+                effect.write().unwrap().process(buffer)
+            })?;
         Ok(&self.buffer)
     }
 
@@ -48,37 +54,41 @@ impl Synthesizer {
 
     pub fn release_all(&mut self) {
         self.oscillators.par_iter_mut().for_each(|osc| {
-            osc.release_all();
+            osc.write().unwrap().release_all();
         })
     }
 
     pub fn note_on(&mut self, note: Note) -> Result<(), Error> {
         self.oscillators
             .par_iter_mut()
-            .try_for_each(|osc| -> Result<(), Error> { osc.note_on(note) })
+            .try_for_each(|osc| -> Result<(), Error> { osc.write().unwrap().note_on(note) })
     }
 
     pub fn note_off(&mut self, note: u32) -> Result<(), Error> {
         self.oscillators
             .par_iter_mut()
-            .try_for_each(|osc| -> Result<(), Error> { osc.note_off(note) })
+            .try_for_each(|osc| -> Result<(), Error> { osc.write().unwrap().note_off(note) })
     }
 
-    pub fn get_oscillators<'a, T>(&'a mut self) -> impl Iterator<Item = &'a mut T>
+    pub fn get_oscillators<T>(&mut self) -> impl Iterator<Item = LockedOscillator> + '_
     where
-        T: Oscillator + 'a + 'static,
+        T: Oscillator + 'static,
     {
-        self.oscillators
-            .iter_mut()
-            .filter_map(|osc| osc.as_any_mut().downcast_mut::<T>())
+        self.oscillators.iter_mut().filter_map(|osc| {
+            let mut osc_lock = osc.write().unwrap();
+            osc_lock
+                .as_any_mut()
+                .downcast_mut::<T>()
+                .map(|_| osc.clone())
+        })
     }
 }
 
 #[derive(Default)]
 pub struct SynthesizerBuilder {
     buffer: Option<SampleBuffer>,
-    oscillators: Option<Vec<Osc>>,
-    effects: Option<Vec<SynEffect>>,
+    oscillators: Option<Vec<LockedOscillator>>,
+    effects: Option<Vec<LockedEffect>>,
     sample_rate: Option<u32>,
 }
 
@@ -102,7 +112,7 @@ impl SynthesizerBuilder {
         Ok(self)
     }
 
-    pub fn add_osc(&mut self, osc: Osc) -> &mut Self {
+    pub fn add_osc(&mut self, osc: LockedOscillator) -> &mut Self {
         if let Some(vec) = self.oscillators.as_mut() {
             vec.push(osc);
         } else {
@@ -116,7 +126,7 @@ impl SynthesizerBuilder {
         self
     }
 
-    pub fn add_effect(&mut self, effect: SynEffect) -> &mut Self {
+    pub fn add_effect(&mut self, effect: LockedEffect) -> &mut Self {
         if let Some(effects) = self.effects.as_mut() {
             effects.push(effect);
         } else {
