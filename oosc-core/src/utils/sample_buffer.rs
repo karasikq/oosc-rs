@@ -5,6 +5,13 @@ use crate::error::Error;
 pub type Sample = f32;
 type Channel = u32;
 
+#[derive(Clone, Copy)]
+pub struct BufferSettings {
+    pub samples: usize,
+    pub channels: usize,
+    pub sample_rate: f32,
+}
+
 pub struct SampleBufferMono {
     samples: Vec<Sample>,
 }
@@ -227,6 +234,16 @@ impl SampleBuffer {
 impl Default for SampleBufferBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl From<&BufferSettings> for SampleBuffer {
+    fn from(value: &BufferSettings) -> Self {
+        SampleBufferBuilder::new()
+            .set_channels(value.channels as u32)
+            .set_samples(value.samples)
+            .build()
+            .unwrap()
     }
 }
 

@@ -1,19 +1,20 @@
 use std::any::Any;
 
-use crate::core::note::Converter;
 use crate::core::note::Note;
 use crate::error::Error;
-use crate::utils::adsr_envelope::State;
-use crate::utils::consts::PI_2M;
-use crate::utils::evaluate::Evaluate;
-use crate::utils::{adsr_envelope::ADSREnvelope, sample_buffer::SampleBuffer};
+use crate::utils::convert::note_to_freq;
+use crate::utils::{
+    adsr_envelope::{ADSREnvelope, State},
+    consts::PI_2M,
+    evaluate::Evaluate,
+    sample_buffer::SampleBuffer,
+};
 
 use super::note::NoteEventReceiver;
-use super::parametrs::OctaveParametr;
-use super::parametrs::PanParametr;
-use super::parametrs::Parametr;
-use super::parametrs::ValueParametr;
-use super::wavetable::WaveTable;
+use super::{
+    parametrs::{OctaveParametr, PanParametr, Parametr, ValueParametr},
+    wavetable::WaveTable,
+};
 
 pub trait Oscillator: Send + Sync + NoteEventReceiver {
     fn evaluate(&mut self, t: f32) -> Result<(), Error>;
@@ -38,15 +39,15 @@ impl WavetableOscillator {
         &self.wavetable
     }
 
-    pub fn get_envelope(&mut self) -> &mut ADSREnvelope {
+    pub fn envelope(&mut self) -> &mut ADSREnvelope {
         &mut self.envelope
     }
 
-    pub fn get_octave_offset(&mut self) -> &mut impl Parametr<i32> {
+    pub fn octave_offset(&mut self) -> &mut impl Parametr<i32> {
         &mut self.octave_offset
     }
 
-    pub fn get_pan(&mut self) -> &mut impl Parametr<f32> {
+    pub fn pan(&mut self) -> &mut impl Parametr<f32> {
         &mut self.pan
     }
 
@@ -75,7 +76,7 @@ impl Oscillator for WavetableOscillator {
         let buffer = &mut self.buffer;
         buffer.fill(0.);
         let pan = &self.pan;
-        let octave_offset = self.octave_offset.get_value()?;
+        let octave_offset = self.octave_offset.get_value();
         self.notes
             .iter_mut()
             .chain(self.release_notes.iter_mut())
@@ -93,9 +94,7 @@ impl Oscillator for WavetableOscillator {
                             }
                         }
                     };
-                    let freq = PI_2M
-                        * Converter::note_to_freq((note.note as i32 + octave_offset) as u32)
-                        * t;
+                    let freq = PI_2M * note_to_freq((note.note as i32 + octave_offset) as u32) * t;
                     let sample = self.wavetable.evaluate(freq)?;
 
                     iteration_buffer[0] = sample * envelope * pan.polar.0 * note.velocity;
@@ -201,7 +200,7 @@ impl OscillatorBuilder {
         let envelope = self.envelope.take().ok_or(Error::Specify("envelope"))?;
         let wavetable = self.wavetable.take().ok_or(Error::Specify("wavetable"))?;
         let octave_offset = OctaveParametr::new(ValueParametr::new(0, (-2, 2)));
-        let pan = PanParametr::new(ValueParametr::new(0., (-1., 1.)));
+        let pan = PanParametr::default();
 
         Ok(WavetableOscillator {
             buffer,

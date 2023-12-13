@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::effects::amplifier::Amplifier;
-use crate::effects::effect::Effect;
+use crate::effects::{amplifier::Amplifier, Effect};
 use rayon::prelude::*;
 
 use super::{
@@ -38,7 +37,7 @@ impl Synthesizer {
             .iter()
             .try_for_each(|osc| -> Result<(), Error> { buffer.combine(osc.get_buffer()) })?;
         self.effects
-            .iter()
+            .iter_mut()
             .try_for_each(|effect| -> Result<(), Error> { effect.process(buffer) })?;
         Ok(&self.buffer)
     }
@@ -138,11 +137,6 @@ impl SynthesizerBuilder {
             .take()
             .ok_or(Error::Specify("oscillators"))?;
         let sample_rate = self.sample_rate.ok_or(Error::Specify("sample_rate"))?;
-        let amplifier = Amplifier::new(
-            VolumeParametr::from(ValueParametr::new(-3.0, (-60.0, 3.0))),
-            PanParametr::from(ValueParametr::new(0.0, (-1.0, 1.0))),
-        );
-        self.add_effect(Box::new(amplifier));
         let effects = self.effects.take().unwrap();
 
         Ok(Synthesizer {
