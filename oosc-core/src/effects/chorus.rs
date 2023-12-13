@@ -12,7 +12,7 @@ use crate::{
     },
 };
 
-use super::Effect;
+use super::{Effect, State};
 
 pub struct Chorus {
     settings: BufferSettings,
@@ -24,6 +24,7 @@ pub struct Chorus {
     lfo: WaveShape,
     width: ValueParametr<f32>,
     delay: ValueParametr<f32>,
+    state: State,
 }
 
 impl Chorus {
@@ -35,6 +36,7 @@ impl Chorus {
         lfo: WaveShape,
         width: ValueParametr<f32>,
         delay: ValueParametr<f32>,
+        state: State,
     ) -> Self {
         let sampled_time =
             ((width.range().1 + delay.range().1) * settings.sample_rate).round() as usize;
@@ -54,6 +56,7 @@ impl Chorus {
             lfo,
             width,
             delay,
+            state,
         }
     }
 
@@ -65,7 +68,7 @@ impl Chorus {
         let width = ValueParametr::<f32>::new(0.05, (0.0, 0.1));
         let delay = ValueParametr::<f32>::new(0.05, (0.0, 0.1));
 
-        Self::new(settings, depth, rate, phase, lfo, width, delay)
+        Self::new(settings, depth, rate, phase, lfo, width, delay, State::Enabled)
     }
 
     fn proccess_channel(
@@ -114,5 +117,13 @@ impl Effect for Chorus {
             .iter_buffers()
             .enumerate()
             .try_for_each(|(i, buffer)| self.proccess_channel(buffer, i))
+    }
+
+    fn state(&self) -> State {
+        self.state
+    }
+
+    fn set_state(&mut self, state: State) {
+        self.state = state;
     }
 }

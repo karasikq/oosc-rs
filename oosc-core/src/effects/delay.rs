@@ -7,7 +7,7 @@ use crate::{
     },
 };
 
-use super::Effect;
+use super::{Effect, State};
 
 pub struct Delay {
     settings: BufferSettings,
@@ -16,6 +16,7 @@ pub struct Delay {
     mix: ValueParametr<f32>,
     feedback: ValueParametr<f32>,
     delay: ValueParametr<f32>,
+    state: State,
 }
 
 impl Delay {
@@ -24,6 +25,7 @@ impl Delay {
         mix: ValueParametr<f32>,
         feedback: ValueParametr<f32>,
         delay: ValueParametr<f32>,
+        state: State,
     ) -> Self {
         let sampled_time = (delay.range().1 * settings.sample_rate).round() as usize;
         let buffer = SampleBufferBuilder::new()
@@ -39,6 +41,7 @@ impl Delay {
             mix,
             feedback,
             delay,
+            state,
         }
     }
 
@@ -47,7 +50,7 @@ impl Delay {
         let feedback = ValueParametr::<f32>::new(0.7, (0.0, 1.0));
         let delay = ValueParametr::<f32>::new(0.01, (0.0, 0.1));
 
-        Self::new(settings, mix, feedback, delay)
+        Self::new(settings, mix, feedback, delay, State::Enabled)
     }
 
     fn proccess_channel(
@@ -94,5 +97,13 @@ impl Effect for Delay {
             .iter_buffers()
             .enumerate()
             .try_for_each(|(i, buffer)| self.proccess_channel(buffer, i))
+    }
+
+    fn state(&self) -> State {
+        self.state
+    }
+
+    fn set_state(&mut self, state: State) {
+        self.state = state;
     }
 }
