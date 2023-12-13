@@ -28,6 +28,7 @@ pub struct Chorus {
 }
 
 impl Chorus {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         settings: &BufferSettings,
         depth: VolumeParametr,
@@ -108,6 +109,26 @@ impl Chorus {
             *last_time += 1;
             Ok(())
         })
+    }
+
+    pub fn depth(&mut self) -> &mut impl Parametr<f32> {
+        &mut self.depth
+    }
+
+    pub fn rate(&mut self) -> &mut impl Parametr<f32> {
+        &mut self.rate
+    }
+
+    pub fn phase(&mut self) -> &mut impl Parametr<f32> {
+        &mut self.rate
+    }
+
+    pub fn width(&mut self) -> &mut impl Parametr<f32> {
+        &mut self.width
+    }
+
+    pub fn delay(&mut self) -> &mut impl Parametr<f32> {
+        &mut self.delay
     }
 }
 

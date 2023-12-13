@@ -1,5 +1,5 @@
 use crate::{
-    core::parametrs::{PanParametr, ValueParametr, VolumeParametr},
+    core::parametrs::{PanParametr, Parametr, ValueParametr, VolumeParametr},
     error::Error,
     utils::sample_buffer::SampleBuffer,
 };
@@ -15,6 +15,14 @@ pub struct Amplifier {
 impl Amplifier {
     pub fn new(gain: VolumeParametr, pan: PanParametr, state: State) -> Self {
         Self { gain, pan, state }
+    }
+
+    pub fn volume(&mut self) -> &mut impl Parametr<f32> {
+        &mut self.gain
+    }
+
+    pub fn pan(&mut self) -> &mut impl Parametr<f32> {
+        &mut self.pan
     }
 }
 
