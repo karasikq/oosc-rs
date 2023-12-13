@@ -103,6 +103,12 @@ impl Parametr<f32> for PanParametr {
     }
 }
 
+impl Default for PanParametr {
+    fn default() -> Self {
+        Self::from(ValueParametr::new(0.0, (-1.0, 1.0)))
+    }
+}
+
 pub struct VolumeParametr {
     pub linear: f32,
     db: ValueParametr<f32>,
@@ -138,6 +144,12 @@ impl Parametr<f32> for VolumeParametr {
     }
 }
 
+impl Default for VolumeParametr {
+    fn default() -> Self {
+        Self::from(ValueParametr::new(0.0, (-96.0, 3.0)))
+    }
+}
+
 pub struct ExponentialTimeParametr {
     pub exponential_time: f32,
     sample_rate: f32,
@@ -147,7 +159,7 @@ pub struct ExponentialTimeParametr {
 impl ExponentialTimeParametr {
     pub fn new(parametr: ValueParametr<f32>, sample_rate: f32) -> Self {
         Self {
-            exponential_time: power_to_linear(parametr.get_value()),
+            exponential_time: exponential_time(parametr.get_value(), sample_rate),
             linear_time: parametr,
             sample_rate,
         }

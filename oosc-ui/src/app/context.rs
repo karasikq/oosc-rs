@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use cpal::{
     traits::{DeviceTrait, HostTrait},
@@ -9,11 +9,12 @@ use oosc_core::{
     callbacks::stream_callback::{MidiStreamCallback, StreamCallback, SynthesizerStreamCallback},
     core::{
         oscillator::{OscillatorBuilder, WavetableOscillator},
+        parametrs::Parametr,
         synthesizer::{Synthesizer, SynthesizerBuilder},
         waveshape::WaveShape,
         wavetable::WaveTableBuilder,
     },
-    effects::{chorus::Chorus, delay::Delay},
+    effects::{amplifier::Amplifier, chorus::Chorus, compressor::Compressor, delay::Delay},
     error::Error,
     midi::playback::{MidiPlayback, SmfPlayback},
     utils::{
@@ -47,19 +48,24 @@ pub struct Context {
 
 impl Context {
     pub fn build_default(config: &Config) -> Result<Self, Error> {
-        let osc1 = Self::build_osc(config, WaveShape::Sin)?;
-        let osc2 = Self::build_osc(config, WaveShape::Square)?;
-        let chorus = Box::new(Chorus::default(&BufferSettings {
+        let settings = BufferSettings {
             samples: config.buffer_size,
             channels: config.channels as usize,
             sample_rate: config.sample_rate as f32,
-        }));
+        };
+        let osc1 = Self::build_osc(config, WaveShape::Sin)?;
+        let osc2 = Self::build_osc(config, WaveShape::Square)?;
+        let chorus = Self::wrap_lock(Chorus::default(&settings));
+        let compressor = Self::wrap_lock(Compressor::default(&settings));
+        let amplifier = Self::wrap_lock(Amplifier::default());
         let synthesizer = Arc::new(Mutex::new(
             SynthesizerBuilder::new()
                 .set_buffer(config.buffer_size)?
                 .add_osc(osc1)
                 .add_osc(osc2)
+                .add_effect(amplifier)
                 .add_effect(chorus)
+                .add_effect(compressor)
                 .set_sample_rate(config.sample_rate)
                 .build()?,
         ));
@@ -116,7 +122,10 @@ impl Context {
         Ok((host, device, config))
     }
 
-    fn build_osc(config: &Config, shape: WaveShape) -> Result<Box<WavetableOscillator>, Error> {
+    fn build_osc(
+        config: &Config,
+        shape: WaveShape,
+    ) -> Result<Arc<RwLock<WavetableOscillator>>, Error> {
         let adsr = ADSREnvelope::default();
         let buffer = SampleBufferBuilder::new()
             .set_channels(2)
@@ -126,12 +135,16 @@ impl Context {
             .from_shape(shape, config.buffer_size)
             .set_interpolation(InterpolateMethod::Linear)
             .build()?;
-        Ok(Box::new(
+        Ok(Self::wrap_lock(
             OscillatorBuilder::new()
                 .set_buffer(buffer)
                 .set_envelope(adsr)
                 .set_wavetable(table)
                 .build()?,
         ))
+    }
+
+    fn wrap_lock<T>(t: T) -> Arc<RwLock<T>> {
+        Arc::new(RwLock::new(t))
     }
 }

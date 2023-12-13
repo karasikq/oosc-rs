@@ -6,7 +6,15 @@ pub mod sample_detector;
 pub mod chorus;
 pub mod delay;
 
+#[derive(Clone, Copy)]
+pub enum State {
+    Enabled,
+    Disabled,
+}
+
 pub trait Effect {
+    fn state(&self) -> State;
+    fn set_state(&mut self, state: State);
     fn process(&mut self, buffer: &mut SampleBuffer) -> Result<(), Error>;
 }
 

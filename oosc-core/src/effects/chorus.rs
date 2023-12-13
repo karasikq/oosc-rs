@@ -12,7 +12,7 @@ use crate::{
     },
 };
 
-use super::Effect;
+use super::{Effect, State};
 
 pub struct Chorus {
     settings: BufferSettings,
@@ -24,9 +24,11 @@ pub struct Chorus {
     lfo: WaveShape,
     width: ValueParametr<f32>,
     delay: ValueParametr<f32>,
+    state: State,
 }
 
 impl Chorus {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         settings: &BufferSettings,
         depth: VolumeParametr,
@@ -35,6 +37,7 @@ impl Chorus {
         lfo: WaveShape,
         width: ValueParametr<f32>,
         delay: ValueParametr<f32>,
+        state: State,
     ) -> Self {
         let sampled_time =
             ((width.range().1 + delay.range().1) * settings.sample_rate).round() as usize;
@@ -54,6 +57,7 @@ impl Chorus {
             lfo,
             width,
             delay,
+            state,
         }
     }
 
@@ -65,7 +69,7 @@ impl Chorus {
         let width = ValueParametr::<f32>::new(0.05, (0.0, 0.1));
         let delay = ValueParametr::<f32>::new(0.05, (0.0, 0.1));
 
-        Self::new(settings, depth, rate, phase, lfo, width, delay)
+        Self::new(settings, depth, rate, phase, lfo, width, delay, State::Enabled)
     }
 
     fn proccess_channel(
@@ -106,6 +110,26 @@ impl Chorus {
             Ok(())
         })
     }
+
+    pub fn depth(&mut self) -> &mut impl Parametr<f32> {
+        &mut self.depth
+    }
+
+    pub fn rate(&mut self) -> &mut impl Parametr<f32> {
+        &mut self.rate
+    }
+
+    pub fn phase(&mut self) -> &mut impl Parametr<f32> {
+        &mut self.rate
+    }
+
+    pub fn width(&mut self) -> &mut impl Parametr<f32> {
+        &mut self.width
+    }
+
+    pub fn delay(&mut self) -> &mut impl Parametr<f32> {
+        &mut self.delay
+    }
 }
 
 impl Effect for Chorus {
@@ -114,5 +138,13 @@ impl Effect for Chorus {
             .iter_buffers()
             .enumerate()
             .try_for_each(|(i, buffer)| self.proccess_channel(buffer, i))
+    }
+
+    fn state(&self) -> State {
+        self.state
+    }
+
+    fn set_state(&mut self, state: State) {
+        self.state = state;
     }
 }

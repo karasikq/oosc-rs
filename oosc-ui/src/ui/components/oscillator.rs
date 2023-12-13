@@ -1,4 +1,7 @@
-use oosc_core::core::{oscillator::WavetableOscillator, synthesizer::SyncSynthesizer};
+use oosc_core::core::{oscillator::WavetableOscillator, synthesizer::LockedOscillator};
+use ratatui::{prelude::*, widgets::*};
+
+use crate::ui::widgets::oscillator::OscillatorWidget;
 
 use super::{Component, Focus, FocusableComponent};
 
@@ -10,8 +13,17 @@ pub enum Action {
 }
 
 pub struct OscillatorComponent {
-    pub synthesizer: SyncSynthesizer,
-    pub oscillator_id: usize,
+    pub oscillator: LockedOscillator,
+    pub rect: Option<Rect>,
+}
+
+impl OscillatorComponent {
+    pub fn new(oscillator: LockedOscillator) -> Self {
+        Self {
+            oscillator,
+            rect: None,
+        }
+    }
 }
 
 impl FocusableComponent for OscillatorComponent {}
@@ -19,8 +31,19 @@ impl FocusableComponent for OscillatorComponent {}
 impl Component for OscillatorComponent {
     type Action = Action;
 
-    fn draw(&mut self, f: &mut ratatui::Frame<'_>, rect: ratatui::prelude::Rect) -> anyhow::Result<()> {
-        todo!()
+    fn draw(
+        &mut self,
+        f: &mut ratatui::Frame<'_>,
+        rect: ratatui::prelude::Rect,
+    ) -> anyhow::Result<()> {
+        let mut osc = self.oscillator.write().unwrap();
+        let osc = osc
+            .as_any_mut()
+            .downcast_mut::<WavetableOscillator>()
+            .unwrap();
+        let widget = OscillatorWidget { oscillator: osc };
+        widget.render(self.rect.unwrap(), f.buffer_mut());
+        Ok(())
     }
 }
 

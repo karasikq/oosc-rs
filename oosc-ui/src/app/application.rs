@@ -2,7 +2,7 @@ use std::{io::Stdout, time::Duration};
 
 use oosc_core::{core::note::Note, utils::adsr_envelope::State};
 
-use crate::ui::renderer::Renderer;
+use crate::ui::components::{root::Root, Component};
 
 use super::{config::Config, context};
 use anyhow::{Context, Result};
@@ -87,20 +87,17 @@ impl Application {
         &mut self,
         terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     ) -> Result<(), anyhow::Error> {
+        let mut root = Root::new(self, &terminal.get_frame());
         loop {
-            let render = Renderer::new(self);
             terminal.draw(|f| {
-                Self::render_app(f, render);
+                let _syn = self.ctx.synthesizer.lock().unwrap();
+                let _ = root.draw(f, f.size());
             })?;
             if !Self::read_key(self)? {
                 break;
             }
         }
         Ok(())
-    }
-
-    fn render_app(frame: &mut Frame, renderer: Renderer) {
-        frame.render_widget(renderer, frame.size());
     }
 
     fn read_key(&mut self) -> Result<bool> {

@@ -1,8 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 use crate::effects::Effect;
-use crate::utils::convert::voltage_to_linear;
+use crate::utils::convert::{power_to_linear, voltage_to_linear};
+use crate::utils::sample_buffer::BufferSettings;
 use crate::{
     core::parametrs::{ExponentialTimeParametr, Parametr, ValueParametr, VolumeParametr},
     error::Error,
@@ -10,7 +12,7 @@ use crate::{
 };
 
 use super::sample_detector::{SampleDetector, TimeParametr};
-use super::SampleProcessor;
+use super::{SampleProcessor, State};
 
 pub enum KneeType {
     Soft(VolumeParametr),
@@ -24,6 +26,7 @@ pub struct Compressor {
     attack: TimeParametr,
     release: TimeParametr,
     detectors: Vec<SampleDetector>,
+    state: State,
 }
 
 impl Compressor {
@@ -34,9 +37,10 @@ impl Compressor {
         attack: ExponentialTimeParametr,
         release: ExponentialTimeParametr,
         channels: usize,
+        state: State,
     ) -> Self {
-        let attack = Rc::new(RefCell::new(attack));
-        let release = Rc::new(RefCell::new(release));
+        let attack = Arc::new(RwLock::new(attack));
+        let release = Arc::new(RwLock::new(release));
         let detectors = (0..channels)
             .map(|_| SampleDetector::new(attack.clone(), release.clone()))
             .collect();
@@ -48,19 +52,32 @@ impl Compressor {
             attack,
             release,
             detectors,
+            state,
         }
     }
 
-    pub fn default(channels: usize, sample_rate: f32) -> Self {
+    pub fn default(settings: &BufferSettings) -> Self {
         let threshold = VolumeParametr::new(ValueParametr::new(-3.0, (-96.0, 0.0)));
         let ratio = ValueParametr::new(50.0, (1.0, 100.0));
-        let knee_type = KneeType::Soft(VolumeParametr::new(ValueParametr::new(12.0, (0.0, 36.0))));
-        let attack =
-            ExponentialTimeParametr::new(ValueParametr::new(0.005, (0.001, 0.5)), sample_rate);
-        let release =
-            ExponentialTimeParametr::new(ValueParametr::new(0.5, (0.001, 5.0)), sample_rate);
+        let knee_type = KneeType::Soft(VolumeParametr::new(ValueParametr::new(6.0, (0.0, 36.0))));
+        let attack = ExponentialTimeParametr::new(
+            ValueParametr::new(0.005, (0.001, 0.5)),
+            settings.sample_rate,
+        );
+        let release = ExponentialTimeParametr::new(
+            ValueParametr::new(0.005, (0.001, 5.0)),
+            settings.sample_rate,
+        );
 
-        Self::new(threshold, ratio, knee_type, attack, release, channels)
+        Self::new(
+            threshold,
+            ratio,
+            knee_type,
+            attack,
+            release,
+            settings.channels,
+            State::Enabled,
+        )
     }
 
     fn proccess_sample(&mut self, sample: &mut f32, processor: usize) {
@@ -73,12 +90,12 @@ impl Compressor {
                 let region = 2.0 * (detected - threshold);
                 if region < -width {
                     detected
-                } else if region.abs() <= width {
-                    detected
-                        + (((1.0 / ratio) - 1.0) * (detected - threshold + width * 0.5).powi(2)
-                            / (2.0 * width))
-                } else {
+                } else if region > width {
                     threshold + (detected - threshold) / ratio
+                } else {
+                    detected
+                        + ((1.0 / (ratio - 1.0)) * (detected - threshold + width * 0.5).powi(2)
+                            / (2.0 * width))
                 }
             }
             KneeType::Hard => {
@@ -89,7 +106,7 @@ impl Compressor {
                 }
             }
         };
-        *sample = voltage_to_linear(output - detected);
+        *sample *= power_to_linear(output - detected);
     }
 }
 
@@ -101,5 +118,13 @@ impl Effect for Compressor {
                 .for_each(|sample| self.proccess_sample(sample, i));
         });
         Ok(())
+    }
+
+    fn state(&self) -> State {
+        self.state
+    }
+
+    fn set_state(&mut self, state: State) {
+        self.state = state;
     }
 }
