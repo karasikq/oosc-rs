@@ -144,6 +144,12 @@ impl Parametr<f32> for VolumeParametr {
     }
 }
 
+impl Default for VolumeParametr {
+    fn default() -> Self {
+        Self::from(ValueParametr::new(0.0, (-96.0, 3.0)))
+    }
+}
+
 pub struct ExponentialTimeParametr {
     pub exponential_time: f32,
     sample_rate: f32,
