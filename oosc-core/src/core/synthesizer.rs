@@ -137,11 +137,6 @@ impl SynthesizerBuilder {
             .take()
             .ok_or(Error::Specify("oscillators"))?;
         let sample_rate = self.sample_rate.ok_or(Error::Specify("sample_rate"))?;
-        let amplifier = Amplifier::new(
-            VolumeParametr::from(ValueParametr::new(-3.0, (-60.0, 3.0))),
-            PanParametr::from(ValueParametr::new(0.0, (-1.0, 1.0))),
-        );
-        self.add_effect(Box::new(amplifier));
         let effects = self.effects.take().unwrap();
 
         Ok(Synthesizer {
