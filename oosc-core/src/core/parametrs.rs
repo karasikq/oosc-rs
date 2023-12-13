@@ -147,7 +147,7 @@ pub struct ExponentialTimeParametr {
 impl ExponentialTimeParametr {
     pub fn new(parametr: ValueParametr<f32>, sample_rate: f32) -> Self {
         Self {
-            exponential_time: power_to_linear(parametr.get_value()),
+            exponential_time: exponential_time(parametr.get_value(), sample_rate),
             linear_time: parametr,
             sample_rate,
         }
