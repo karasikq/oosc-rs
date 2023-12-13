@@ -103,6 +103,12 @@ impl Parametr<f32> for PanParametr {
     }
 }
 
+impl Default for PanParametr {
+    fn default() -> Self {
+        Self::from(ValueParametr::new(0.0, (-1.0, 1.0)))
+    }
+}
+
 pub struct VolumeParametr {
     pub linear: f32,
     db: ValueParametr<f32>,

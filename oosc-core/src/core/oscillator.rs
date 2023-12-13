@@ -39,15 +39,15 @@ impl WavetableOscillator {
         &self.wavetable
     }
 
-    pub fn get_envelope(&mut self) -> &mut ADSREnvelope {
+    pub fn envelope(&mut self) -> &mut ADSREnvelope {
         &mut self.envelope
     }
 
-    pub fn get_octave_offset(&mut self) -> &mut impl Parametr<i32> {
+    pub fn octave_offset(&mut self) -> &mut impl Parametr<i32> {
         &mut self.octave_offset
     }
 
-    pub fn get_pan(&mut self) -> &mut impl Parametr<f32> {
+    pub fn pan(&mut self) -> &mut impl Parametr<f32> {
         &mut self.pan
     }
 
@@ -200,7 +200,7 @@ impl OscillatorBuilder {
         let envelope = self.envelope.take().ok_or(Error::Specify("envelope"))?;
         let wavetable = self.wavetable.take().ok_or(Error::Specify("wavetable"))?;
         let octave_offset = OctaveParametr::new(ValueParametr::new(0, (-2, 2)));
-        let pan = PanParametr::new(ValueParametr::new(0., (-1., 1.)));
+        let pan = PanParametr::default();
 
         Ok(WavetableOscillator {
             buffer,
