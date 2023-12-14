@@ -1,9 +1,7 @@
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 
 use crate::effects::Effect;
-use crate::utils::convert::{power_to_linear, voltage_to_linear};
+use crate::utils::convert::power_to_linear;
 use crate::utils::sample_buffer::BufferSettings;
 use crate::{
     core::parametrs::{ExponentialTimeParametr, Parametr, ValueParametr, VolumeParametr},
