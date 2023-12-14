@@ -1,12 +1,17 @@
 pub mod oscillator;
 pub mod root;
 pub mod synthesizer;
+pub mod wavetable;
 
 use anyhow::Result;
 use crossterm::event::{KeyEvent, MouseEvent};
 use ratatui::{layout::Rect, Frame};
 
 use super::utils::Event;
+
+pub enum EmptyAction {
+    None,
+}
 
 pub trait Component {
     type Action;
