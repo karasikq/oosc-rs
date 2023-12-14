@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use crate::{core::parametrs::ExponentialTimeParametr, utils::convert::{linear_to_voltage, linear_to_power}};
+use crate::{core::parametrs::ExponentialTimeParametr, utils::convert::linear_to_power};
 
 use super::SampleProcessor;
 

@@ -1,13 +1,9 @@
 use std::sync::{Arc, Mutex, RwLock};
 
-use crate::effects::{amplifier::Amplifier, Effect};
+use crate::effects::Effect;
 use rayon::prelude::*;
 
-use super::{
-    note::Note,
-    oscillator::Oscillator,
-    parametrs::{PanParametr, ValueParametr, VolumeParametr},
-};
+use super::{note::Note, oscillator::Oscillator};
 use crate::{
     error::Error,
     utils::sample_buffer::{SampleBuffer, SampleBufferBuilder},
