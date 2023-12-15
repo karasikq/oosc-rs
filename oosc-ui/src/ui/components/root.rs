@@ -46,4 +46,9 @@ impl Component for Root {
     ) -> anyhow::Result<()> {
         self.synthesizer.draw(f, rect)
     }
+
+    fn resize(&mut self, rect: ratatui::prelude::Rect) -> anyhow::Result<()> {
+        println!("Resize root");
+        self.synthesizer.resize(rect)
+    }
 }

@@ -1,4 +1,4 @@
-use crate::utils::consts::{INVERSE_E, PI_4};
+use crate::utils::consts::PI_4;
 
 use super::consts::ANALOG_TC;
 
