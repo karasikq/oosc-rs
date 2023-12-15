@@ -1,4 +1,9 @@
-use std::{io::Stdout, time::Duration};
+use std::{
+    io::Stdout,
+    sync::{Arc, RwLock},
+    thread,
+    time::Duration,
+};
 
 use oosc_core::{core::note::Note, utils::adsr_envelope::State};
 
@@ -13,6 +18,8 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::prelude::*;
+
+type AppTerminal = Arc<RwLock<Terminal<CrosstermBackend<Stdout>>>>;
 
 pub struct Application {
     pub ctx: context::Context,
@@ -61,48 +68,65 @@ impl Application {
 
     // MOVE THIS TO UI MOD
     pub fn detach_keyboard(&mut self) -> Result<()> {
-        let mut terminal = self.setup_terminal().context("setup failed")?;
-        self.run_term(&mut terminal).context("app loop failed")?;
-        Self::restore_terminal(&mut terminal).context("restore terminal failed")?;
+        let terminal = self.setup_terminal().context("setup failed")?;
+        Self::chain_hook(terminal.clone());
+        self.run_term(terminal.clone()).context("app loop failed")?;
+        Self::restore_terminal(terminal.clone()).context("restore terminal failed")?;
         Ok(())
     }
 
-    fn setup_terminal(&mut self) -> Result<Terminal<CrosstermBackend<Stdout>>> {
+    fn setup_terminal(&mut self) -> Result<AppTerminal> {
         let mut stdout = std::io::stdout();
         enable_raw_mode().context("failed to enable raw mode")?;
         execute!(stdout, EnterAlternateScreen).context("unable to enter alternate screen")?;
-        Terminal::new(CrosstermBackend::new(stdout)).context("creating terminal failed")
+        Ok(Arc::new(RwLock::new(
+            Terminal::new(CrosstermBackend::new(stdout)).context("creating terminal failed")?,
+        )))
     }
 
-    fn restore_terminal(
-        terminal: &mut Terminal<CrosstermBackend<Stdout>>,
-    ) -> Result<(), anyhow::Error> {
+    fn restore_terminal(terminal: AppTerminal) -> Result<(), anyhow::Error> {
         disable_raw_mode().context("failed to disable raw mode")?;
-        execute!(terminal.backend_mut(), LeaveAlternateScreen)
-            .context("unable to switch to main screen")?;
-        terminal.show_cursor().context("unable to show cursor")
+        execute!(
+            terminal.write().unwrap().backend_mut(),
+            LeaveAlternateScreen
+        )
+        .context("unable to switch to main screen")?;
+        terminal
+            .write()
+            .unwrap()
+            .show_cursor()
+            .context("unable to show cursor")
     }
 
-    fn run_term(
-        &mut self,
-        terminal: &mut Terminal<CrosstermBackend<Stdout>>,
-    ) -> Result<(), anyhow::Error> {
+    fn run_term(&mut self, terminal: AppTerminal) -> Result<(), anyhow::Error> {
+        let mut terminal = terminal.write().unwrap();
         let mut root = Root::new(self, &terminal.get_frame());
         loop {
+            thread::sleep(Duration::from_millis(16));
+            if !Self::read_events(self, &mut root)? {
+                break;
+            }
             terminal.draw(|f| {
                 let _syn = self.ctx.synthesizer.lock().unwrap();
                 let _ = root.draw(f, f.size());
             })?;
-            if !Self::read_key(self)? {
-                break;
-            }
         }
         Ok(())
     }
 
-    fn read_key(&mut self) -> Result<bool> {
-        if event::poll(Duration::from_millis(250)).context("event poll failed")? {
-            if let Event::Key(key) = event::read().context("event read failed")? {
+    fn chain_hook(terminal: AppTerminal) {
+        let original_hook = std::panic::take_hook();
+
+        std::panic::set_hook(Box::new(move |panic| {
+            Self::restore_terminal(terminal.clone()).unwrap();
+            original_hook(panic);
+        }));
+    }
+
+    fn read_events(&mut self, root: &mut Root) -> Result<bool> {
+        if event::poll(Duration::from_millis(0)).context("event poll failed")? {
+            let event = event::read().context("event read failed")?;
+            if let Event::Key(key) = event {
                 return Ok(match key.code {
                     KeyCode::Char('q') => false,
                     KeyCode::Char(c) => {
@@ -112,6 +136,7 @@ impl Application {
                     _ => false,
                 });
             }
+            root.handle_events(Some(event))?;
         }
         Ok(true)
     }
