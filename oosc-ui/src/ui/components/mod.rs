@@ -4,10 +4,8 @@ pub mod synthesizer;
 pub mod wavetable;
 
 use anyhow::Result;
-use crossterm::event::{KeyEvent, MouseEvent};
+use crossterm::event::{KeyEvent, MouseEvent, Event};
 use ratatui::{layout::Rect, Frame};
-
-use super::utils::Event;
 
 pub enum EmptyAction {
     None,
@@ -20,25 +18,24 @@ pub trait Component {
         Ok(())
     }
 
-    fn handle_events(&mut self, event: Option<Event>) -> Result<()> {
-        let result = match event {
-            Some(Event::Key(key_event)) => self.handle_key_events(key_event)?,
-            Some(Event::Mouse(mouse_event)) => self.handle_mouse_events(mouse_event)?,
-            _ => None,
-        };
-        self.update(result)?;
+    fn resize(&mut self, rect: Rect) -> Result<()> {
         Ok(())
     }
 
-    fn handle_key_events(&mut self, key: KeyEvent) -> Result<Option<Self::Action>> {
-        Ok(None)
+    fn handle_events(&mut self, event: Option<Event>) -> Result<()> {
+        match event {
+            Some(Event::Key(key_event)) => self.handle_key_events(key_event),
+            Some(Event::Mouse(mouse_event)) => self.handle_mouse_events(mouse_event),
+            Some(Event::Resize(x, y)) => self.resize(Rect::new(0, 0, x, y)),
+            _ => Ok(()),
+        }
     }
 
-    fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Result<Option<Self::Action>> {
-        Ok(None)
+    fn handle_key_events(&mut self, key: KeyEvent) -> Result<()> {
+        Ok(())
     }
 
-    fn update(&mut self, action: Option<Self::Action>) -> Result<()> {
+    fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Result<()> {
         Ok(())
     }
 

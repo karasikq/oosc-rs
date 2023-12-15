@@ -71,6 +71,11 @@ impl Component for OscillatorComponent {
         b.render(rect, buf);
         Ok(())
     }
+
+    fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
+        self.rect = Some(rect);
+        Ok(())
+    }
 }
 
 impl Focus for OscillatorComponent {

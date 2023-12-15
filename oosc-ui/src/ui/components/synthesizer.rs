@@ -18,24 +18,13 @@ pub struct SynthesizerComponent {
 
 impl SynthesizerComponent {
     pub fn new(synthesizer: &mut Synthesizer, rect: Rect) -> Self {
-        let mut oscillators: Vec<OscillatorComponent> = synthesizer
+        let oscillators: Vec<OscillatorComponent> = synthesizer
             .get_oscillators::<WavetableOscillator>()
             .map(|osc| OscillatorComponent::new(osc))
             .collect();
-        let size = 100 / oscillators.len();
-        let layout = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints(
-                std::iter::repeat_with(|| Constraint::Percentage(size as u16))
-                    .take(oscillators.len())
-                    .collect::<Vec<_>>(),
-            )
-            .margin(1)
-            .split(rect);
-        oscillators.iter_mut().enumerate().for_each(|(i, osc)| {
-            osc.rect = Some(*layout.get(i).unwrap());
-        });
-        Self { oscillators, rect }
+        let mut component = Self { oscillators, rect };
+        component.resize(rect).unwrap();
+        component
     }
 }
 
@@ -59,6 +48,24 @@ impl Component for SynthesizerComponent {
             osc.draw(f, rect).unwrap();
         });
         Ok(())
+    }
+
+    fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
+        let oscillators = &mut self.oscillators;
+        let size = 100 / oscillators.len();
+        let layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(
+                std::iter::repeat_with(|| Constraint::Percentage(size as u16))
+                    .take(oscillators.len())
+                    .collect::<Vec<_>>(),
+            )
+            .margin(1)
+            .split(rect);
+        oscillators
+            .iter_mut()
+            .enumerate()
+            .try_for_each(|(i, osc)| osc.resize(*layout.get(i).unwrap()))
     }
 }
 
