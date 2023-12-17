@@ -177,10 +177,24 @@ impl WaveTable {
             ))?)
     }
 
-    pub fn load_new(&mut self, samples: Vec<f32>, chunk_size: usize) {
-        self.buffer = SampleBufferMono::from(samples);
+    pub fn load<I>(&mut self, samples: I, chunk_size: usize)
+    where
+        I: Iterator<Item = f32>,
+    {
+        self.buffer = SampleBufferMono::from(samples.collect::<Vec<f32>>());
         self.chunk_size = chunk_size;
         self.position = 0;
+    }
+
+    pub fn load_from<P: AsRef<std::path::Path>>(
+        &mut self,
+        path: P,
+        chunk_size: usize,
+    ) -> Result<(), Error> {
+        let mut reader = hound::WavReader::open(path).map_err(|e| e.to_string())?;
+        let samples = reader.samples::<f32>().filter_map(|s| s.ok());
+        self.load(samples, chunk_size);
+        Ok(())
     }
 }
 
