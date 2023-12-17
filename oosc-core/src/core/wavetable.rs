@@ -76,7 +76,7 @@ impl WaveTableBuilder {
     }
 
     pub fn from_array(&mut self, a: &[f32], chunk_size: usize) -> &mut Self {
-        let buffer = SampleBufferMono::from_array(a);
+        let buffer = SampleBufferMono::from(a);
         self.set_buffer(buffer);
         self.set_chunk_size(chunk_size);
         self
@@ -87,7 +87,7 @@ impl WaveTableBuilder {
         let vec: Vec<f32> = (0..chunk_size)
             .map(|v| shape.evaluate(v as f32 * step).unwrap())
             .collect();
-        let buffer = SampleBufferMono::from_vec(vec);
+        let buffer = SampleBufferMono::from(vec);
         self.set_buffer(buffer);
         self.set_chunk_size(chunk_size);
         self
@@ -176,6 +176,12 @@ impl WaveTable {
                 self.position
             ))?)
     }
+
+    pub fn load_new(&mut self, samples: Vec<f32>, chunk_size: usize) {
+        self.buffer = SampleBufferMono::from(samples);
+        self.chunk_size = chunk_size;
+        self.position = 0;
+    }
 }
 
 impl Evaluate<f32> for WaveTable {
@@ -245,7 +251,7 @@ mod tests {
     fn test_wavetable_builder() {
         let samples = [0.1, -0.2, 0.6, 0.96, 0.3, 0.55];
         WaveTableBuilder::new()
-            .set_buffer(SampleBufferMono::from_array(&samples))
+            .set_buffer(SampleBufferMono::from(samples))
             .set_chunk_size(2)
             .set_position(0)
             .build()

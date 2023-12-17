@@ -6,3 +6,4 @@ pub mod sample_buffer;
 pub mod interpolation;
 pub mod math;
 pub mod convert;
+pub mod wavetable_loader;
