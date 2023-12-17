@@ -1,8 +1,10 @@
-use std::{fs::File, io::BufWriter};
+use std::{fs::File, io::BufWriter, sync::{Arc, Mutex}};
 
 use hound::{WavSpec, WavWriter};
 
 use crate::error::Error;
+
+use super::StreamCallback;
 
 #[derive(Clone, Copy)]
 pub enum RenderState {
@@ -65,5 +67,18 @@ impl StreamRenderer for StreamWavRenderer {
 
     fn get_state(&self) -> RenderState {
         self.state
+    }
+}
+
+pub struct RenderStreamCallback(pub Arc<Mutex<dyn StreamRenderer>>);
+
+impl StreamCallback for RenderStreamCallback {
+    fn process_stream(&mut self, data: &mut [f32], _time: f32) -> std::result::Result<(), Error> {
+        let mut renderer = self.0.lock().unwrap();
+        if let RenderState::None = renderer.get_state() {
+            return Ok(());
+        }
+        renderer.record(data)?;
+        Ok(())
     }
 }

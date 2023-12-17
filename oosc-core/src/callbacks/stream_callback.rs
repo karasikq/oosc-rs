@@ -6,12 +6,10 @@ use crate::{
     midi::{
         mediator::{MidiEventReceiver, MidiSynthesizerMediator},
         playback::{MidiPlayback, PlaybackState},
-    }, render::stream_renderer::{StreamRenderer, RenderState},
+    },
 };
 
-pub trait StreamCallback: Send + Sync {
-    fn process_stream(&mut self, data: &mut [f32], time: f32) -> Result<(), Error>;
-}
+use super::StreamCallback;
 
 pub struct SynthesizerStreamCallback(pub Arc<Mutex<Synthesizer>>);
 
@@ -50,17 +48,3 @@ impl StreamCallback for MidiStreamCallback {
     }
 }
 
-pub struct RenderStreamCallback(
-    pub Arc<Mutex<dyn StreamRenderer>>,
-);
-
-impl StreamCallback for RenderStreamCallback {
-    fn process_stream(&mut self, data: &mut [f32], _time: f32) -> std::result::Result<(), Error> {
-        let mut renderer = self.0.lock().unwrap();
-        if let RenderState::None = renderer.get_state() {
-            return Ok(());
-        }
-        renderer.record(data)?;
-        Ok(())
-    }
-}
