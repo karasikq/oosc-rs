@@ -26,7 +26,7 @@ impl OscillatorComponent {
             .as_any_mut()
             .downcast_mut::<WavetableOscillator>()
             .unwrap();
-        let wavatable = WavetableComponent::from(osc.get_wavetable());
+        let wavatable = WavetableComponent::from(osc.wavetable());
         Self {
             oscillator: oscillator.clone(),
             wavetable: wavatable,

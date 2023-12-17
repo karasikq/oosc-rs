@@ -42,7 +42,7 @@ impl WavetableComponent {
 
 impl<'a, T> From<T> for WavetableComponent
 where
-    T: Into<&'a WaveTable>,
+    T: Into<&'a mut WaveTable>,
 {
     fn from(value: T) -> Self {
         let mut component = Self::new(30);
