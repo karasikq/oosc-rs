@@ -1,6 +1,6 @@
 use crate::utils::{
     convert::{exponential_time, power_to_linear, split_bipolar_pan},
-    math::clamp,
+    math::clamp, Shared,
 };
 
 pub trait Parametr<T>
@@ -11,6 +11,8 @@ where
     fn get_value(&self) -> T;
     fn range(&self) -> (T, T);
 }
+
+pub type SharedParametr<T> = Shared<dyn Parametr<T>>;
 
 pub struct ValueParametr<T>
 where
