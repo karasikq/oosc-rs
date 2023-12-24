@@ -8,15 +8,15 @@ use midly::{MetaMessage, SmpteTime};
 
 pub enum OwnedMetaMessage {
     TrackNumber(Option<u16>),
-    Text(String),
-    Copyright(String),
-    TrackName(String),
-    InstrumentName(String),
-    Lyric(String),
+    Text(Vec<u8>),
+    Copyright(Vec<u8>),
+    TrackName(Vec<u8>),
+    InstrumentName(Vec<u8>),
+    Lyric(Vec<u8>),
     Marker(Vec<u8>),
     CuePoint(Vec<u8>),
-    ProgramName(String),
-    DeviceName(String),
+    ProgramName(Vec<u8>),
+    DeviceName(Vec<u8>),
     MidiChannel(u8),
     MidiPort(u8),
     EndOfTrack,
@@ -28,24 +28,20 @@ pub enum OwnedMetaMessage {
     Unknown(u8, Vec<u8>),
 }
 
-fn to_owned(bytes: &[u8]) -> Result<String, crate::error::Error> {
-    Ok(String::from_utf8(bytes.to_vec()).map_err(|e| e.to_string())?)
-}
-
 impl<'a> TryFrom<&MetaMessage<'a>> for OwnedMetaMessage {
     type Error = crate::error::Error;
     fn try_from(value: &MetaMessage) -> std::result::Result<Self, Self::Error> {
         Ok(match value {
             MetaMessage::TrackNumber(v) => Self::TrackNumber(*v),
-            MetaMessage::Text(v) => Self::Text(to_owned(v)?),
-            MetaMessage::Copyright(v) => Self::Copyright(to_owned(v)?),
-            MetaMessage::TrackName(v) => Self::TrackName(to_owned(v)?),
-            MetaMessage::InstrumentName(v) => Self::InstrumentName(to_owned(v)?),
-            MetaMessage::Lyric(v) => Self::Lyric(to_owned(v)?),
+            MetaMessage::Text(v) => Self::Text(v.to_vec()),
+            MetaMessage::Copyright(v) => Self::Copyright(v.to_vec()),
+            MetaMessage::TrackName(v) => Self::TrackName(v.to_vec()),
+            MetaMessage::InstrumentName(v) => Self::InstrumentName(v.to_vec()),
+            MetaMessage::Lyric(v) => Self::Lyric(v.to_vec()),
             MetaMessage::Marker(v) => Self::Marker(v.to_vec()),
             MetaMessage::CuePoint(v) => Self::CuePoint(v.to_vec()),
-            MetaMessage::ProgramName(v) => Self::ProgramName(to_owned(v)?),
-            MetaMessage::DeviceName(v) => Self::DeviceName(to_owned(v)?),
+            MetaMessage::ProgramName(v) => Self::ProgramName(v.to_vec()),
+            MetaMessage::DeviceName(v) => Self::DeviceName(v.to_vec()),
             MetaMessage::MidiChannel(v) => Self::MidiChannel((*v).into()),
             MetaMessage::MidiPort(v) => Self::MidiPort((*v).into()),
             MetaMessage::EndOfTrack => Self::EndOfTrack,

@@ -7,6 +7,7 @@ pub enum InterpolateMethod {
     Floor,
     Linear,
     LaGrange,
+    Exponential(f32),
 }
 
 pub fn interpolate_lagrange(fx: &Vec<InPoint>, xm: f32) -> f32 {
@@ -32,6 +33,19 @@ pub fn interpolate_linear(y1: f32, y2: f32, fraction: f32) -> f32 {
     y1 + (y2 - y1) * fraction
 }
 
+pub fn interpolate_exponential(y1: f32, y2: f32, t: f32, coef: f32) -> f32 {
+    y1 + (y2 - y1) * (coef.powf(t) - 1.0) / (coef - 1.0)
+}
+
+pub fn interpolate_range(range: (f32, f32), t: f32, method: InterpolateMethod) -> f32 {
+    match method {
+        InterpolateMethod::Floor => ((range.1 - range.0) * t).floor(),
+        InterpolateMethod::Linear => interpolate_linear(range.0, range.1, t),
+        InterpolateMethod::LaGrange => unimplemented!(),
+        InterpolateMethod::Exponential(c) => interpolate_exponential(range.0, range.1, t, c),
+    }
+}
+
 pub fn interpolate_sample(
     interpolation: InterpolateMethod,
     slice: &[f32],
@@ -41,15 +55,22 @@ pub fn interpolate_sample(
         InterpolateMethod::Floor => get_sample_at_chunk(slice, index as usize)?,
         InterpolateMethod::Linear => {
             let fraction = index % 1.0;
-            let mut samples = get_samples_points_ranged(slice, slice.len(), index as i32, 2);
+            let mut samples = get_samples_ranged(slice, slice.len(), index as i32, 2);
             let s1 = samples.next().unwrap();
             let s2 = samples.next().unwrap();
-            interpolate_linear(s1.y, s2.y, fraction)
+            interpolate_linear(s1, s2, fraction)
         }
         InterpolateMethod::LaGrange => {
             let left_index = (index.floor() - 1.) as i32;
             let vec = get_samples_points_ranged(slice, slice.len(), left_index, 4).collect();
             interpolate_lagrange(&vec, index)
+        }
+        InterpolateMethod::Exponential(c) => {
+            let fraction = index % 1.0;
+            let mut samples = get_samples_ranged(slice, slice.len(), index as i32, 2);
+            let s1 = samples.next().unwrap();
+            let s2 = samples.next().unwrap();
+            interpolate_exponential(s1, s2, fraction, c)
         }
     })
 }
@@ -95,13 +116,26 @@ pub fn get_samples_points_ranged(
     })
 }
 
+pub fn get_samples_ranged(
+    chunk: &[f32],
+    chunk_size: usize,
+    start: i32,
+    count: i32,
+) -> impl Iterator<Item = f32> + '_ {
+    let end = start + count;
+    (start..end).map(move |index| {
+        let ind = bound_index(chunk_size, index);
+        get_sample_at_chunk(chunk, ind).unwrap()
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use assert_approx_eq::assert_approx_eq;
 
     use crate::utils::{
         consts::*,
-        interpolation::{interpolate_lagrange, interpolate_linear, get_samples_points_ranged},
+        interpolation::{get_samples_points_ranged, interpolate_lagrange, interpolate_linear, interpolate_exponential},
     };
 
     use super::InPoint;
@@ -111,6 +145,12 @@ mod tests {
         assert_approx_eq!(interpolate_linear(-0.25, 0.25, 0.5), 0.);
         assert_approx_eq!(interpolate_linear(0., 1., 0.33), 0.33);
         assert_approx_eq!(interpolate_linear(0., 0.5, 0.25), 0.125);
+    }
+
+    #[test]
+    fn test_interpolation_exponential() {
+        assert_approx_eq!(interpolate_exponential(0.0, 1.0, 0.5, 1000.0), 0.030653);
+        assert_approx_eq!(interpolate_exponential(2.0, 4.0, 0.5, 1000.0), 2.061307);
     }
 
     #[test]
