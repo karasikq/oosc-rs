@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use crate::utils::{
-    convert::{exponential_time, power_to_linear, split_bipolar_pan},
+    convert::{exponential_time, power_to_linear, split_bipolar_pan, cents_to_freq_coefficient},
     math::clamp,
     Shared,
 };
@@ -217,6 +217,43 @@ impl Parametr<f32> for ExponentialTimeParametr {
 
     fn range(&self) -> (f32, f32) {
         self.linear_time.range()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+pub struct CentsParametr {
+    pub freq: f32,
+    parametr: ValueParametr<i32>,
+}
+
+impl CentsParametr {
+    pub fn new(parametr: ValueParametr<i32>) -> Self {
+        Self{
+            freq: cents_to_freq_coefficient(parametr.get_value()),
+            parametr,
+        }
+    }
+}
+
+impl Parametr<i32> for CentsParametr {
+    fn set_value(&mut self, value: i32) {
+        self.parametr.set_value(value);
+        self.freq = 2.0_f32.powf(value as f32 / 1200.0)
+    }
+
+    fn get_value(&self) -> i32 {
+        self.parametr.get_value()
+    }
+
+    fn range(&self) -> (i32, i32) {
+        self.parametr.range()
     }
 
     fn as_any(&self) -> &dyn Any {
