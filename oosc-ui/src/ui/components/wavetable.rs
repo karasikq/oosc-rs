@@ -24,7 +24,7 @@ impl WavetableComponent {
 
     pub fn generate(&mut self, table: &WaveTable) -> &mut Self {
         let rate = PI_2M / self.samples as f32;
-        self.line = (1..self.samples)
+        self.line = (1..self.samples + 1)
             .map(|t| {
                 let mut line = canvas::Line::new(0.0, 0.0, 0.0, 0.0, Color::Red);
                 let x1 = (t - 1) as f32 * rate;
