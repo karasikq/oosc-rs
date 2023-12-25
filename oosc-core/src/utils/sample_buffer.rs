@@ -50,7 +50,7 @@ impl SampleBufferBuilder {
     pub fn from_array(a: &[Sample]) -> SampleBuffer {
         SampleBuffer {
             channels: 1,
-            buffers: vec![SampleBufferMono::from_array(a)],
+            buffers: vec![SampleBufferMono::from(a)],
             samples_count: a.len(),
         }
     }
@@ -59,7 +59,7 @@ impl SampleBufferBuilder {
         SampleBuffer {
             channels: 1,
             samples_count: a.len(),
-            buffers: vec![SampleBufferMono::from_vec(a)],
+            buffers: vec![SampleBufferMono::from(a)],
         }
     }
 
@@ -126,22 +126,20 @@ impl SampleBufferMono {
         self.samples.iter_mut()
     }
 
-    pub fn from_array(a: &[Sample]) -> Self {
-        let samples = a.to_vec();
-        Self { samples }
-    }
-
-    pub fn from_vec(a: Vec<Sample>) -> Self {
-        let samples = a;
-        Self { samples }
-    }
-
     pub fn get_slice(&self) -> &[f32] {
         &self.samples
     }
 
     pub fn get_slice_mut(&mut self) -> &mut [f32] {
         &mut self.samples
+    }
+}
+
+impl<T> From<T> for SampleBufferMono where T: Into<Vec<Sample>> {
+    fn from(value: T) -> Self {
+        Self {
+            samples: value.into(),
+        }
     }
 }
 
@@ -253,7 +251,8 @@ mod tests {
 
     #[test]
     fn test_buffer_at() {
-        let buffer = SampleBufferMono::from_array(&[0.1, 0.2, 0.95, -0.93, -0.934]);
+        let samples = [0.1, 0.2, 0.95, -0.93, -0.934];
+        let buffer = SampleBufferMono::from(samples);
         if let Ok(v) = buffer.at(1) {
             assert_eq!(v, 0.2)
         };
@@ -264,7 +263,7 @@ mod tests {
 
     #[test]
     fn test_buffer_set() {
-        let mut buffer = SampleBufferMono::from_array(&[0.1, 0.2, 0.95, -0.93, -0.934]);
+        let mut buffer = SampleBufferMono::from([0.1, 0.2, 0.95, -0.93, -0.934]);
         buffer.set_at(0, 1.0).unwrap();
         assert_eq!(buffer.at(0).unwrap(), 1.0);
         let mut buffer = SampleBufferBuilder::new()

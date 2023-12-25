@@ -49,3 +49,13 @@ pub fn split_bipolar_pan(value: f32) -> (f32, f32) {
 pub fn exponential_time(value: f32, sample_rate: f32) -> f32 {
     (ANALOG_TC / (value * sample_rate)).exp()
 }
+
+#[inline]
+pub fn cents_to_freq_coefficient(cents: i32) -> f32 {
+    2.0_f32.powf(cents as f32 / 1200.0)
+}
+
+#[inline]
+pub fn octave_offset_to_notes(octave: i32) -> i32 {
+    octave * 12
+}

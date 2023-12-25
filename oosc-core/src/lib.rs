@@ -4,5 +4,3 @@ pub mod midi;
 pub mod effects;
 pub mod core;
 pub mod callbacks;
-pub mod render;
-

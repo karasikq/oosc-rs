@@ -1,11 +1,11 @@
 pub mod oscillator;
+pub mod parametr;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
-
 use anyhow::Result;
-use crossterm::event::{KeyEvent, MouseEvent, Event};
-use ratatui::{layout::Rect, Frame};
+use crossterm::event::{Event, KeyEvent, MouseEvent};
+use ratatui::{layout::Rect, style::Color, Frame};
 
 pub enum EmptyAction {
     None,
@@ -18,7 +18,7 @@ pub trait Component {
         Ok(())
     }
 
-    fn resize(&mut self, rect: Rect) -> Result<()> {
+    fn resize(&mut self, _rect: Rect) -> Result<()> {
         Ok(())
     }
 
@@ -31,11 +31,11 @@ pub trait Component {
         }
     }
 
-    fn handle_key_events(&mut self, key: KeyEvent) -> Result<()> {
+    fn handle_key_events(&mut self, _key: KeyEvent) -> Result<()> {
         Ok(())
     }
 
-    fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Result<()> {
+    fn handle_mouse_events(&mut self, _mouse: MouseEvent) -> Result<()> {
         Ok(())
     }
 
@@ -46,35 +46,13 @@ pub trait Focus {
     fn focus(&mut self);
     fn unfocus(&mut self);
     fn is_focused(&self) -> bool;
+    fn color(&self) -> Color {
+        if self.is_focused() {
+            Color::Yellow
+        } else {
+            Color::Gray
+        }
+    }
 }
 
 pub trait FocusableComponent: Component + Focus {}
-
-/* pub struct Container<T>
-where
-    T: ?Sized + Component,
-{
-    components: Vec<Box<T>>,
-}
-
-impl<T: Component> Container<T> {
-    pub fn push(&mut self, component: Box<T>) {
-        self.components.push(component);
-    }
-
-    pub fn get_components<'a, C>(&'a mut self) -> impl Iterator<Item = &'a mut C>
-    where
-        C: Component + 'a + 'static,
-    {
-        self.components
-            .iter_mut()
-            .filter_map(|osc| osc.as_any_mut().downcast_mut::<C>())
-    }
-
-    pub fn get_component<'a, C>(&'a mut self) -> Option<&'a mut C>
-    where
-        C: Component + 'a + 'static,
-    {
-        self.get_components::<C>().next()
-    }
-} */

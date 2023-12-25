@@ -1,9 +1,15 @@
-use oosc_core::core::{
-    oscillator::WavetableOscillator, parametrs::Parametr, synthesizer::LockedOscillator,
+use crossterm::event::KeyCode;
+use oosc_core::{
+    core::{oscillator::WavetableOscillator, synthesizer::LockedOscillator},
+    utils::interpolation::InterpolateMethod,
 };
 use ratatui::{prelude::*, widgets::*};
 
-use super::{wavetable::WavetableComponent, Component, Focus, FocusableComponent};
+use super::{
+    parametr::{ParametrComponentF32, ParametrComponentI32},
+    wavetable::WavetableComponent,
+    Component, Focus, FocusableComponent,
+};
 
 pub enum Action {
     EnterFullscreen,
@@ -15,7 +21,10 @@ pub enum Action {
 pub struct OscillatorComponent {
     pub oscillator: LockedOscillator,
     pub wavetable: WavetableComponent,
+    pub pan: ParametrComponentF32,
+    pub octaves: ParametrComponentI32,
     pub rect: Option<Rect>,
+    pub focused: bool,
 }
 
 impl OscillatorComponent {
@@ -26,12 +35,24 @@ impl OscillatorComponent {
             .as_any_mut()
             .downcast_mut::<WavetableOscillator>()
             .unwrap();
-        let wavatable = WavetableComponent::from(osc.get_wavetable());
+        let wavetable = WavetableComponent::from(osc.wavetable());
+        let pan =
+            ParametrComponentF32::new("Pan".to_owned(), osc.pan(), 10, InterpolateMethod::Linear);
+        let octaves = ParametrComponentI32::new("Octave".to_owned(), osc.octave_offset());
+
         Self {
             oscillator: oscillator.clone(),
-            wavetable: wavatable,
+            wavetable,
+            pan,
+            octaves,
             rect: None,
+            focused: false,
         }
+    }
+
+    fn unfocus_all(&mut self) {
+        self.pan.unfocus();
+        self.octaves.unfocus();
     }
 }
 
@@ -51,24 +72,22 @@ impl Component for OscillatorComponent {
             .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
             .margin(1)
             .split(rect);
-        self.wavetable.draw(f, layout[0])?;
         let buf = f.buffer_mut();
-        let mut osc = self.oscillator.write().unwrap();
-        let osc = osc
-            .as_any_mut()
-            .downcast_mut::<WavetableOscillator>()
-            .unwrap();
-
-        let pan = osc.pan().get_value();
-        let p = Paragraph::new(format!("Pan: {}", pan)).style(Style::default().fg(Color::White));
-        p.render(layout[1], buf);
         let b = Block::default()
             .borders(Borders::ALL)
-            .title("oosc")
+            .title("osc")
             .border_type(BorderType::Rounded)
             .title_alignment(Alignment::Center)
-            .style(Style::default().fg(Color::Yellow));
+            .style(Style::default().fg(self.color()));
         b.render(rect, buf);
+        self.wavetable.draw(f, layout[0])?;
+        let parameters_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Max(12), Constraint::Max(12)])
+            .margin(1)
+            .split(layout[1]);
+        self.pan.draw(f, parameters_layout[0])?;
+        self.octaves.draw(f, parameters_layout[1])?;
         Ok(())
     }
 
@@ -76,18 +95,39 @@ impl Component for OscillatorComponent {
         self.rect = Some(rect);
         Ok(())
     }
+
+    fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
+        self.pan.handle_key_events(key)?;
+        self.octaves.handle_key_events(key)?;
+        if !self.focused {
+            return Ok(());
+        }
+        match key.code {
+            KeyCode::Char('z') => {
+                self.unfocus_all();
+                self.pan.focus();
+            }
+            KeyCode::Char('x') => {
+                self.unfocus_all();
+                self.octaves.focus();
+            }
+            KeyCode::Esc => self.unfocus(),
+            _ => (),
+        };
+        Ok(())
+    }
 }
 
 impl Focus for OscillatorComponent {
     fn focus(&mut self) {
-        todo!()
+        self.focused = true
     }
 
     fn unfocus(&mut self) {
-        todo!()
+        self.focused = false
     }
 
     fn is_focused(&self) -> bool {
-        todo!()
+        self.focused
     }
 }

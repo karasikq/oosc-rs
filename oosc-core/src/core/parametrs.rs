@@ -1,16 +1,26 @@
+use std::any::Any;
+
 use crate::utils::{
-    convert::{exponential_time, power_to_linear, split_bipolar_pan},
+    convert::{
+        cents_to_freq_coefficient, exponential_time, octave_offset_to_notes, power_to_linear,
+        split_bipolar_pan,
+    },
     math::clamp,
+    Shared,
 };
 
-pub trait Parametr<T>
+pub trait Parametr<T>: Send + Sync
 where
     T: Clone + PartialOrd + Default,
 {
     fn set_value(&mut self, value: T);
     fn get_value(&self) -> T;
     fn range(&self) -> (T, T);
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
+
+pub type SharedParametr<T> = Shared<dyn Parametr<T>>;
 
 pub struct ValueParametr<T>
 where
@@ -22,7 +32,7 @@ where
 
 impl<T> ValueParametr<T>
 where
-    T: Clone + PartialOrd + Default,
+    T: Clone,
 {
     pub fn new(value: T, range: (T, T)) -> Self {
         Self { value, range }
@@ -31,7 +41,7 @@ where
 
 impl<T> Parametr<T> for ValueParametr<T>
 where
-    T: Clone + PartialOrd + Default,
+    T: Clone + PartialOrd + Default + Send + Sync + 'static,
 {
     fn set_value(&mut self, value: T) {
         self.value = clamp(value, &self.range);
@@ -44,27 +54,50 @@ where
     fn range(&self) -> (T, T) {
         self.range.clone()
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
-pub struct OctaveParametr(ValueParametr<i32>);
+pub struct OctaveParametr {
+    pub notes: i32,
+    parametr: ValueParametr<i32>,
+}
 
 impl OctaveParametr {
     pub fn new(parametr: ValueParametr<i32>) -> Self {
-        Self(parametr)
+        Self {
+            notes: octave_offset_to_notes(parametr.get_value()),
+            parametr,
+        }
     }
 }
 
 impl Parametr<i32> for OctaveParametr {
     fn set_value(&mut self, value: i32) {
-        self.0.set_value(value * 12);
+        self.parametr.set_value(value);
+        self.notes = octave_offset_to_notes(self.parametr.get_value());
     }
 
     fn get_value(&self) -> i32 {
-        self.0.get_value() / 12
+        self.parametr.get_value()
     }
 
     fn range(&self) -> (i32, i32) {
-        self.0.range()
+        self.parametr.range()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -100,6 +133,14 @@ impl Parametr<f32> for PanParametr {
 
     fn range(&self) -> (f32, f32) {
         self.bipolar.range()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -142,6 +183,14 @@ impl Parametr<f32> for VolumeParametr {
     fn range(&self) -> (f32, f32) {
         self.db.range()
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 impl Default for VolumeParametr {
@@ -178,5 +227,50 @@ impl Parametr<f32> for ExponentialTimeParametr {
 
     fn range(&self) -> (f32, f32) {
         self.linear_time.range()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+pub struct CentsParametr {
+    pub freq: f32,
+    parametr: ValueParametr<i32>,
+}
+
+impl CentsParametr {
+    pub fn new(parametr: ValueParametr<i32>) -> Self {
+        Self {
+            freq: cents_to_freq_coefficient(parametr.get_value()),
+            parametr,
+        }
+    }
+}
+
+impl Parametr<i32> for CentsParametr {
+    fn set_value(&mut self, value: i32) {
+        self.parametr.set_value(value);
+        self.freq = 2.0_f32.powf(value as f32 / 1200.0)
+    }
+
+    fn get_value(&self) -> i32 {
+        self.parametr.get_value()
+    }
+
+    fn range(&self) -> (i32, i32) {
+        self.parametr.range()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

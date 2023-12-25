@@ -6,10 +6,12 @@ use cpal::{
 };
 
 use oosc_core::{
-    callbacks::stream_callback::{MidiStreamCallback, StreamCallback, SynthesizerStreamCallback},
+    callbacks::{
+        stream_callback::{MidiStreamCallback, SynthesizerStreamCallback},
+        StreamCallback,
+    },
     core::{
         oscillator::{OscillatorBuilder, WavetableOscillator},
-        parametrs::Parametr,
         synthesizer::{Synthesizer, SynthesizerBuilder},
         waveshape::WaveShape,
         wavetable::WaveTableBuilder,
@@ -54,9 +56,10 @@ impl Context {
             sample_rate: config.sample_rate as f32,
         };
         let osc1 = Self::build_osc(config, WaveShape::Sin)?;
-        let osc2 = Self::build_osc(config, WaveShape::Square)?;
+        let osc2 = Self::build_osc(config, WaveShape::Triangle)?;
         let chorus = Self::wrap_lock(Chorus::default(&settings));
         let compressor = Self::wrap_lock(Compressor::default(&settings));
+        let delay = Self::wrap_lock(Delay::default(&settings));
         let amplifier = Self::wrap_lock(Amplifier::default());
         let synthesizer = Arc::new(Mutex::new(
             SynthesizerBuilder::new()
@@ -65,6 +68,7 @@ impl Context {
                 .add_osc(osc2)
                 .add_effect(amplifier)
                 .add_effect(chorus)
+                .add_effect(delay)
                 .add_effect(compressor)
                 .set_sample_rate(config.sample_rate)
                 .build()?,
