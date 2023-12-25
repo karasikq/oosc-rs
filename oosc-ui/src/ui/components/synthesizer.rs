@@ -35,12 +35,6 @@ impl Component for SynthesizerComponent {
         f: &mut ratatui::Frame<'_>,
         rect: ratatui::prelude::Rect,
     ) -> anyhow::Result<()> {
-        let border = Block::default()
-            .borders(Borders::ALL)
-            .title("oosc")
-            .border_type(BorderType::Rounded)
-            .title_alignment(Alignment::Center);
-        border.render(self.rect, f.buffer_mut());
         self.oscillators.iter_mut().for_each(|osc| {
             osc.draw(f, rect).unwrap();
         });
@@ -57,7 +51,6 @@ impl Component for SynthesizerComponent {
                     .take(oscillators.len())
                     .collect::<Vec<_>>(),
             )
-            .margin(1)
             .split(rect);
         oscillators
             .iter_mut()

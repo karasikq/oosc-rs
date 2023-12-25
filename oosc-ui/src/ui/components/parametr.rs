@@ -3,13 +3,20 @@ use oosc_core::{
     core::parametrs::{Parametr, SharedParametr},
     utils::interpolation::{interpolate_range, InterpolateMethod},
 };
-use ratatui::{style::*, widgets::*};
+use ratatui::{
+    symbols::Marker,
+    widgets::{
+        canvas::{Canvas, Rectangle},
+        *,
+    },
+};
 
 use super::{Component, EmptyAction};
 
 trait AnyParametrComponent {
     fn name(&self) -> &String;
-    fn value(&self) -> String;
+    fn value(&self) -> f32;
+    fn range(&self) -> (f32, f32);
     fn increment(&mut self);
     fn decrement(&mut self);
 }
@@ -49,6 +56,18 @@ impl ParametrComponentI32 {
 }
 
 impl AnyParametrComponent for ParametrComponentF32 {
+    fn name(&self) -> &String {
+        &self.name
+    }
+
+    fn value(&self) -> f32 {
+        self.parametr.read().unwrap().get_value()
+    }
+
+    fn range(&self) -> (f32, f32) {
+        self.parametr.read().unwrap().range()
+    }
+
     fn increment(&mut self) {
         let mut parametr = self.parametr.write().unwrap();
         let step = 1.0 / self.steps as f32;
@@ -63,14 +82,6 @@ impl AnyParametrComponent for ParametrComponentF32 {
         let time = { time_of(&*parametr) };
         let result = interpolate_range(parametr.range(), time - step, self.interpolation_method);
         parametr.set_value(result);
-    }
-
-    fn name(&self) -> &String {
-        &self.name
-    }
-
-    fn value(&self) -> String {
-        format!("{}", self.parametr.read().unwrap().get_value())
     }
 }
 
@@ -87,12 +98,17 @@ impl AnyParametrComponent for ParametrComponentI32 {
         parametr.set_value(result);
     }
 
+    fn range(&self) -> (f32, f32) {
+        let range = self.parametr.read().unwrap().range();
+        (range.0 as f32, range.1 as f32)
+    }
+
     fn name(&self) -> &String {
         &self.name
     }
 
-    fn value(&self) -> String {
-        format!("{}", self.parametr.read().unwrap().get_value())
+    fn value(&self) -> f32 {
+        self.parametr.read().unwrap().get_value() as f32
     }
 }
 
@@ -104,9 +120,27 @@ impl<T: AnyParametrComponent> Component for T {
         f: &mut ratatui::Frame<'_>,
         rect: ratatui::prelude::Rect,
     ) -> anyhow::Result<()> {
-        let p = Paragraph::new(format!("{}: {}", self.name(), self.value()))
-            .style(Style::default().fg(Color::White));
-        p.render(rect, f.buffer_mut());
+        let range = self.range();
+        let canvas = Canvas::default()
+            .block(Block::default().borders(Borders::TOP).title(format!(
+                "{}:{:.2}",
+                self.name(),
+                self.value()
+            )))
+            .marker(Marker::Braille)
+            .x_bounds([0.0, 1.0])
+            .y_bounds([range.0.into(), range.1.into()])
+            .paint(|ctx| {
+                let rect = Rectangle {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 1.0,
+                    height: self.value() as f64,
+                    ..Default::default()
+                };
+                ctx.draw(&rect);
+            });
+        f.render_widget(canvas, rect);
         Ok(())
     }
 

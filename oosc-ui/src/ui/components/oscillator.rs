@@ -63,7 +63,7 @@ impl Component for OscillatorComponent {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Percentage(80), Constraint::Percentage(10), Constraint::Percentage(10)])
-            .margin(1)
+            // .margin(1)
             .split(rect);
         self.wavetable.draw(f, layout[0])?;
         self.pan.draw(f, layout[1])?;
@@ -77,7 +77,7 @@ impl Component for OscillatorComponent {
 
         let b = Block::default()
             .borders(Borders::ALL)
-            .title("oosc")
+            .title("osc")
             .border_type(BorderType::Rounded)
             .title_alignment(Alignment::Center)
             .style(Style::default().fg(Color::Yellow));

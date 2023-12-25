@@ -56,7 +56,7 @@ impl Context {
             sample_rate: config.sample_rate as f32,
         };
         let osc1 = Self::build_osc(config, WaveShape::Sin)?;
-        // let osc2 = Self::build_osc(config, WaveShape::Triangle)?;
+        let osc2 = Self::build_osc(config, WaveShape::Triangle)?;
         let chorus = Self::wrap_lock(Chorus::default(&settings));
         let compressor = Self::wrap_lock(Compressor::default(&settings));
         let delay = Self::wrap_lock(Delay::default(&settings));
@@ -65,7 +65,7 @@ impl Context {
             SynthesizerBuilder::new()
                 .set_buffer(config.buffer_size)?
                 .add_osc(osc1)
-                // .add_osc(osc2)
+                .add_osc(osc2)
                 .add_effect(amplifier)
                 .add_effect(chorus)
                 .add_effect(delay)
