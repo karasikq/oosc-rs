@@ -92,7 +92,7 @@ impl Oscillator for WavetableOscillator {
         };
         let octave_offset = {
             let param = self.parametrs.octave_offset.read().unwrap();
-            param.get_value()
+            param.as_any().downcast_ref::<OctaveParametr>().unwrap().notes
         };
         let cents = {
             let param = self.parametrs.cents_offset.read().unwrap();
@@ -222,7 +222,7 @@ impl OscillatorBuilder {
         let envelope = self.envelope.take().ok_or(Error::Specify("envelope"))?;
         let wavetable = self.wavetable.take().ok_or(Error::Specify("wavetable"))?;
         let octave_offset = make_shared(OctaveParametr::new(ValueParametr::new(0, (-2, 2))));
-        let cents_offset = make_shared(OctaveParametr::new(ValueParametr::new(0, (-100, 100))));
+        let cents_offset = make_shared(CentsParametr::new(ValueParametr::new(0, (-100, 100))));
         let pan = make_shared(PanParametr::default());
         let parametrs = Parametrs {
             octave_offset,

@@ -1,7 +1,10 @@
 use std::any::Any;
 
 use crate::utils::{
-    convert::{exponential_time, power_to_linear, split_bipolar_pan, cents_to_freq_coefficient},
+    convert::{
+        cents_to_freq_coefficient, exponential_time, octave_offset_to_notes, power_to_linear,
+        split_bipolar_pan,
+    },
     math::clamp,
     Shared,
 };
@@ -61,25 +64,32 @@ where
     }
 }
 
-pub struct OctaveParametr(ValueParametr<i32>);
+pub struct OctaveParametr {
+    pub notes: i32,
+    parametr: ValueParametr<i32>,
+}
 
 impl OctaveParametr {
     pub fn new(parametr: ValueParametr<i32>) -> Self {
-        Self(parametr)
+        Self {
+            notes: octave_offset_to_notes(parametr.get_value()),
+            parametr,
+        }
     }
 }
 
 impl Parametr<i32> for OctaveParametr {
     fn set_value(&mut self, value: i32) {
-        self.0.set_value(value * 12);
+        self.parametr.set_value(value);
+        self.notes = octave_offset_to_notes(self.parametr.get_value());
     }
 
     fn get_value(&self) -> i32 {
-        self.0.get_value() / 12
+        self.parametr.get_value()
     }
 
     fn range(&self) -> (i32, i32) {
-        self.0.range()
+        self.parametr.range()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -235,7 +245,7 @@ pub struct CentsParametr {
 
 impl CentsParametr {
     pub fn new(parametr: ValueParametr<i32>) -> Self {
-        Self{
+        Self {
             freq: cents_to_freq_coefficient(parametr.get_value()),
             parametr,
         }
