@@ -1,3 +1,4 @@
+use crossterm::event::KeyCode;
 use oosc_core::core::{oscillator::WavetableOscillator, synthesizer::Synthesizer};
 use ratatui::{prelude::*, widgets::*};
 
@@ -22,6 +23,14 @@ impl SynthesizerComponent {
         let mut component = Self { oscillators, rect };
         component.resize(rect).unwrap();
         component
+    }
+
+    fn unfocus_all(&mut self) {
+        self.oscillators.iter_mut().for_each(|osc| osc.unfocus());
+    }
+
+    fn is_any_children_focused(&mut self) -> bool {
+        self.oscillators.iter().any(|osc| osc.is_focused())
     }
 }
 
@@ -61,7 +70,21 @@ impl Component for SynthesizerComponent {
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
         self.oscillators
             .iter_mut()
-            .try_for_each(|osc| osc.handle_key_events(key))
+            .try_for_each(|osc| osc.handle_key_events(key))?;
+        if !self.is_any_children_focused() {
+            match key.code {
+                KeyCode::Char('z') => {
+                    self.unfocus_all();
+                    self.oscillators.get_mut(0).unwrap().focus();
+                }
+                KeyCode::Char('x') => {
+                    self.unfocus_all();
+                    self.oscillators.get_mut(1).unwrap().focus();
+                }
+                _ => (),
+            };
+        }
+        Ok(())
     }
 }
 

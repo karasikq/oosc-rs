@@ -1,3 +1,4 @@
+use crossterm::event::KeyCode;
 use oosc_core::{
     core::{oscillator::WavetableOscillator, synthesizer::LockedOscillator},
     utils::interpolation::InterpolateMethod,
@@ -23,6 +24,7 @@ pub struct OscillatorComponent {
     pub pan: ParametrComponentF32,
     pub octaves: ParametrComponentI32,
     pub rect: Option<Rect>,
+    pub focused: bool,
 }
 
 impl OscillatorComponent {
@@ -36,8 +38,7 @@ impl OscillatorComponent {
         let wavetable = WavetableComponent::from(osc.wavetable());
         let pan =
             ParametrComponentF32::new("Pan".to_owned(), osc.pan(), 10, InterpolateMethod::Linear);
-        let octaves =
-            ParametrComponentI32::new("Octave".to_owned(), osc.octave_offset());
+        let octaves = ParametrComponentI32::new("Octave".to_owned(), osc.octave_offset());
 
         Self {
             oscillator: oscillator.clone(),
@@ -45,7 +46,13 @@ impl OscillatorComponent {
             pan,
             octaves,
             rect: None,
+            focused: false,
         }
+    }
+
+    fn unfocus_all(&mut self) {
+        self.pan.unfocus();
+        self.octaves.unfocus();
     }
 }
 
@@ -62,26 +69,24 @@ impl Component for OscillatorComponent {
         let rect = self.rect.unwrap();
         let layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(80), Constraint::Percentage(10), Constraint::Percentage(10)])
-            // .margin(1)
+            .constraints([
+                Constraint::Percentage(80),
+                Constraint::Percentage(10),
+                Constraint::Percentage(10),
+            ])
+            .margin(1)
             .split(rect);
-        self.wavetable.draw(f, layout[0])?;
-        self.pan.draw(f, layout[1])?;
-        self.octaves.draw(f, layout[2])?;
         let buf = f.buffer_mut();
-        let mut osc = self.oscillator.write().unwrap();
-        let osc = osc
-            .as_any_mut()
-            .downcast_mut::<WavetableOscillator>()
-            .unwrap();
-
         let b = Block::default()
             .borders(Borders::ALL)
             .title("osc")
             .border_type(BorderType::Rounded)
             .title_alignment(Alignment::Center)
-            .style(Style::default().fg(Color::Yellow));
+            .style(Style::default().fg(self.color()));
         b.render(rect, buf);
+        self.wavetable.draw(f, layout[0])?;
+        self.pan.draw(f, layout[1])?;
+        self.octaves.draw(f, layout[2])?;
         Ok(())
     }
 
@@ -92,20 +97,36 @@ impl Component for OscillatorComponent {
 
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
         self.pan.handle_key_events(key)?;
-        self.octaves.handle_key_events(key)
+        self.octaves.handle_key_events(key)?;
+        if !self.focused {
+            return Ok(());
+        }
+        match key.code {
+            KeyCode::Char('z') => {
+                self.unfocus_all();
+                self.pan.focus();
+            }
+            KeyCode::Char('x') => {
+                self.unfocus_all();
+                self.octaves.focus();
+            }
+            KeyCode::Esc => self.unfocus(),
+            _ => (),
+        };
+        Ok(())
     }
 }
 
 impl Focus for OscillatorComponent {
     fn focus(&mut self) {
-        todo!()
+        self.focused = true
     }
 
     fn unfocus(&mut self) {
-        todo!()
+        self.focused = false
     }
 
     fn is_focused(&self) -> bool {
-        todo!()
+        self.focused
     }
 }

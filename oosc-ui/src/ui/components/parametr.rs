@@ -4,6 +4,7 @@ use oosc_core::{
     utils::interpolation::{interpolate_range, InterpolateMethod},
 };
 use ratatui::{
+    style::{Color, Style},
     symbols::Marker,
     widgets::{
         canvas::{Canvas, Rectangle},
@@ -11,7 +12,7 @@ use ratatui::{
     },
 };
 
-use super::{Component, EmptyAction};
+use super::{Component, EmptyAction, Focus};
 
 trait AnyParametrComponent {
     fn name(&self) -> &String;
@@ -26,6 +27,7 @@ pub struct ParametrComponentF32 {
     parametr: SharedParametr<f32>,
     steps: i32,
     interpolation_method: InterpolateMethod,
+    focused: bool,
 }
 
 impl ParametrComponentF32 {
@@ -40,6 +42,7 @@ impl ParametrComponentF32 {
             parametr,
             steps,
             interpolation_method,
+            focused: false,
         }
     }
 }
@@ -47,11 +50,16 @@ impl ParametrComponentF32 {
 pub struct ParametrComponentI32 {
     name: String,
     parametr: SharedParametr<i32>,
+    focused: bool,
 }
 
 impl ParametrComponentI32 {
     pub fn new(name: String, parametr: SharedParametr<i32>) -> Self {
-        Self { name, parametr }
+        Self {
+            name,
+            parametr,
+            focused: false,
+        }
     }
 }
 
@@ -112,7 +120,7 @@ impl AnyParametrComponent for ParametrComponentI32 {
     }
 }
 
-impl<T: AnyParametrComponent> Component for T {
+impl<T: AnyParametrComponent + Focus> Component for T {
     type Action = EmptyAction;
 
     fn draw(
@@ -122,11 +130,12 @@ impl<T: AnyParametrComponent> Component for T {
     ) -> anyhow::Result<()> {
         let range = self.range();
         let canvas = Canvas::default()
-            .block(Block::default().borders(Borders::TOP).title(format!(
-                "{}:{:.2}",
-                self.name(),
-                self.value()
-            )))
+            .block(
+                Block::default()
+                    .borders(Borders::TOP)
+                    .title(format!("{}:{:.2}", self.name(), self.value()))
+                    .style(Style::default().fg(self.color())),
+            )
             .marker(Marker::Braille)
             .x_bounds([0.0, 1.0])
             .y_bounds([range.0.into(), range.1.into()])
@@ -136,7 +145,7 @@ impl<T: AnyParametrComponent> Component for T {
                     y: 0.0,
                     width: 1.0,
                     height: self.value() as f64,
-                    ..Default::default()
+                    color: self.color(),
                 };
                 ctx.draw(&rect);
             });
@@ -145,12 +154,60 @@ impl<T: AnyParametrComponent> Component for T {
     }
 
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
+        if !self.is_focused() {
+            return Ok(());
+        }
         match key.code {
             KeyCode::Char('h') => self.decrement(),
             KeyCode::Char('l') => self.increment(),
+            KeyCode::Esc => self.unfocus(),
             _ => (),
         };
         Ok(())
+    }
+}
+
+impl Focus for ParametrComponentF32 {
+    fn focus(&mut self) {
+        self.focused = true
+    }
+
+    fn unfocus(&mut self) {
+        self.focused = false
+    }
+
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
+
+    fn color(&self) -> Color {
+        if self.is_focused() {
+            Color::Red
+        } else {
+            Color::Gray
+        }
+    }
+}
+
+impl Focus for ParametrComponentI32 {
+    fn focus(&mut self) {
+        self.focused = true
+    }
+
+    fn unfocus(&mut self) {
+        self.focused = false
+    }
+
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
+
+    fn color(&self) -> Color {
+        if self.is_focused() {
+            Color::Red
+        } else {
+            Color::Gray
+        }
     }
 }
 

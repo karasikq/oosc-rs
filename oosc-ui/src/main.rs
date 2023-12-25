@@ -23,7 +23,8 @@ fn main() -> Result<(), Error> {
 
     {
         let mut syn = app.ctx.synthesizer.lock().unwrap();
-        let osc1 = syn.get_oscillators::<WavetableOscillator>().next().unwrap();
+        let mut oscs = syn.get_oscillators::<WavetableOscillator>();
+        let osc1 = oscs.next().unwrap();
         let mut osc1 = osc1.write().unwrap();
         let osc1 = osc1
             .as_any_mut()
@@ -32,6 +33,19 @@ fn main() -> Result<(), Error> {
         osc1.wavetable()
             .load_from(
                 "./oosc-ui/test-resources/wavetables/patchmaker/BFC18.wav",
+                2048,
+            )
+            .unwrap();
+
+        let osc1 = oscs.next().unwrap();
+        let mut osc1 = osc1.write().unwrap();
+        let osc1 = osc1
+            .as_any_mut()
+            .downcast_mut::<WavetableOscillator>()
+            .unwrap();
+        osc1.wavetable()
+            .load_from(
+                "./oosc-ui/test-resources/wavetables/patchmaker/BFC12.wav",
                 2048,
             )
             .unwrap();

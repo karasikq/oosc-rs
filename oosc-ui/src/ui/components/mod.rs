@@ -1,11 +1,11 @@
 pub mod oscillator;
+pub mod parametr;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
-pub mod parametr;
 use anyhow::Result;
-use crossterm::event::{KeyEvent, MouseEvent, Event};
-use ratatui::{layout::Rect, Frame};
+use crossterm::event::{Event, KeyEvent, MouseEvent};
+use ratatui::{layout::Rect, style::Color, Frame};
 
 pub enum EmptyAction {
     None,
@@ -46,6 +46,13 @@ pub trait Focus {
     fn focus(&mut self);
     fn unfocus(&mut self);
     fn is_focused(&self) -> bool;
+    fn color(&self) -> Color {
+        if self.is_focused() {
+            Color::Yellow
+        } else {
+            Color::Gray
+        }
+    }
 }
 
 pub trait FocusableComponent: Component + Focus {}
