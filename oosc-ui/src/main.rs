@@ -13,11 +13,11 @@ fn main() -> Result<(), Error> {
     {
         let mut midi_control = app.ctx.midi_control.lock().unwrap();
         let smf = Smf::parse(include_bytes!(
-            "../test-resources/midi/Beethoven-Moonlight-Sonata.mid"
+            "../test-resources/midi/Gravity Falls - Made Me Realize.mid"
         ))
         .unwrap();
         midi_control.load(smf);
-        midi_control.set_bpm(69.0);
+        // midi_control.set_bpm(69.0);
         midi_control.play();
     }
 
@@ -31,11 +31,10 @@ fn main() -> Result<(), Error> {
             .unwrap();
         osc1.wavetable()
             .load_from(
-                "./oosc-ui/test-resources/wavetables/2457-Veridian's Tables/pLayer1.wav",
+                "./oosc-ui/test-resources/wavetables/patchmaker/BFC18.wav",
                 2048,
             )
             .unwrap();
-        osc1.octave_offset().set_value(-1);
     }
 
     let stream = app.detach_stream()?;

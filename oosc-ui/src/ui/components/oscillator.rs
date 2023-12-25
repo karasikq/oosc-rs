@@ -1,9 +1,14 @@
-use oosc_core::core::{
-    oscillator::WavetableOscillator, parametrs::Parametr, synthesizer::LockedOscillator,
+use oosc_core::{
+    core::{oscillator::WavetableOscillator, synthesizer::LockedOscillator},
+    utils::interpolation::InterpolateMethod,
 };
 use ratatui::{prelude::*, widgets::*};
 
-use super::{wavetable::WavetableComponent, Component, Focus, FocusableComponent};
+use super::{
+    parametr::{ParametrComponentF32, ParametrComponentI32},
+    wavetable::WavetableComponent,
+    Component, Focus, FocusableComponent,
+};
 
 pub enum Action {
     EnterFullscreen,
@@ -15,6 +20,8 @@ pub enum Action {
 pub struct OscillatorComponent {
     pub oscillator: LockedOscillator,
     pub wavetable: WavetableComponent,
+    pub pan: ParametrComponentF32,
+    pub octaves: ParametrComponentI32,
     pub rect: Option<Rect>,
 }
 
@@ -26,10 +33,17 @@ impl OscillatorComponent {
             .as_any_mut()
             .downcast_mut::<WavetableOscillator>()
             .unwrap();
-        let wavatable = WavetableComponent::from(osc.wavetable());
+        let wavetable = WavetableComponent::from(osc.wavetable());
+        let pan =
+            ParametrComponentF32::new("Pan".to_owned(), osc.pan(), 10, InterpolateMethod::Linear);
+        let octaves =
+            ParametrComponentI32::new("Octave".to_owned(), osc.octave_offset());
+
         Self {
             oscillator: oscillator.clone(),
-            wavetable: wavatable,
+            wavetable,
+            pan,
+            octaves,
             rect: None,
         }
     }
@@ -48,10 +62,12 @@ impl Component for OscillatorComponent {
         let rect = self.rect.unwrap();
         let layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
+            .constraints([Constraint::Percentage(80), Constraint::Percentage(10), Constraint::Percentage(10)])
             .margin(1)
             .split(rect);
         self.wavetable.draw(f, layout[0])?;
+        self.pan.draw(f, layout[1])?;
+        self.octaves.draw(f, layout[2])?;
         let buf = f.buffer_mut();
         let mut osc = self.oscillator.write().unwrap();
         let osc = osc
@@ -59,9 +75,6 @@ impl Component for OscillatorComponent {
             .downcast_mut::<WavetableOscillator>()
             .unwrap();
 
-        let pan = osc.pan().get_value();
-        let p = Paragraph::new(format!("Pan: {}", pan)).style(Style::default().fg(Color::White));
-        p.render(layout[1], buf);
         let b = Block::default()
             .borders(Borders::ALL)
             .title("oosc")
@@ -75,6 +88,11 @@ impl Component for OscillatorComponent {
     fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
         self.rect = Some(rect);
         Ok(())
+    }
+
+    fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
+        self.pan.handle_key_events(key)?;
+        self.octaves.handle_key_events(key)
     }
 }
 

@@ -103,11 +103,11 @@ impl Application {
         let mut root = Root::new(self, &terminal.get_frame());
         loop {
             thread::sleep(Duration::from_millis(16));
+            let _syn = self.ctx.synthesizer.lock().unwrap();
             if !Self::read_events(self, &mut root)? {
                 break;
             }
             terminal.draw(|f| {
-                let _syn = self.ctx.synthesizer.lock().unwrap();
                 let _ = root.draw(f, f.size());
             })?;
         }
@@ -115,28 +115,29 @@ impl Application {
     }
 
     fn chain_hook(terminal: AppTerminal) {
-        let original_hook = std::panic::take_hook();
+        /* let original_hook = std::panic::take_hook();
 
         std::panic::set_hook(Box::new(move |panic| {
             Self::restore_terminal(terminal.clone()).unwrap();
             original_hook(panic);
-        }));
+        })); */
     }
 
-    fn read_events(&mut self, root: &mut Root) -> Result<bool> {
+    fn read_events(&self, root: &mut Root) -> Result<bool> {
         if event::poll(Duration::from_millis(0)).context("event poll failed")? {
             let event = event::read().context("event read failed")?;
+            let event_copy = event.clone();
+            root.handle_events(Some(event_copy))?;
             if let Event::Key(key) = event {
                 return Ok(match key.code {
                     KeyCode::Char('q') => false,
-                    KeyCode::Char(c) => {
+                    /* KeyCode::Char(c) => {
                         self.play_note(c as u32 - 37);
                         true
-                    }
-                    _ => false,
+                    } */
+                    _ => true,
                 });
             }
-            root.handle_events(Some(event))?;
         }
         Ok(true)
     }

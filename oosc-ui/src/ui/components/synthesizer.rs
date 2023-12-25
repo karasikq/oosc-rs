@@ -1,7 +1,4 @@
-use oosc_core::core::{
-    oscillator::WavetableOscillator,
-    synthesizer::{LockedOscillator, SyncSynthesizer, Synthesizer},
-};
+use oosc_core::core::{oscillator::WavetableOscillator, synthesizer::Synthesizer};
 use ratatui::{prelude::*, widgets::*};
 
 use super::{oscillator::OscillatorComponent, Component, Focus, FocusableComponent};
@@ -66,6 +63,12 @@ impl Component for SynthesizerComponent {
             .iter_mut()
             .enumerate()
             .try_for_each(|(i, osc)| osc.resize(*layout.get(i).unwrap()))
+    }
+
+    fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
+        self.oscillators
+            .iter_mut()
+            .try_for_each(|osc| osc.handle_key_events(key))
     }
 }
 

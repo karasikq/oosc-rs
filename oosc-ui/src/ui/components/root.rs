@@ -2,7 +2,7 @@ use ratatui::Frame;
 
 use crate::app::application::Application;
 
-use super::{Component, FocusableComponent, synthesizer::SynthesizerComponent};
+use super::{Component, synthesizer::SynthesizerComponent};
 
 #[derive(Clone, Copy, Debug)]
 pub enum Mode {
@@ -48,7 +48,10 @@ impl Component for Root {
     }
 
     fn resize(&mut self, rect: ratatui::prelude::Rect) -> anyhow::Result<()> {
-        println!("Resize root");
         self.synthesizer.resize(rect)
+    }
+
+    fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
+        self.synthesizer.handle_key_events(key)
     }
 }
