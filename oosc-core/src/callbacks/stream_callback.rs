@@ -17,12 +17,11 @@ impl StreamCallback for SynthesizerStreamCallback {
     fn process_stream(&mut self, data: &mut [f32], _time: f32) -> std::result::Result<(), Error> {
         let mut syn = self.0.lock().unwrap();
         let buf = syn.output()?;
-        let mut b = buf.iter(0)?;
+        let mut l = buf.iter(0)?;
+        let mut r = buf.iter(1)?;
         for frame in data.chunks_exact_mut(2) {
-            let s = b.next().ok_or("Cannot get next sample")?;
-            for f in frame.iter_mut() {
-                *f = s;
-            }
+            frame[0] = l.next().ok_or("Cannot get next sample")?;
+            frame[1] = r.next().ok_or("Cannot get next sample")?;
         }
 
         Ok(())
