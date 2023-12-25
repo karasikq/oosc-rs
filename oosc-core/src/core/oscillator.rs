@@ -3,6 +3,7 @@ use std::any::Any;
 use crate::core::note::Note;
 use crate::error::Error;
 use crate::utils::convert::note_to_freq;
+use crate::utils::make_shared;
 use crate::utils::{
     adsr_envelope::{ADSREnvelope, State},
     consts::PI_2M,
@@ -11,8 +12,9 @@ use crate::utils::{
 };
 
 use super::note::NoteEventReceiver;
+use super::parametrs::{CentsParametr, SharedParametr};
 use super::{
-    parametrs::{OctaveParametr, PanParametr, Parametr, ValueParametr},
+    parametrs::{OctaveParametr, PanParametr, ValueParametr},
     wavetable::WaveTable,
 };
 
@@ -24,14 +26,19 @@ pub trait Oscillator: Send + Sync + NoteEventReceiver {
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
+struct Parametrs {
+    octave_offset: SharedParametr<i32>,
+    cents_offset: SharedParametr<i32>,
+    pan: SharedParametr<f32>,
+}
+
 pub struct WavetableOscillator {
     buffer: SampleBuffer,
     envelope: ADSREnvelope,
     wavetable: WaveTable,
-    octave_offset: OctaveParametr,
-    pan: PanParametr,
     notes: Vec<Note>,
     release_notes: Vec<Note>,
+    parametrs: Parametrs,
 }
 
 impl WavetableOscillator {
@@ -43,12 +50,16 @@ impl WavetableOscillator {
         &mut self.envelope
     }
 
-    pub fn octave_offset(&mut self) -> &mut impl Parametr<i32> {
-        &mut self.octave_offset
+    pub fn octave_offset(&self) -> SharedParametr<i32> {
+        self.parametrs.octave_offset.clone()
     }
 
-    pub fn pan(&mut self) -> &mut impl Parametr<f32> {
-        &mut self.pan
+    pub fn cents_offset(&self) -> SharedParametr<i32> {
+        self.parametrs.cents_offset.clone()
+    }
+
+    pub fn pan(&self) -> SharedParametr<f32> {
+        self.parametrs.pan.clone()
     }
 
     fn get_note(&self, note: u32) -> Result<usize, Error> {
@@ -75,8 +86,18 @@ impl Oscillator for WavetableOscillator {
     fn evaluate(&mut self, delta_time: f32) -> Result<(), Error> {
         let buffer = &mut self.buffer;
         buffer.fill(0.);
-        let pan = &self.pan;
-        let octave_offset = self.octave_offset.get_value();
+        let pan = {
+            let param = self.parametrs.pan.read().unwrap();
+            param.as_any().downcast_ref::<PanParametr>().unwrap().polar
+        };
+        let octave_offset = {
+            let param = self.parametrs.octave_offset.read().unwrap();
+            param.get_value()
+        };
+        let cents = {
+            let param = self.parametrs.cents_offset.read().unwrap();
+            param.as_any().downcast_ref::<CentsParametr>().unwrap().freq
+        };
         self.notes
             .iter_mut()
             .chain(self.release_notes.iter_mut())
@@ -94,11 +115,12 @@ impl Oscillator for WavetableOscillator {
                             }
                         }
                     };
-                    let freq = PI_2M * note_to_freq((note.note as i32 + octave_offset) as u32) * t;
+                    let freq =
+                        PI_2M * note_to_freq((note.note as i32 + octave_offset) as u32) * t * cents;
                     let sample = self.wavetable.evaluate(freq)?;
 
-                    iteration_buffer[0] = sample * envelope * pan.polar.0 * note.velocity;
-                    iteration_buffer[1] = sample * envelope * pan.polar.1 * note.velocity;
+                    iteration_buffer[0] = sample * envelope * pan.0 * note.velocity;
+                    iteration_buffer[1] = sample * envelope * pan.1 * note.velocity;
                     buffer.iter_buffers().enumerate().try_for_each(
                         |(ind, buf)| -> Result<(), Error> {
                             *(buf.get_mut(i)?) += iteration_buffer[ind];
@@ -199,17 +221,22 @@ impl OscillatorBuilder {
         let buffer = self.buffer.take().ok_or(Error::Specify("samples buffer"))?;
         let envelope = self.envelope.take().ok_or(Error::Specify("envelope"))?;
         let wavetable = self.wavetable.take().ok_or(Error::Specify("wavetable"))?;
-        let octave_offset = OctaveParametr::new(ValueParametr::new(0, (-2, 2)));
-        let pan = PanParametr::default();
+        let octave_offset = make_shared(OctaveParametr::new(ValueParametr::new(0, (-2, 2))));
+        let cents_offset = make_shared(OctaveParametr::new(ValueParametr::new(0, (-100, 100))));
+        let pan = make_shared(PanParametr::default());
+        let parametrs = Parametrs {
+            octave_offset,
+            cents_offset,
+            pan,
+        };
 
         Ok(WavetableOscillator {
             buffer,
             envelope,
             wavetable,
-            octave_offset,
-            pan,
             notes: vec![],
             release_notes: vec![],
+            parametrs,
         })
     }
 }
