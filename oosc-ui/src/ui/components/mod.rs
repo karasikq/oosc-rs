@@ -2,6 +2,7 @@ pub mod oscillator;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
+pub mod parametr;
 
 use anyhow::Result;
 use crossterm::event::{KeyEvent, MouseEvent, Event};
