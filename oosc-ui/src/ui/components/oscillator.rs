@@ -69,11 +69,7 @@ impl Component for OscillatorComponent {
         let rect = self.rect.unwrap();
         let layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Percentage(80),
-                Constraint::Percentage(10),
-                Constraint::Percentage(10),
-            ])
+            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
             .margin(1)
             .split(rect);
         let buf = f.buffer_mut();
@@ -85,8 +81,13 @@ impl Component for OscillatorComponent {
             .style(Style::default().fg(self.color()));
         b.render(rect, buf);
         self.wavetable.draw(f, layout[0])?;
-        self.pan.draw(f, layout[1])?;
-        self.octaves.draw(f, layout[2])?;
+        let parameters_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Max(12), Constraint::Max(12)])
+            .margin(1)
+            .split(layout[1]);
+        self.pan.draw(f, parameters_layout[0])?;
+        self.octaves.draw(f, parameters_layout[1])?;
         Ok(())
     }
 

@@ -3,13 +3,11 @@ use oosc_core::{
     core::parametrs::{Parametr, SharedParametr},
     utils::interpolation::{interpolate_range, InterpolateMethod},
 };
+use ratatui::{prelude::*, widgets::*};
 use ratatui::{
     style::{Color, Style},
     symbols::Marker,
-    widgets::{
-        canvas::{Canvas, Rectangle},
-        *,
-    },
+    widgets::canvas::{Canvas, Rectangle},
 };
 
 use super::{Component, EmptyAction, Focus};
@@ -129,27 +127,46 @@ impl<T: AnyParametrComponent + Focus> Component for T {
         rect: ratatui::prelude::Rect,
     ) -> anyhow::Result<()> {
         let range = self.range();
-        let canvas = Canvas::default()
-            .block(
-                Block::default()
-                    .borders(Borders::TOP)
-                    .title(format!("{}:{:.2}", self.name(), self.value()))
-                    .style(Style::default().fg(self.color())),
-            )
+        let layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(1),
+                Constraint::Min(0),
+                Constraint::Length(1),
+            ])
+            .split(rect);
+        /* let canvas = Canvas::default()
             .marker(Marker::Braille)
             .x_bounds([0.0, 1.0])
             .y_bounds([range.0.into(), range.1.into()])
             .paint(|ctx| {
                 let rect = Rectangle {
-                    x: 0.0,
+                    x: 0.5,
                     y: 0.0,
                     width: 1.0,
                     height: self.value() as f64,
                     color: self.color(),
                 };
                 ctx.draw(&rect);
-            });
-        f.render_widget(canvas, rect);
+            }); */
+        let bar = crate::ui::widgets::bar::Bar {
+            y_bounds: range,
+            y_from: 0.0,
+            value: self.value(),
+        };
+        let layout2 = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(50),
+                Constraint::Min(3),
+                Constraint::Percentage(50),
+            ])
+            .split(layout[1]);
+        f.render_widget(bar, layout2[1]);
+        let p = Paragraph::new(self.name().as_str()).alignment(Alignment::Center);
+        f.render_widget(p, layout[0]);
+        let p = Paragraph::new(format!("{:.2}", self.value())).alignment(Alignment::Center);
+        f.render_widget(p, layout[2]);
         Ok(())
     }
 
