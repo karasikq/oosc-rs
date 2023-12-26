@@ -18,6 +18,7 @@ trait AnyParametrComponent {
     fn name(&self) -> &String;
     fn value(&self) -> f32;
     fn range(&self) -> (f32, f32);
+    fn direction(&self) -> Direction;
     fn increment(&mut self);
     fn decrement(&mut self);
 }
@@ -25,6 +26,7 @@ trait AnyParametrComponent {
 pub struct ParametrComponentF32 {
     name: String,
     parametr: SharedParametr<f32>,
+    direction: Direction,
     steps: i32,
     interpolation_method: InterpolateMethod,
     focused: bool,
@@ -34,12 +36,14 @@ impl ParametrComponentF32 {
     pub fn new(
         name: String,
         parametr: SharedParametr<f32>,
+        direction: Direction,
         steps: i32,
         interpolation_method: InterpolateMethod,
     ) -> Self {
         Self {
             name,
             parametr,
+            direction,
             steps,
             interpolation_method,
             focused: false,
@@ -50,14 +54,16 @@ impl ParametrComponentF32 {
 pub struct ParametrComponentI32 {
     name: String,
     parametr: SharedParametr<i32>,
+    direction: Direction,
     focused: bool,
 }
 
 impl ParametrComponentI32 {
-    pub fn new(name: String, parametr: SharedParametr<i32>) -> Self {
+    pub fn new(name: String, parametr: SharedParametr<i32>, direction: Direction) -> Self {
         Self {
             name,
             parametr,
+            direction,
             focused: false,
         }
     }
@@ -91,6 +97,10 @@ impl AnyParametrComponent for ParametrComponentF32 {
         let result = interpolate_range(parametr.range(), time - step, self.interpolation_method);
         parametr.set_value(result);
     }
+
+    fn direction(&self) -> Direction {
+        self.direction
+    }
 }
 
 impl AnyParametrComponent for ParametrComponentI32 {
@@ -118,6 +128,10 @@ impl AnyParametrComponent for ParametrComponentI32 {
     fn value(&self) -> f32 {
         self.parametr.read().unwrap().get_value() as f32
     }
+
+    fn direction(&self) -> Direction {
+        self.direction
+    }
 }
 
 impl<T: AnyParametrComponent + Focus> Component for T {
@@ -131,32 +145,27 @@ impl<T: AnyParametrComponent + Focus> Component for T {
         let range = self.range();
         let layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(1),
-                Constraint::Min(0),
-                Constraint::Length(1),
-            ])
-            .split(rect);
-        let layout2 = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(40),
-                Constraint::Percentage(20),
-                Constraint::Percentage(40)
-            ])
+            .constraints([Constraint::Min(0), Constraint::Length(1)])
+            .margin(1)
             .split(rect);
         let bar = BarWidget {
-            resolution: (layout[1].width, layout[1].height),
-            direction: Direction::Horizontal,
+            resolution: (layout[0].width, layout[0].height),
+            direction: self.direction(),
             bounds: range,
             center: 0.0,
             value: self.value(),
+            color: self.color(),
         };
-        f.render_widget(bar, layout[1]);
-        let p = Paragraph::new(self.name().as_str()).alignment(Alignment::Center);
-        f.render_widget(p, layout[0]);
+        let b = Block::default()
+            .borders(Borders::ALL)
+            .title(self.name().as_str())
+            .border_type(BorderType::Rounded)
+            .title_alignment(Alignment::Center)
+            .style(Style::default().fg(self.color()));
+        f.render_widget(b, rect);
+        f.render_widget(bar, layout[0]);
         let p = Paragraph::new(format!("{:.2}", self.value())).alignment(Alignment::Center);
-        f.render_widget(p, layout[2]);
+        f.render_widget(p, layout[1]);
         Ok(())
     }
 

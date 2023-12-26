@@ -7,6 +7,7 @@ pub struct BarWidget {
     pub center: f32,
     pub value: f32,
     pub direction: Direction,
+    pub color: Color,
 }
 
 impl BarWidget {
@@ -54,7 +55,7 @@ impl Widget for BarWidget {
         x_range.for_each(|x| {
             y_range.clone().for_each(|y| {
                 let (x, y) = (x + area.x, y + area.y);
-                buf.get_mut(x, y).set_fg(Color::Red).set_char('•');
+                buf.get_mut(x, y).set_fg(self.color).set_char('•');
             });
         });
     }
