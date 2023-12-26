@@ -7,7 +7,7 @@ use ratatui::{
     widgets::{canvas::*, *},
 };
 
-use super::{Component, EmptyAction};
+use super::Component;
 
 pub struct WavetableComponent {
     pub line: Vec<canvas::Line>,
@@ -52,8 +52,6 @@ where
 }
 
 impl Component for WavetableComponent {
-    type Action = EmptyAction;
-
     fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> anyhow::Result<()> {
         let canvas = Canvas::default()
             .block(Block::default().borders(Borders::TOP).title("Wavetable"))

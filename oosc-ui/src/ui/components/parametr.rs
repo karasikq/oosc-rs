@@ -3,16 +3,12 @@ use oosc_core::{
     core::parametrs::{Parametr, SharedParametr},
     utils::interpolation::{interpolate_range, InterpolateMethod},
 };
+use ratatui::style::{Color, Style};
 use ratatui::{prelude::*, widgets::*};
-use ratatui::{
-    style::{Color, Style},
-    symbols::Marker,
-    widgets::canvas::{Canvas, Rectangle},
-};
 
-use crate::ui::widgets::bar::BarWidget;
+use crate::ui::{utils::keycode_to_string, widgets::bar::BarWidget};
 
-use super::{Component, EmptyAction, Focus};
+use super::{Component, Focus, FocusableComponent};
 
 trait AnyParametrComponent {
     fn name(&self) -> &String;
@@ -30,6 +26,7 @@ pub struct ParametrComponentF32 {
     steps: i32,
     interpolation_method: InterpolateMethod,
     focused: bool,
+    keymap: KeyCode,
 }
 
 impl ParametrComponentF32 {
@@ -39,6 +36,7 @@ impl ParametrComponentF32 {
         direction: Direction,
         steps: i32,
         interpolation_method: InterpolateMethod,
+        keymap: KeyCode,
     ) -> Self {
         Self {
             name,
@@ -47,24 +45,36 @@ impl ParametrComponentF32 {
             steps,
             interpolation_method,
             focused: false,
+            keymap,
         }
     }
 }
+
+impl FocusableComponent for ParametrComponentF32 {}
 
 pub struct ParametrComponentI32 {
     name: String,
     parametr: SharedParametr<i32>,
     direction: Direction,
     focused: bool,
+    keymap: KeyCode,
 }
 
+impl FocusableComponent for ParametrComponentI32 {}
+
 impl ParametrComponentI32 {
-    pub fn new(name: String, parametr: SharedParametr<i32>, direction: Direction) -> Self {
+    pub fn new(
+        name: String,
+        parametr: SharedParametr<i32>,
+        direction: Direction,
+        keymap: KeyCode,
+    ) -> Self {
         Self {
             name,
             parametr,
             direction,
             focused: false,
+            keymap,
         }
     }
 }
@@ -135,8 +145,6 @@ impl AnyParametrComponent for ParametrComponentI32 {
 }
 
 impl<T: AnyParametrComponent + Focus> Component for T {
-    type Action = EmptyAction;
-
     fn draw(
         &mut self,
         f: &mut ratatui::Frame<'_>,
@@ -158,7 +166,11 @@ impl<T: AnyParametrComponent + Focus> Component for T {
         };
         let b = Block::default()
             .borders(Borders::ALL)
-            .title(self.name().as_str())
+            .title(format!(
+                "{}[{}]",
+                self.name().as_str(),
+                keycode_to_string(self.keymap())
+            ))
             .border_type(BorderType::Rounded)
             .title_alignment(Alignment::Center)
             .style(Style::default().fg(self.color()));
@@ -203,6 +215,10 @@ impl Focus for ParametrComponentF32 {
             Color::Gray
         }
     }
+
+    fn keymap(&self) -> KeyCode {
+        self.keymap
+    }
 }
 
 impl Focus for ParametrComponentI32 {
@@ -224,6 +240,10 @@ impl Focus for ParametrComponentI32 {
         } else {
             Color::Gray
         }
+    }
+
+    fn keymap(&self) -> KeyCode {
+        self.keymap
     }
 }
 

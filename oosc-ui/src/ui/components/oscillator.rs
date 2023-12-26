@@ -1,7 +1,9 @@
+use std::sync::Arc;
+
 use crossterm::event::KeyCode;
 use oosc_core::{
     core::{oscillator::WavetableOscillator, synthesizer::LockedOscillator},
-    utils::interpolation::InterpolateMethod,
+    utils::{interpolation::InterpolateMethod, make_shared, Shared},
 };
 use ratatui::{prelude::*, widgets::*};
 
@@ -11,25 +13,20 @@ use super::{
     Component, Focus, FocusableComponent,
 };
 
-pub enum Action {
-    EnterFullscreen,
-    MoveNextControl,
-    MovePreviousControl,
-    ExitFullscreen,
-}
+type ParametrsContainer = Vec<Shared<dyn FocusableComponent>>;
 
 pub struct OscillatorComponent {
     pub oscillator: LockedOscillator,
     pub wavetable: WavetableComponent,
-    pub pan: ParametrComponentF32,
-    pub octaves: ParametrComponentI32,
-    pub cents: ParametrComponentI32,
+    pub parametrs: ParametrsContainer,
+    pub last_focus: Option<Shared<dyn FocusableComponent>>,
     pub rect: Option<Rect>,
     pub focused: bool,
+    pub keymap: KeyCode,
 }
 
 impl OscillatorComponent {
-    pub fn new(oscillator: LockedOscillator) -> Self {
+    pub fn new(oscillator: LockedOscillator, keymap: KeyCode) -> Self {
         let mut osc = oscillator.write().unwrap();
 
         let osc = osc
@@ -37,44 +34,44 @@ impl OscillatorComponent {
             .downcast_mut::<WavetableOscillator>()
             .unwrap();
         let wavetable = WavetableComponent::from(osc.wavetable());
-        let pan = ParametrComponentF32::new(
-            "Pan".to_owned(),
-            osc.pan(),
-            Direction::Horizontal,
-            10,
-            InterpolateMethod::Linear,
-        );
-        let octaves = ParametrComponentI32::new(
-            "Octave".to_owned(),
-            osc.octave_offset(),
-            Direction::Vertical,
-        );
-        let cents =
-            ParametrComponentI32::new("Cents".to_owned(), osc.cents_offset(), Direction::Vertical);
+        let parametrs: ParametrsContainer = vec![
+            make_shared(ParametrComponentF32::new(
+                "Pan".to_owned(),
+                osc.pan(),
+                Direction::Horizontal,
+                10,
+                InterpolateMethod::Linear,
+                KeyCode::Char('p'),
+            )),
+            make_shared(ParametrComponentI32::new(
+                "Octave".to_owned(),
+                osc.octave_offset(),
+                Direction::Vertical,
+                KeyCode::Char('o'),
+            )),
+            make_shared(ParametrComponentI32::new(
+                "Cents".to_owned(),
+                osc.cents_offset(),
+                Direction::Vertical,
+                KeyCode::Char('c'),
+            )),
+        ];
 
         Self {
             oscillator: oscillator.clone(),
             wavetable,
-            pan,
-            octaves,
-            cents,
+            parametrs,
+            last_focus: None,
             rect: None,
             focused: false,
+            keymap,
         }
-    }
-
-    fn unfocus_all(&mut self) {
-        self.pan.unfocus();
-        self.octaves.unfocus();
-        self.cents.unfocus();
     }
 }
 
 impl FocusableComponent for OscillatorComponent {}
 
 impl Component for OscillatorComponent {
-    type Action = Action;
-
     fn draw(
         &mut self,
         f: &mut ratatui::Frame<'_>,
@@ -105,9 +102,11 @@ impl Component for OscillatorComponent {
             ])
             .margin(1)
             .split(layout[1]);
-        self.pan.draw(f, parameters_layout[0])?;
-        self.octaves.draw(f, parameters_layout[1])?;
-        self.cents.draw(f, parameters_layout[2])?;
+
+        self.parametrs
+            .iter_mut()
+            .enumerate()
+            .try_for_each(|(i, p)| p.write().unwrap().draw(f, parameters_layout[i]))?;
         Ok(())
     }
 
@@ -117,27 +116,28 @@ impl Component for OscillatorComponent {
     }
 
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
-        self.pan.handle_key_events(key)?;
-        self.octaves.handle_key_events(key)?;
-        self.cents.handle_key_events(key)?;
         if !self.focused {
             return Ok(());
         }
-        match key.code {
-            KeyCode::Char('z') => {
-                self.unfocus_all();
-                self.pan.focus();
+        let parametrs = &mut self.parametrs;
+        parametrs
+            .iter_mut()
+            .try_for_each(|p| p.write().unwrap().handle_key_events(key))?;
+        parametrs.iter_mut().for_each(|p| {
+            let mut param = p.write().unwrap();
+            if param.keymap() == key.code {
+                let last = self.last_focus.clone();
+                if let Some(last) = last {
+                    if !Arc::ptr_eq(&last, p) {
+                        last.write().unwrap().unfocus();
+                    }
+                }
+                param.focus();
+                self.last_focus = Some(p.clone());
             }
-            KeyCode::Char('x') => {
-                self.unfocus_all();
-                self.octaves.focus();
-            }
-            KeyCode::Char('c') => {
-                self.unfocus_all();
-                self.cents.focus();
-            }
-            KeyCode::Esc => self.unfocus(),
-            _ => (),
+        });
+        if let KeyCode::Esc = key.code {
+            self.unfocus()
         };
         Ok(())
     }
@@ -154,5 +154,9 @@ impl Focus for OscillatorComponent {
 
     fn is_focused(&self) -> bool {
         self.focused
+    }
+
+    fn keymap(&self) -> KeyCode {
+        self.keymap
     }
 }
