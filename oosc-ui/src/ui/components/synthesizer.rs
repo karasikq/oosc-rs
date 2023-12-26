@@ -1,6 +1,6 @@
 use crossterm::event::KeyCode;
 use oosc_core::core::{oscillator::WavetableOscillator, synthesizer::Synthesizer};
-use ratatui::{prelude::*, widgets::*};
+use ratatui::prelude::*;
 
 use super::{oscillator::OscillatorComponent, Component, Focus, FocusableComponent};
 
@@ -18,7 +18,11 @@ impl SynthesizerComponent {
     pub fn new(synthesizer: &mut Synthesizer, rect: Rect) -> Self {
         let oscillators: Vec<OscillatorComponent> = synthesizer
             .get_oscillators::<WavetableOscillator>()
-            .map(|osc| OscillatorComponent::new(osc))
+            .enumerate()
+            .map(|(i, osc)| {
+                let map = KeyCode::Char(char::from_digit(i as u32, 10).unwrap());
+                OscillatorComponent::new(osc, map)
+            })
             .collect();
         let mut component = Self { oscillators, rect };
         component.resize(rect).unwrap();
@@ -37,8 +41,6 @@ impl SynthesizerComponent {
 impl FocusableComponent for SynthesizerComponent {}
 
 impl Component for SynthesizerComponent {
-    type Action = Action;
-
     fn draw(
         &mut self,
         f: &mut ratatui::Frame<'_>,
@@ -98,6 +100,10 @@ impl Focus for SynthesizerComponent {
     }
 
     fn is_focused(&self) -> bool {
+        todo!()
+    }
+
+    fn keymap(&self) -> crossterm::event::KeyCode {
         todo!()
     }
 }

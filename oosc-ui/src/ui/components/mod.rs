@@ -7,13 +7,7 @@ use anyhow::Result;
 use crossterm::event::{Event, KeyEvent, MouseEvent};
 use ratatui::{layout::Rect, style::Color, Frame};
 
-pub enum EmptyAction {
-    None,
-}
-
 pub trait Component {
-    type Action;
-
     fn init(&mut self) -> Result<()> {
         Ok(())
     }
@@ -42,6 +36,7 @@ pub trait Component {
     fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> Result<()>;
 }
 
+// Need to create macro
 pub trait Focus {
     fn focus(&mut self);
     fn unfocus(&mut self);
@@ -53,6 +48,7 @@ pub trait Focus {
             Color::Gray
         }
     }
+    fn keymap(&self) -> crossterm::event::KeyCode;
 }
 
 pub trait FocusableComponent: Component + Focus {}

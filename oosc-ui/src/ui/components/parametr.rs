@@ -3,19 +3,18 @@ use oosc_core::{
     core::parametrs::{Parametr, SharedParametr},
     utils::interpolation::{interpolate_range, InterpolateMethod},
 };
+use ratatui::style::{Color, Style};
 use ratatui::{prelude::*, widgets::*};
-use ratatui::{
-    style::{Color, Style},
-    symbols::Marker,
-    widgets::canvas::{Canvas, Rectangle},
-};
 
-use super::{Component, EmptyAction, Focus};
+use crate::ui::{utils::keycode_to_string, widgets::bar::BarWidget};
+
+use super::{Component, Focus, FocusableComponent};
 
 trait AnyParametrComponent {
     fn name(&self) -> &String;
     fn value(&self) -> f32;
     fn range(&self) -> (f32, f32);
+    fn direction(&self) -> Direction;
     fn increment(&mut self);
     fn decrement(&mut self);
 }
@@ -23,40 +22,59 @@ trait AnyParametrComponent {
 pub struct ParametrComponentF32 {
     name: String,
     parametr: SharedParametr<f32>,
+    direction: Direction,
     steps: i32,
     interpolation_method: InterpolateMethod,
     focused: bool,
+    keymap: KeyCode,
 }
 
 impl ParametrComponentF32 {
     pub fn new(
         name: String,
         parametr: SharedParametr<f32>,
+        direction: Direction,
         steps: i32,
         interpolation_method: InterpolateMethod,
+        keymap: KeyCode,
     ) -> Self {
         Self {
             name,
             parametr,
+            direction,
             steps,
             interpolation_method,
             focused: false,
+            keymap,
         }
     }
 }
 
+impl FocusableComponent for ParametrComponentF32 {}
+
 pub struct ParametrComponentI32 {
     name: String,
     parametr: SharedParametr<i32>,
+    direction: Direction,
     focused: bool,
+    keymap: KeyCode,
 }
 
+impl FocusableComponent for ParametrComponentI32 {}
+
 impl ParametrComponentI32 {
-    pub fn new(name: String, parametr: SharedParametr<i32>) -> Self {
+    pub fn new(
+        name: String,
+        parametr: SharedParametr<i32>,
+        direction: Direction,
+        keymap: KeyCode,
+    ) -> Self {
         Self {
             name,
             parametr,
+            direction,
             focused: false,
+            keymap,
         }
     }
 }
@@ -89,6 +107,10 @@ impl AnyParametrComponent for ParametrComponentF32 {
         let result = interpolate_range(parametr.range(), time - step, self.interpolation_method);
         parametr.set_value(result);
     }
+
+    fn direction(&self) -> Direction {
+        self.direction
+    }
 }
 
 impl AnyParametrComponent for ParametrComponentI32 {
@@ -116,11 +138,13 @@ impl AnyParametrComponent for ParametrComponentI32 {
     fn value(&self) -> f32 {
         self.parametr.read().unwrap().get_value() as f32
     }
+
+    fn direction(&self) -> Direction {
+        self.direction
+    }
 }
 
 impl<T: AnyParametrComponent + Focus> Component for T {
-    type Action = EmptyAction;
-
     fn draw(
         &mut self,
         f: &mut ratatui::Frame<'_>,
@@ -129,44 +153,31 @@ impl<T: AnyParametrComponent + Focus> Component for T {
         let range = self.range();
         let layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(1),
-                Constraint::Min(0),
-                Constraint::Length(1),
-            ])
+            .constraints([Constraint::Min(0), Constraint::Length(1)])
+            .margin(1)
             .split(rect);
-        /* let canvas = Canvas::default()
-            .marker(Marker::Braille)
-            .x_bounds([0.0, 1.0])
-            .y_bounds([range.0.into(), range.1.into()])
-            .paint(|ctx| {
-                let rect = Rectangle {
-                    x: 0.5,
-                    y: 0.0,
-                    width: 1.0,
-                    height: self.value() as f64,
-                    color: self.color(),
-                };
-                ctx.draw(&rect);
-            }); */
-        let bar = crate::ui::widgets::bar::Bar {
-            y_bounds: range,
-            y_from: 0.0,
+        let bar = BarWidget {
+            resolution: (layout[0].width, layout[0].height),
+            direction: self.direction(),
+            bounds: range,
+            center: 0.0,
             value: self.value(),
+            color: self.color(),
         };
-        let layout2 = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(50),
-                Constraint::Min(3),
-                Constraint::Percentage(50),
-            ])
-            .split(layout[1]);
-        f.render_widget(bar, layout2[1]);
-        let p = Paragraph::new(self.name().as_str()).alignment(Alignment::Center);
-        f.render_widget(p, layout[0]);
+        let b = Block::default()
+            .borders(Borders::ALL)
+            .title(format!(
+                "{}[{}]",
+                self.name().as_str(),
+                keycode_to_string(self.keymap())
+            ))
+            .border_type(BorderType::Rounded)
+            .title_alignment(Alignment::Center)
+            .style(Style::default().fg(self.color()));
+        f.render_widget(b, rect);
+        f.render_widget(bar, layout[0]);
         let p = Paragraph::new(format!("{:.2}", self.value())).alignment(Alignment::Center);
-        f.render_widget(p, layout[2]);
+        f.render_widget(p, layout[1]);
         Ok(())
     }
 
@@ -204,6 +215,10 @@ impl Focus for ParametrComponentF32 {
             Color::Gray
         }
     }
+
+    fn keymap(&self) -> KeyCode {
+        self.keymap
+    }
 }
 
 impl Focus for ParametrComponentI32 {
@@ -225,6 +240,10 @@ impl Focus for ParametrComponentI32 {
         } else {
             Color::Gray
         }
+    }
+
+    fn keymap(&self) -> KeyCode {
+        self.keymap
     }
 }
 

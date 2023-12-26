@@ -37,8 +37,6 @@ impl Root {
 }
 
 impl Component for Root {
-    type Action = RootAction;
-
     fn draw(
         &mut self,
         f: &mut ratatui::Frame<'_>,
