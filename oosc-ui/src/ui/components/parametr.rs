@@ -10,6 +10,8 @@ use ratatui::{
     widgets::canvas::{Canvas, Rectangle},
 };
 
+use crate::ui::widgets::bar::BarWidget;
+
 use super::{Component, EmptyAction, Focus};
 
 trait AnyParametrComponent {
@@ -135,34 +137,22 @@ impl<T: AnyParametrComponent + Focus> Component for T {
                 Constraint::Length(1),
             ])
             .split(rect);
-        /* let canvas = Canvas::default()
-            .marker(Marker::Braille)
-            .x_bounds([0.0, 1.0])
-            .y_bounds([range.0.into(), range.1.into()])
-            .paint(|ctx| {
-                let rect = Rectangle {
-                    x: 0.5,
-                    y: 0.0,
-                    width: 1.0,
-                    height: self.value() as f64,
-                    color: self.color(),
-                };
-                ctx.draw(&rect);
-            }); */
-        let bar = crate::ui::widgets::bar::Bar {
-            y_bounds: range,
-            y_from: 0.0,
-            value: self.value(),
-        };
         let layout2 = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Percentage(50),
-                Constraint::Min(3),
-                Constraint::Percentage(50),
+                Constraint::Percentage(40),
+                Constraint::Percentage(20),
+                Constraint::Percentage(40)
             ])
-            .split(layout[1]);
-        f.render_widget(bar, layout2[1]);
+            .split(rect);
+        let bar = BarWidget {
+            resolution: (layout[1].width, layout[1].height),
+            direction: Direction::Horizontal,
+            bounds: range,
+            center: 0.0,
+            value: self.value(),
+        };
+        f.render_widget(bar, layout[1]);
         let p = Paragraph::new(self.name().as_str()).alignment(Alignment::Center);
         f.render_widget(p, layout[0]);
         let p = Paragraph::new(format!("{:.2}", self.value())).alignment(Alignment::Center);

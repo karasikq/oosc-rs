@@ -1,46 +1,61 @@
-use ratatui::widgets::Widget;
+use ratatui::style::Color;
+use ratatui::{prelude::Direction, widgets::Widget};
 
-pub struct Bar {
-    pub y_bounds: (f32, f32),
-    pub y_from: f32,
+pub struct BarWidget {
+    pub resolution: (u16, u16),
+    pub bounds: (f32, f32),
+    pub center: f32,
     pub value: f32,
+    pub direction: Direction,
 }
 
-impl Bar {
-    pub fn get_point(&self, resolution: f32, value: f32) -> Option<usize> {
-        let top = self.y_bounds.1;
-        let bottom = self.y_bounds.0;
-        if value < bottom || value > top {
+impl BarWidget {
+    pub fn get_point(&self, value: f32) -> Option<u16> {
+        let max_bound = self.bounds.1;
+        let min_bound = self.bounds.0;
+        if value < min_bound || value > max_bound {
             return None;
         }
-        let height = (self.y_bounds.1 - self.y_bounds.0).abs();
-        if height == 0.0 {
+        let size = (self.bounds.1 - self.bounds.0).abs();
+        if size == 0.0 {
             return None;
         }
-        let y = ((top - value) * (resolution) / height) as usize;
-        Some(y)
+        let resolution = match self.direction {
+            Direction::Horizontal => self.resolution.0 as f32 - 1.0,
+            Direction::Vertical => self.resolution.1 as f32 - 1.0,
+        };
+        let value = match self.direction {
+            Direction::Horizontal => value - min_bound,
+            Direction::Vertical => max_bound - value,
+        };
+        let index = (value * resolution / size) as u16;
+        Some(index)
     }
 }
 
-impl Widget for Bar {
+impl Widget for BarWidget {
     fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
-        let y1 = self.get_point(area.height as f32 - 1.0, self.value);
-        let y2 = self.get_point(area.height as f32 - 1.0, self.y_from);
-        if y1.is_none() || y2.is_none() {
+        let p1 = self.get_point(self.value);
+        let p2 = self.get_point(self.center);
+        if p1.is_none() || p2.is_none() {
             return;
         }
-        let y1 = y1.unwrap();
-        let y2 = y2.unwrap();
-        let (dy, y_range) = if y2 >= y1 {
-            (y2 - y1, y1..=y2)
-        } else {
-            (y1 - y2, y2..=y1)
+        let p1 = p1.unwrap();
+        let p2 = p2.unwrap();
+        let (_dp, p_range) = match p2.cmp(&p1) {
+            std::cmp::Ordering::Less => (p1 - p2, p2..=p1),
+            std::cmp::Ordering::Equal => (p2 - p1, p1..=p2),
+            std::cmp::Ordering::Greater => (p2 - p1, p1..=p2),
         };
-        for x in 0..area.width {
+        let (x_range, y_range) = match self.direction {
+            Direction::Horizontal => (p_range, 0..=area.height - 1),
+            Direction::Vertical => (0..=area.width - 1, p_range),
+        };
+        x_range.for_each(|x| {
             y_range.clone().for_each(|y| {
-                let (x, y) = (x + area.x, y as u16 + area.y);
-                buf.get_mut(x, y).set_char('#');
+                let (x, y) = (x + area.x, y + area.y);
+                buf.get_mut(x, y).set_fg(Color::Red).set_char('•');
             });
-        }
+        });
     }
 }
