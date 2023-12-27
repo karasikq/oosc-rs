@@ -55,6 +55,12 @@ impl OscillatorComponent {
                 Direction::Vertical,
                 KeyCode::Char('c'),
             )),
+            make_shared(ParametrComponentI32::new(
+                "Wt Pos".to_owned(),
+                osc.wavetable_position(),
+                Direction::Vertical,
+                KeyCode::Char('w'),
+            )),
         ];
 
         Self {
@@ -95,6 +101,7 @@ impl Component for OscillatorComponent {
         let parameters_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
+                Constraint::Length(12),
                 Constraint::Length(12),
                 Constraint::Length(12),
                 Constraint::Length(12),
