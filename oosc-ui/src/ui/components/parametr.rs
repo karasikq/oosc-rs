@@ -15,6 +15,7 @@ trait AnyParametrComponent {
     fn value(&self) -> f32;
     fn range(&self) -> (f32, f32);
     fn direction(&self) -> Direction;
+    fn format_value(&self) -> String;
     fn increment(&mut self);
     fn decrement(&mut self);
 }
@@ -92,6 +93,14 @@ impl AnyParametrComponent for ParametrComponentF32 {
         self.parametr.read().unwrap().range()
     }
 
+    fn direction(&self) -> Direction {
+        self.direction
+    }
+
+    fn format_value(&self) -> String {
+        format!("{:.2}", self.value())
+    }
+
     fn increment(&mut self) {
         let mut parametr = self.parametr.write().unwrap();
         let step = 1.0 / self.steps as f32;
@@ -107,13 +116,30 @@ impl AnyParametrComponent for ParametrComponentF32 {
         let result = interpolate_range(parametr.range(), time - step, self.interpolation_method);
         parametr.set_value(result);
     }
+}
+
+impl AnyParametrComponent for ParametrComponentI32 {
+    fn name(&self) -> &String {
+        &self.name
+    }
+
+    fn value(&self) -> f32 {
+        self.parametr.read().unwrap().get_value() as f32
+    }
+
+    fn range(&self) -> (f32, f32) {
+        let range = self.parametr.read().unwrap().range();
+        (range.0 as f32, range.1 as f32)
+    }
 
     fn direction(&self) -> Direction {
         self.direction
     }
-}
 
-impl AnyParametrComponent for ParametrComponentI32 {
+    fn format_value(&self) -> String {
+        format!("{:.0}", self.value().round())
+    }
+
     fn increment(&mut self) {
         let mut parametr = self.parametr.write().unwrap();
         let result = { parametr.get_value() + 1 };
@@ -124,23 +150,6 @@ impl AnyParametrComponent for ParametrComponentI32 {
         let mut parametr = self.parametr.write().unwrap();
         let result = { parametr.get_value() - 1 };
         parametr.set_value(result);
-    }
-
-    fn range(&self) -> (f32, f32) {
-        let range = self.parametr.read().unwrap().range();
-        (range.0 as f32, range.1 as f32)
-    }
-
-    fn name(&self) -> &String {
-        &self.name
-    }
-
-    fn value(&self) -> f32 {
-        self.parametr.read().unwrap().get_value() as f32
-    }
-
-    fn direction(&self) -> Direction {
-        self.direction
     }
 }
 
@@ -176,7 +185,7 @@ impl<T: AnyParametrComponent + Focus> Component for T {
             .style(Style::default().fg(self.color()));
         f.render_widget(b, rect);
         f.render_widget(bar, layout[0]);
-        let p = Paragraph::new(format!("{:.2}", self.value())).alignment(Alignment::Center);
+        let p = Paragraph::new(self.format_value()).alignment(Alignment::Center);
         f.render_widget(p, layout[1]);
         Ok(())
     }
