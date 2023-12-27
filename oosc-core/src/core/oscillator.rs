@@ -3,16 +3,16 @@ use std::any::Any;
 use crate::core::note::Note;
 use crate::error::Error;
 use crate::utils::convert::note_to_freq;
-use crate::utils::make_shared;
 use crate::utils::{
     adsr_envelope::{ADSREnvelope, State},
     consts::PI_2M,
     evaluate::Evaluate,
     sample_buffer::SampleBuffer,
 };
+use crate::utils::{make_shared, Shared};
 
 use super::note::NoteEventReceiver;
-use super::parametrs::{CentsParametr, SharedParametr};
+use super::parametrs::{CallbackParametr, CentsParametr, SharedParametr};
 use super::{
     parametrs::{OctaveParametr, PanParametr, ValueParametr},
     wavetable::WaveTable,
@@ -30,20 +30,21 @@ struct Parametrs {
     octave_offset: SharedParametr<i32>,
     cents_offset: SharedParametr<i32>,
     pan: SharedParametr<f32>,
+    wt_pos: SharedParametr<i32>,
 }
 
 pub struct WavetableOscillator {
     buffer: SampleBuffer,
     envelope: ADSREnvelope,
-    wavetable: WaveTable,
+    wavetable: Shared<WaveTable>,
     notes: Vec<Note>,
     release_notes: Vec<Note>,
     parametrs: Parametrs,
 }
 
 impl WavetableOscillator {
-    pub fn wavetable(&mut self) -> &mut WaveTable {
-        &mut self.wavetable
+    pub fn wavetable(&mut self) -> Shared<WaveTable> {
+        self.wavetable.clone()
     }
 
     pub fn envelope(&mut self) -> &mut ADSREnvelope {
@@ -56,6 +57,10 @@ impl WavetableOscillator {
 
     pub fn cents_offset(&self) -> SharedParametr<i32> {
         self.parametrs.cents_offset.clone()
+    }
+
+    pub fn wavetable_position(&self) -> SharedParametr<i32> {
+        self.parametrs.wt_pos.clone()
     }
 
     pub fn pan(&self) -> SharedParametr<f32> {
@@ -92,7 +97,11 @@ impl Oscillator for WavetableOscillator {
         };
         let octave_offset = {
             let param = self.parametrs.octave_offset.read().unwrap();
-            param.as_any().downcast_ref::<OctaveParametr>().unwrap().notes
+            param
+                .as_any()
+                .downcast_ref::<OctaveParametr>()
+                .unwrap()
+                .notes
         };
         let cents = {
             let param = self.parametrs.cents_offset.read().unwrap();
@@ -117,7 +126,10 @@ impl Oscillator for WavetableOscillator {
                     };
                     let freq =
                         PI_2M * note_to_freq((note.note as i32 + octave_offset) as u32) * t * cents;
-                    let sample = self.wavetable.evaluate(freq)?;
+                    let sample = {
+                        let wavetable = self.wavetable.write().unwrap();
+                        wavetable.evaluate(freq)?
+                    };
 
                     iteration_buffer[0] = sample * envelope * pan.0 * note.velocity;
                     iteration_buffer[1] = sample * envelope * pan.1 * note.velocity;
@@ -220,14 +232,30 @@ impl OscillatorBuilder {
     pub fn build(&mut self) -> Result<WavetableOscillator, Error> {
         let buffer = self.buffer.take().ok_or(Error::Specify("samples buffer"))?;
         let envelope = self.envelope.take().ok_or(Error::Specify("envelope"))?;
-        let wavetable = self.wavetable.take().ok_or(Error::Specify("wavetable"))?;
+        let wavetable = make_shared(self.wavetable.take().ok_or(Error::Specify("wavetable"))?);
         let octave_offset = make_shared(OctaveParametr::new(ValueParametr::new(0, (-2, 2))));
         let cents_offset = make_shared(CentsParametr::new(ValueParametr::new(0, (-100, 100))));
         let pan = make_shared(PanParametr::default());
+
+        let wt_clone = wavetable.clone();
+        let wt_clone2 = wavetable.clone();
+        let wt_clone3 = wavetable.clone();
+        let wt_pos = make_shared(CallbackParametr {
+            setter: move |v| {
+                let _ = wt_clone.write().unwrap().set_position(v as usize);
+            },
+            getter: move || wt_clone2.read().unwrap().position() as i32,
+            range: move || {
+                let wt_range = wt_clone3.read().unwrap().position_range();
+                // println!("{}", wt_range.1);
+                (wt_range.0 as i32, wt_range.1 as i32)
+            },
+        });
         let parametrs = Parametrs {
             octave_offset,
             cents_offset,
             pan,
+            wt_pos,
         };
 
         Ok(WavetableOscillator {

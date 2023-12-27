@@ -274,3 +274,43 @@ impl Parametr<i32> for CentsParametr {
         self
     }
 }
+
+pub struct CallbackParametr<S, G, R, T>
+where
+    S: FnMut(T) + Send + Sync,
+    G: Fn() -> T + Send + Sync,
+    R: Fn() -> (T, T) + Send + Sync,
+    T: Clone + PartialOrd + Default + Send + Sync,
+{
+    pub setter: S,
+    pub getter: G,
+    pub range: R,
+}
+
+impl<S, G, R, T> Parametr<T> for CallbackParametr<S, G, R, T>
+where
+    S: FnMut(T) + Send + Sync + 'static,
+    G: Fn() -> T + Send + Sync + 'static,
+    R: Fn() -> (T, T) + Send + Sync + 'static,
+    T: Clone + PartialOrd + Default + Send + Sync + 'static,
+{
+    fn set_value(&mut self, value: T) {
+        (self.setter)(value)
+    }
+
+    fn get_value(&self) -> T {
+        (self.getter)()
+    }
+
+    fn range(&self) -> (T, T) {
+        (self.range)()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
