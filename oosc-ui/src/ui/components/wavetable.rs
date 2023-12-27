@@ -1,6 +1,6 @@
 use oosc_core::{
     core::wavetable::WaveTable,
-    utils::{consts::PI_2M, evaluate::Evaluate},
+    utils::{consts::PI_2M, evaluate::Evaluate, Shared},
 };
 use ratatui::{
     prelude::*,
@@ -10,23 +10,41 @@ use ratatui::{
 use super::Component;
 
 pub struct WavetableComponent {
-    pub line: Vec<canvas::Line>,
-    pub samples: i32,
+    pub wavetable: Shared<WaveTable>,
+    pub samples: usize,
+    line: Vec<canvas::Line>,
+    color: Color,
 }
 
 impl WavetableComponent {
-    pub fn new(samples: i32) -> Self {
+    pub fn new(wavetable: Shared<WaveTable>) -> Self {
         Self {
+            wavetable,
+            samples: 0,
             line: vec![],
-            samples,
+            color: Color::Red,
         }
     }
 
-    pub fn generate(&mut self, table: &WaveTable) -> &mut Self {
+    pub fn samples(self, samples: usize) -> Self {
+        Self { samples, ..self }
+    }
+
+    pub fn color(self, color: Color) -> Self {
+        Self { color, ..self }
+    }
+
+    pub fn build(mut self) -> Self {
+        self.line = self.render_line();
+        self
+    }
+
+    pub fn render_line(&self) -> Vec<canvas::Line> {
+        let table = self.wavetable.read().unwrap();
         let rate = PI_2M / self.samples as f32;
-        self.line = (1..self.samples + 1)
+        (1..=self.samples)
             .map(|t| {
-                let mut line = canvas::Line::new(0.0, 0.0, 0.0, 0.0, Color::Red);
+                let mut line = canvas::Line::new(0.0, 0.0, 0.0, 0.0, self.color);
                 let x1 = (t - 1) as f32 * rate;
                 let x2 = t as f32 * rate;
                 line.x1 = x1 as f64;
@@ -35,26 +53,28 @@ impl WavetableComponent {
                 line.y2 = table.evaluate(x2).unwrap() as f64;
                 line
             })
-            .collect();
-        self
+            .collect()
     }
 }
 
-impl<'a, T> From<T> for WavetableComponent
+impl<T> From<T> for WavetableComponent
 where
-    T: Into<&'a mut WaveTable>,
+    T: Into<Shared<WaveTable>>,
 {
     fn from(value: T) -> Self {
-        let mut component = Self::new(30);
-        component.generate(value.into());
-        component
+        Self::new(value.into().clone()).samples(30).build()
     }
 }
 
 impl Component for WavetableComponent {
     fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> anyhow::Result<()> {
+        self.line = self.render_line();
         let canvas = Canvas::default()
-            .block(Block::default().borders(Borders::TOP).title("Wavetable"))
+            .block(
+                Block::default()
+                    .borders(Borders::TOP | Borders::BOTTOM)
+                    .title("Wavetable"),
+            )
             .marker(Marker::Braille)
             .x_bounds([0.0, PI_2M as f64])
             .y_bounds([-1.0, 1.0])
