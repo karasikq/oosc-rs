@@ -140,7 +140,15 @@ impl WaveTable {
         self.interpolation
     }
 
-    fn set_position(&mut self, position: usize) -> Result<(), Error> {
+    pub fn position(&self) -> usize {
+        self.position
+    }
+
+    pub fn position_range(&self) -> (usize, usize) {
+        (0, self.chunks())
+    }
+
+    pub fn set_position(&mut self, position: usize) -> Result<(), Error> {
         if position >= self.chunks() {
             Err("Position should be less than chunks count")?
         } else {

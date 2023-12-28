@@ -31,8 +31,10 @@ fn main() -> Result<(), Error> {
             .downcast_mut::<WavetableOscillator>()
             .unwrap();
         osc1.wavetable()
+            .write()
+            .unwrap()
             .load_from(
-                "./oosc-ui/test-resources/wavetables/patchmaker/BFC18.wav",
+                "./oosc-ui/test-resources/wavetables/2457-Veridian's Tables/McFly.wav",
                 2048,
             )
             .unwrap();
@@ -44,6 +46,8 @@ fn main() -> Result<(), Error> {
             .downcast_mut::<WavetableOscillator>()
             .unwrap();
         osc1.wavetable()
+            .write()
+            .unwrap()
             .load_from(
                 "./oosc-ui/test-resources/wavetables/patchmaker/BFC12.wav",
                 2048,

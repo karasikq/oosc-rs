@@ -1,5 +1,6 @@
 use std::sync::{Arc, RwLock};
 
+use crate::core::parametrs::SharedParametr;
 use crate::effects::Effect;
 use crate::utils::convert::power_to_linear;
 use crate::utils::sample_buffer::BufferSettings;
@@ -52,6 +53,14 @@ impl Compressor {
             detectors,
             state,
         }
+    }
+
+    pub fn attack(&self) -> SharedParametr<f32> {
+        self.attack.clone()
+    }
+
+    pub fn release(&self) -> SharedParametr<f32> {
+        self.release.clone()
     }
 
     pub fn default(settings: &BufferSettings) -> Self {

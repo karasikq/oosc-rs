@@ -3,21 +3,33 @@ use oosc_core::{
     core::parametrs::{Parametr, SharedParametr},
     utils::interpolation::{interpolate_range, InterpolateMethod},
 };
-use ratatui::style::{Color, Style};
+use ratatui::style::Style;
 use ratatui::{prelude::*, widgets::*};
 
-use crate::ui::{utils::keycode_to_string, widgets::bar::BarWidget};
+use crate::ui::{
+    observer::{Notifier, NotifierContainer},
+    utils::keycode_to_string,
+    widgets::bar::BarWidget,
+};
 
-use super::{Component, Focus, FocusableComponent};
+use super::{Component, Focus, FocusableComponent, FocusableComponentContext};
 
 trait AnyParametrComponent {
     fn name(&self) -> &String;
     fn value(&self) -> f32;
     fn range(&self) -> (f32, f32);
     fn direction(&self) -> Direction;
+    fn format_value(&self) -> String;
     fn increment(&mut self);
     fn decrement(&mut self);
 }
+
+#[derive(Eq, PartialEq, Hash)]
+pub enum ParametrEvent {
+    ValueChanged,
+}
+
+type EventContainer<T> = NotifierContainer<ParametrEvent, SharedParametr<T>>;
 
 pub struct ParametrComponentF32 {
     name: String,
@@ -25,8 +37,8 @@ pub struct ParametrComponentF32 {
     direction: Direction,
     steps: i32,
     interpolation_method: InterpolateMethod,
-    focused: bool,
-    keymap: KeyCode,
+    events: EventContainer<f32>,
+    context: FocusableComponentContext,
 }
 
 impl ParametrComponentF32 {
@@ -38,29 +50,54 @@ impl ParametrComponentF32 {
         interpolation_method: InterpolateMethod,
         keymap: KeyCode,
     ) -> Self {
+        let context = FocusableComponentContext {
+            keymap: Some(keymap),
+            focused: false,
+            last_focus: None,
+        };
         Self {
             name,
             parametr,
             direction,
             steps,
             interpolation_method,
-            focused: false,
-            keymap,
+            context,
+            events: EventContainer::<f32>::default(),
         }
+    }
+
+    pub fn events(&mut self) -> &mut impl Notifier<SharedParametr<f32>, ParametrEvent> {
+        &mut self.events
     }
 }
 
-impl FocusableComponent for ParametrComponentF32 {}
+impl FocusableComponent for ParametrComponentF32 {
+    fn context(&self) -> &FocusableComponentContext {
+        &self.context
+    }
+
+    fn context_mut(&mut self) -> &mut FocusableComponentContext {
+        &mut self.context
+    }
+}
 
 pub struct ParametrComponentI32 {
     name: String,
     parametr: SharedParametr<i32>,
     direction: Direction,
-    focused: bool,
-    keymap: KeyCode,
+    events: EventContainer<i32>,
+    context: FocusableComponentContext,
 }
 
-impl FocusableComponent for ParametrComponentI32 {}
+impl FocusableComponent for ParametrComponentI32 {
+    fn context(&self) -> &FocusableComponentContext {
+        &self.context
+    }
+
+    fn context_mut(&mut self) -> &mut FocusableComponentContext {
+        &mut self.context
+    }
+}
 
 impl ParametrComponentI32 {
     pub fn new(
@@ -69,13 +106,22 @@ impl ParametrComponentI32 {
         direction: Direction,
         keymap: KeyCode,
     ) -> Self {
+        let context = FocusableComponentContext {
+            keymap: Some(keymap),
+            focused: false,
+            last_focus: None,
+        };
         Self {
             name,
             parametr,
             direction,
-            focused: false,
-            keymap,
+            events: EventContainer::<i32>::default(),
+            context,
         }
+    }
+
+    pub fn events(&mut self) -> &mut impl Notifier<SharedParametr<i32>, ParametrEvent> {
+        &mut self.events
     }
 }
 
@@ -92,45 +138,42 @@ impl AnyParametrComponent for ParametrComponentF32 {
         self.parametr.read().unwrap().range()
     }
 
+    fn direction(&self) -> Direction {
+        self.direction
+    }
+
+    fn format_value(&self) -> String {
+        format!("{:.2}", self.value())
+    }
+
     fn increment(&mut self) {
-        let mut parametr = self.parametr.write().unwrap();
-        let step = 1.0 / self.steps as f32;
-        let time = { time_of(&*parametr) };
-        let result = interpolate_range(parametr.range(), time + step, self.interpolation_method);
-        parametr.set_value(result);
+        {
+            let mut parametr = self.parametr.write().unwrap();
+            let step = 1.0 / self.steps as f32;
+            let time = time_of(&*parametr);
+            let result =
+                interpolate_range(parametr.range(), time + step, self.interpolation_method);
+            parametr.set_value(result);
+        }
+        self.events
+            .notify(ParametrEvent::ValueChanged, self.parametr.clone());
     }
 
     fn decrement(&mut self) {
-        let mut parametr = self.parametr.write().unwrap();
-        let step = 1.0 / self.steps as f32;
-        let time = { time_of(&*parametr) };
-        let result = interpolate_range(parametr.range(), time - step, self.interpolation_method);
-        parametr.set_value(result);
-    }
-
-    fn direction(&self) -> Direction {
-        self.direction
+        {
+            let mut parametr = self.parametr.write().unwrap();
+            let step = 1.0 / self.steps as f32;
+            let time = time_of(&*parametr);
+            let result =
+                interpolate_range(parametr.range(), time - step, self.interpolation_method);
+            parametr.set_value(result);
+        }
+        self.events
+            .notify(ParametrEvent::ValueChanged, self.parametr.clone());
     }
 }
 
 impl AnyParametrComponent for ParametrComponentI32 {
-    fn increment(&mut self) {
-        let mut parametr = self.parametr.write().unwrap();
-        let result = { parametr.get_value() + 1 };
-        parametr.set_value(result);
-    }
-
-    fn decrement(&mut self) {
-        let mut parametr = self.parametr.write().unwrap();
-        let result = { parametr.get_value() - 1 };
-        parametr.set_value(result);
-    }
-
-    fn range(&self) -> (f32, f32) {
-        let range = self.parametr.read().unwrap().range();
-        (range.0 as f32, range.1 as f32)
-    }
-
     fn name(&self) -> &String {
         &self.name
     }
@@ -139,8 +182,37 @@ impl AnyParametrComponent for ParametrComponentI32 {
         self.parametr.read().unwrap().get_value() as f32
     }
 
+    fn range(&self) -> (f32, f32) {
+        let range = self.parametr.read().unwrap().range();
+        (range.0 as f32, range.1 as f32)
+    }
+
     fn direction(&self) -> Direction {
         self.direction
+    }
+
+    fn format_value(&self) -> String {
+        format!("{:.0}", self.value().round())
+    }
+
+    fn increment(&mut self) {
+        {
+            let mut parametr = self.parametr.write().unwrap();
+            let result = { parametr.get_value() + 1 };
+            parametr.set_value(result);
+        }
+        self.events
+            .notify(ParametrEvent::ValueChanged, self.parametr.clone());
+    }
+
+    fn decrement(&mut self) {
+        {
+            let mut parametr = self.parametr.write().unwrap();
+            let result = { parametr.get_value() - 1 };
+            parametr.set_value(result);
+        }
+        self.events
+            .notify(ParametrEvent::ValueChanged, self.parametr.clone());
     }
 }
 
@@ -169,14 +241,14 @@ impl<T: AnyParametrComponent + Focus> Component for T {
             .title(format!(
                 "{}[{}]",
                 self.name().as_str(),
-                keycode_to_string(self.keymap())
+                keycode_to_string(self.keymap().unwrap_or(KeyCode::Null))
             ))
             .border_type(BorderType::Rounded)
             .title_alignment(Alignment::Center)
             .style(Style::default().fg(self.color()));
         f.render_widget(b, rect);
         f.render_widget(bar, layout[0]);
-        let p = Paragraph::new(format!("{:.2}", self.value())).alignment(Alignment::Center);
+        let p = Paragraph::new(self.format_value()).alignment(Alignment::Center);
         f.render_widget(p, layout[1]);
         Ok(())
     }
@@ -192,58 +264,6 @@ impl<T: AnyParametrComponent + Focus> Component for T {
             _ => (),
         };
         Ok(())
-    }
-}
-
-impl Focus for ParametrComponentF32 {
-    fn focus(&mut self) {
-        self.focused = true
-    }
-
-    fn unfocus(&mut self) {
-        self.focused = false
-    }
-
-    fn is_focused(&self) -> bool {
-        self.focused
-    }
-
-    fn color(&self) -> Color {
-        if self.is_focused() {
-            Color::Red
-        } else {
-            Color::Gray
-        }
-    }
-
-    fn keymap(&self) -> KeyCode {
-        self.keymap
-    }
-}
-
-impl Focus for ParametrComponentI32 {
-    fn focus(&mut self) {
-        self.focused = true
-    }
-
-    fn unfocus(&mut self) {
-        self.focused = false
-    }
-
-    fn is_focused(&self) -> bool {
-        self.focused
-    }
-
-    fn color(&self) -> Color {
-        if self.is_focused() {
-            Color::Red
-        } else {
-            Color::Gray
-        }
-    }
-
-    fn keymap(&self) -> KeyCode {
-        self.keymap
     }
 }
 

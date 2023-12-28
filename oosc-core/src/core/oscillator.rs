@@ -3,16 +3,16 @@ use std::any::Any;
 use crate::core::note::Note;
 use crate::error::Error;
 use crate::utils::convert::note_to_freq;
-use crate::utils::make_shared;
 use crate::utils::{
     adsr_envelope::{ADSREnvelope, State},
     consts::PI_2M,
     evaluate::Evaluate,
     sample_buffer::SampleBuffer,
 };
+use crate::utils::{make_shared, Shared};
 
 use super::note::NoteEventReceiver;
-use super::parametrs::{CentsParametr, SharedParametr};
+use super::parametrs::{CallbackParametr, CentsParametr, SharedParametr, VolumeParametr};
 use super::{
     parametrs::{OctaveParametr, PanParametr, ValueParametr},
     wavetable::WaveTable,
@@ -27,27 +27,29 @@ pub trait Oscillator: Send + Sync + NoteEventReceiver {
 }
 
 struct Parametrs {
-    octave_offset: SharedParametr<i32>,
-    cents_offset: SharedParametr<i32>,
-    pan: SharedParametr<f32>,
+    octave_offset: Shared<OctaveParametr>,
+    cents_offset: Shared<CentsParametr>,
+    pan: Shared<PanParametr>,
+    wt_pos: SharedParametr<i32>,
+    gain: Shared<VolumeParametr>,
 }
 
 pub struct WavetableOscillator {
     buffer: SampleBuffer,
-    envelope: ADSREnvelope,
-    wavetable: WaveTable,
+    envelope: Shared<ADSREnvelope>,
+    wavetable: Shared<WaveTable>,
     notes: Vec<Note>,
     release_notes: Vec<Note>,
     parametrs: Parametrs,
 }
 
 impl WavetableOscillator {
-    pub fn wavetable(&mut self) -> &mut WaveTable {
-        &mut self.wavetable
+    pub fn wavetable(&self) -> Shared<WaveTable> {
+        self.wavetable.clone()
     }
 
-    pub fn envelope(&mut self) -> &mut ADSREnvelope {
-        &mut self.envelope
+    pub fn envelope(&self) -> Shared<ADSREnvelope> {
+        self.envelope.clone()
     }
 
     pub fn octave_offset(&self) -> SharedParametr<i32> {
@@ -58,8 +60,16 @@ impl WavetableOscillator {
         self.parametrs.cents_offset.clone()
     }
 
+    pub fn wavetable_position(&self) -> SharedParametr<i32> {
+        self.parametrs.wt_pos.clone()
+    }
+
     pub fn pan(&self) -> SharedParametr<f32> {
         self.parametrs.pan.clone()
+    }
+
+    pub fn gain(&self) -> SharedParametr<f32> {
+        self.parametrs.gain.clone()
     }
 
     fn get_note(&self, note: u32) -> Result<usize, Error> {
@@ -75,10 +85,24 @@ impl WavetableOscillator {
     }
 
     fn remove_released_notes(&mut self) {
+        let envelope = self.envelope.read().unwrap();
         self.release_notes.retain(|note| {
-            note.state != State::None
-                && note.play_time < self.envelope.time_range_of(State::Release).1
+            note.state != State::None && note.play_time < envelope.time_range_of(State::Release).1
         });
+    }
+
+    fn envelope_value_at(t: f32, note: &Note, adsr: Shared<ADSREnvelope>) -> f32 {
+        let envelope = adsr.read().unwrap();
+        match note.hold_on {
+            State::None => envelope.evaluate(t),
+            _ => {
+                if t > envelope.time_range_of(note.hold_on).1 {
+                    envelope.peak_at(note.hold_on)
+                } else {
+                    envelope.evaluate(t)
+                }
+            }
+        }
     }
 }
 
@@ -86,18 +110,11 @@ impl Oscillator for WavetableOscillator {
     fn evaluate(&mut self, delta_time: f32) -> Result<(), Error> {
         let buffer = &mut self.buffer;
         buffer.fill(0.);
-        let pan = {
-            let param = self.parametrs.pan.read().unwrap();
-            param.as_any().downcast_ref::<PanParametr>().unwrap().polar
-        };
-        let octave_offset = {
-            let param = self.parametrs.octave_offset.read().unwrap();
-            param.as_any().downcast_ref::<OctaveParametr>().unwrap().notes
-        };
-        let cents = {
-            let param = self.parametrs.cents_offset.read().unwrap();
-            param.as_any().downcast_ref::<CentsParametr>().unwrap().freq
-        };
+        let pan = self.parametrs.pan.read().unwrap().polar;
+        let octave_offset = self.parametrs.octave_offset.read().unwrap().notes;
+        let cents = self.parametrs.cents_offset.read().unwrap().freq;
+        let gain = self.parametrs.gain.read().unwrap().linear;
+
         self.notes
             .iter_mut()
             .chain(self.release_notes.iter_mut())
@@ -105,22 +122,16 @@ impl Oscillator for WavetableOscillator {
                 let mut t = note.play_time;
                 let mut iteration_buffer = [0.0; 2];
                 (0..buffer.len()).try_for_each(|i| -> Result<(), Error> {
-                    let envelope = match note.hold_on {
-                        State::None => self.envelope.evaluate(t),
-                        _ => {
-                            if t > self.envelope.time_range_of(note.hold_on).1 {
-                                self.envelope.peak_at(note.hold_on)
-                            } else {
-                                self.envelope.evaluate(t)
-                            }
-                        }
-                    };
+                    let envelope = Self::envelope_value_at(t, note, self.envelope.clone());
                     let freq =
                         PI_2M * note_to_freq((note.note as i32 + octave_offset) as u32) * t * cents;
-                    let sample = self.wavetable.evaluate(freq)?;
+                    let sample = {
+                        let wavetable = self.wavetable.write().unwrap();
+                        wavetable.evaluate(freq)?
+                    };
 
-                    iteration_buffer[0] = sample * envelope * pan.0 * note.velocity;
-                    iteration_buffer[1] = sample * envelope * pan.1 * note.velocity;
+                    iteration_buffer[0] = sample * envelope * pan.0 * note.velocity * gain;
+                    iteration_buffer[1] = sample * envelope * pan.1 * note.velocity * gain;
                     buffer.iter_buffers().enumerate().try_for_each(
                         |(ind, buf)| -> Result<(), Error> {
                             *(buf.get_mut(i)?) += iteration_buffer[ind];
@@ -173,8 +184,6 @@ impl NoteEventReceiver for WavetableOscillator {
         };
         let mut note = self.remove_note(index);
         note.hold_on = State::None;
-        // Makes "clipping" sound. How to smoothly release note??
-        // note.play_time = self.envelope.time_range_of(State::Release).0;
         self.release_notes.push(note);
         Ok(())
     }
@@ -219,15 +228,33 @@ impl OscillatorBuilder {
 
     pub fn build(&mut self) -> Result<WavetableOscillator, Error> {
         let buffer = self.buffer.take().ok_or(Error::Specify("samples buffer"))?;
-        let envelope = self.envelope.take().ok_or(Error::Specify("envelope"))?;
-        let wavetable = self.wavetable.take().ok_or(Error::Specify("wavetable"))?;
+        let envelope = make_shared(self.envelope.take().ok_or(Error::Specify("envelope"))?);
+        let wavetable = make_shared(self.wavetable.take().ok_or(Error::Specify("wavetable"))?);
         let octave_offset = make_shared(OctaveParametr::new(ValueParametr::new(0, (-2, 2))));
         let cents_offset = make_shared(CentsParametr::new(ValueParametr::new(0, (-100, 100))));
         let pan = make_shared(PanParametr::default());
+        let gain = make_shared(VolumeParametr::default());
+
+        let wt_clone = wavetable.clone();
+        let wt_clone2 = wavetable.clone();
+        let wt_clone3 = wavetable.clone();
+        let wt_pos = make_shared(CallbackParametr {
+            setter: move |v| {
+                let _ = wt_clone.write().unwrap().set_position(v as usize);
+            },
+            getter: move || wt_clone2.read().unwrap().position() as i32,
+            range: move || {
+                let wt_range = wt_clone3.read().unwrap().position_range();
+                // println!("{}", wt_range.1);
+                (wt_range.0 as i32, wt_range.1 as i32)
+            },
+        });
         let parametrs = Parametrs {
             octave_offset,
             cents_offset,
             pan,
+            wt_pos,
+            gain,
         };
 
         Ok(WavetableOscillator {
