@@ -6,7 +6,11 @@ use oosc_core::{
 use ratatui::style::{Color, Style};
 use ratatui::{prelude::*, widgets::*};
 
-use crate::ui::{utils::keycode_to_string, widgets::bar::BarWidget};
+use crate::ui::{
+    observer::{Notifier, NotifierContainer},
+    utils::keycode_to_string,
+    widgets::bar::BarWidget,
+};
 
 use super::{Component, Focus, FocusableComponent};
 
@@ -20,6 +24,13 @@ trait AnyParametrComponent {
     fn decrement(&mut self);
 }
 
+#[derive(Eq, PartialEq, Hash)]
+pub enum ParametrEvent {
+    ValueChanged,
+}
+
+type EventContainer<T> = NotifierContainer<ParametrEvent, SharedParametr<T>>;
+
 pub struct ParametrComponentF32 {
     name: String,
     parametr: SharedParametr<f32>,
@@ -28,6 +39,7 @@ pub struct ParametrComponentF32 {
     interpolation_method: InterpolateMethod,
     focused: bool,
     keymap: KeyCode,
+    events: EventContainer<f32>,
 }
 
 impl ParametrComponentF32 {
@@ -47,7 +59,12 @@ impl ParametrComponentF32 {
             interpolation_method,
             focused: false,
             keymap,
+            events: EventContainer::<f32>::default(),
         }
+    }
+
+    pub fn events(&mut self) -> &mut impl Notifier<SharedParametr<f32>, ParametrEvent> {
+        &mut self.events
     }
 }
 
@@ -59,6 +76,7 @@ pub struct ParametrComponentI32 {
     direction: Direction,
     focused: bool,
     keymap: KeyCode,
+    events: EventContainer<i32>,
 }
 
 impl FocusableComponent for ParametrComponentI32 {}
@@ -76,7 +94,12 @@ impl ParametrComponentI32 {
             direction,
             focused: false,
             keymap,
+            events: EventContainer::<i32>::default(),
         }
+    }
+
+    pub fn events(&mut self) -> &mut impl Notifier<SharedParametr<i32>, ParametrEvent> {
+        &mut self.events
     }
 }
 
@@ -102,19 +125,29 @@ impl AnyParametrComponent for ParametrComponentF32 {
     }
 
     fn increment(&mut self) {
-        let mut parametr = self.parametr.write().unwrap();
-        let step = 1.0 / self.steps as f32;
-        let time = { time_of(&*parametr) };
-        let result = interpolate_range(parametr.range(), time + step, self.interpolation_method);
-        parametr.set_value(result);
+        {
+            let mut parametr = self.parametr.write().unwrap();
+            let step = 1.0 / self.steps as f32;
+            let time = { time_of(&*parametr) };
+            let result =
+                interpolate_range(parametr.range(), time + step, self.interpolation_method);
+            parametr.set_value(result);
+        }
+        self.events
+            .notify(ParametrEvent::ValueChanged, self.parametr.clone());
     }
 
     fn decrement(&mut self) {
-        let mut parametr = self.parametr.write().unwrap();
-        let step = 1.0 / self.steps as f32;
-        let time = { time_of(&*parametr) };
-        let result = interpolate_range(parametr.range(), time - step, self.interpolation_method);
-        parametr.set_value(result);
+        {
+            let mut parametr = self.parametr.write().unwrap();
+            let step = 1.0 / self.steps as f32;
+            let time = { time_of(&*parametr) };
+            let result =
+                interpolate_range(parametr.range(), time - step, self.interpolation_method);
+            parametr.set_value(result);
+        }
+        self.events
+            .notify(ParametrEvent::ValueChanged, self.parametr.clone());
     }
 }
 
@@ -141,15 +174,23 @@ impl AnyParametrComponent for ParametrComponentI32 {
     }
 
     fn increment(&mut self) {
-        let mut parametr = self.parametr.write().unwrap();
-        let result = { parametr.get_value() + 1 };
-        parametr.set_value(result);
+        {
+            let mut parametr = self.parametr.write().unwrap();
+            let result = { parametr.get_value() + 1 };
+            parametr.set_value(result);
+        }
+        self.events
+            .notify(ParametrEvent::ValueChanged, self.parametr.clone());
     }
 
     fn decrement(&mut self) {
-        let mut parametr = self.parametr.write().unwrap();
-        let result = { parametr.get_value() - 1 };
-        parametr.set_value(result);
+        {
+            let mut parametr = self.parametr.write().unwrap();
+            let result = { parametr.get_value() - 1 };
+            parametr.set_value(result);
+        }
+        self.events
+            .notify(ParametrEvent::ValueChanged, self.parametr.clone());
     }
 }
 

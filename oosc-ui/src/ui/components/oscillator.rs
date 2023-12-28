@@ -7,6 +7,8 @@ use oosc_core::{
 };
 use ratatui::{prelude::*, widgets::*};
 
+use crate::ui::observer::Notifier;
+
 use super::{
     parametr::{ParametrComponentF32, ParametrComponentI32},
     wavetable::WavetableComponent,
@@ -17,7 +19,7 @@ type ParametrsContainer = Vec<Shared<dyn FocusableComponent>>;
 
 pub struct OscillatorComponent {
     pub oscillator: LockedOscillator,
-    pub wavetable: WavetableComponent,
+    pub wavetable: Shared<WavetableComponent>,
     pub parametrs: ParametrsContainer,
     pub last_focus: Option<Shared<dyn FocusableComponent>>,
     pub rect: Option<Rect>,
@@ -33,7 +35,13 @@ impl OscillatorComponent {
             .as_any_mut()
             .downcast_mut::<WavetableOscillator>()
             .unwrap();
-        let wavetable = WavetableComponent::from(osc.wavetable());
+        let wavetable = make_shared(WavetableComponent::from(osc.wavetable()));
+        let wt_pos = make_shared(ParametrComponentI32::new(
+            "Wt Pos".to_owned(),
+            osc.wavetable_position(),
+            Direction::Vertical,
+            KeyCode::Char('w'),
+        ));
         let parametrs: ParametrsContainer = vec![
             make_shared(ParametrComponentF32::new(
                 "Pan".to_owned(),
@@ -55,13 +63,9 @@ impl OscillatorComponent {
                 Direction::Vertical,
                 KeyCode::Char('c'),
             )),
-            make_shared(ParametrComponentI32::new(
-                "Wt Pos".to_owned(),
-                osc.wavetable_position(),
-                Direction::Vertical,
-                KeyCode::Char('w'),
-            )),
+            wt_pos.clone(),
         ];
+        wt_pos.write().unwrap().events().subscribe(wavetable.clone());
 
         Self {
             oscillator: oscillator.clone(),
@@ -97,7 +101,7 @@ impl Component for OscillatorComponent {
             .title_alignment(Alignment::Center)
             .style(Style::default().fg(self.color()));
         b.render(rect, buf);
-        self.wavetable.draw(f, layout[0])?;
+        self.wavetable.write().unwrap().draw(f, layout[0])?;
         let parameters_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([

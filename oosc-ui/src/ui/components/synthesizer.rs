@@ -16,7 +16,7 @@ pub struct SynthesizerComponent {
 
 impl SynthesizerComponent {
     pub fn new(synthesizer: &mut Synthesizer, rect: Rect) -> Self {
-        let oscillators: Vec<OscillatorComponent> = synthesizer
+        let oscillators = synthesizer
             .get_oscillators::<WavetableOscillator>()
             .enumerate()
             .map(|(i, osc)| {
