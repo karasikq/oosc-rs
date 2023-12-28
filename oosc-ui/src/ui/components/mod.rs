@@ -4,7 +4,8 @@ pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
 use anyhow::Result;
-use crossterm::event::{Event, KeyEvent, MouseEvent};
+use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent};
+use oosc_core::utils::Shared;
 use ratatui::{layout::Rect, style::Color, Frame};
 
 pub trait Component {
@@ -48,7 +49,60 @@ pub trait Focus {
             Color::Gray
         }
     }
-    fn keymap(&self) -> crossterm::event::KeyCode;
+    fn keymap(&self) -> Option<crossterm::event::KeyCode>;
 }
 
-pub trait FocusableComponent: Component + Focus {}
+pub struct FocusableComponentContext {
+    pub keymap: Option<KeyCode>,
+    pub focused: bool,
+    last_focus: Option<Shared<dyn FocusableComponent>>,
+}
+
+impl Focus for FocusableComponentContext {
+    fn focus(&mut self) {
+        self.focused = true
+    }
+
+    fn unfocus(&mut self) {
+        self.focused = false
+    }
+
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
+
+    fn keymap(&self) -> Option<crossterm::event::KeyCode> {
+        self.keymap
+    }
+
+    fn color(&self) -> Color {
+        if self.is_focused() {
+            Color::Yellow
+        } else {
+            Color::Gray
+        }
+    }
+}
+
+pub trait FocusableComponent: Component + Focus {
+    fn context(&self) -> &FocusableComponentContext;
+    fn context_mut(&mut self) -> &mut FocusableComponentContext;
+}
+
+impl<T: FocusableComponent> Focus for T {
+    fn focus(&mut self) {
+        self.context_mut().focus()
+    }
+
+    fn unfocus(&mut self) {
+        self.context_mut().unfocus()
+    }
+
+    fn is_focused(&self) -> bool {
+        self.context().is_focused()
+    }
+
+    fn keymap(&self) -> Option<crossterm::event::KeyCode> {
+        self.context().keymap()
+    }
+}

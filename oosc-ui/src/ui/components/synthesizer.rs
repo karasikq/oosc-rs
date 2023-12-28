@@ -2,7 +2,10 @@ use crossterm::event::KeyCode;
 use oosc_core::core::{oscillator::WavetableOscillator, synthesizer::Synthesizer};
 use ratatui::prelude::*;
 
-use super::{oscillator::OscillatorComponent, Component, Focus, FocusableComponent};
+use super::{
+    oscillator::OscillatorComponent, Component, Focus, FocusableComponent,
+    FocusableComponentContext,
+};
 
 pub enum Action {
     SelectOscillator(u8),
@@ -12,6 +15,7 @@ pub enum Action {
 pub struct SynthesizerComponent {
     pub oscillators: Vec<OscillatorComponent>,
     pub rect: Rect,
+    context: FocusableComponentContext,
 }
 
 impl SynthesizerComponent {
@@ -24,7 +28,16 @@ impl SynthesizerComponent {
                 OscillatorComponent::new(osc, map)
             })
             .collect();
-        let mut component = Self { oscillators, rect };
+        let context = FocusableComponentContext {
+            keymap: None,
+            focused: false,
+            last_focus: None,
+        };
+        let mut component = Self {
+            oscillators,
+            rect,
+            context,
+        };
         component.resize(rect).unwrap();
         component
     }
@@ -38,7 +51,15 @@ impl SynthesizerComponent {
     }
 }
 
-impl FocusableComponent for SynthesizerComponent {}
+impl FocusableComponent for SynthesizerComponent {
+    fn context(&self) -> &FocusableComponentContext {
+        &self.context
+    }
+
+    fn context_mut(&mut self) -> &mut FocusableComponentContext {
+        &mut self.context
+    }
+}
 
 impl Component for SynthesizerComponent {
     fn draw(
@@ -87,23 +108,5 @@ impl Component for SynthesizerComponent {
             };
         }
         Ok(())
-    }
-}
-
-impl Focus for SynthesizerComponent {
-    fn focus(&mut self) {
-        todo!()
-    }
-
-    fn unfocus(&mut self) {
-        todo!()
-    }
-
-    fn is_focused(&self) -> bool {
-        todo!()
-    }
-
-    fn keymap(&self) -> crossterm::event::KeyCode {
-        todo!()
     }
 }

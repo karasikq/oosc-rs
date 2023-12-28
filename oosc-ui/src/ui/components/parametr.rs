@@ -3,7 +3,7 @@ use oosc_core::{
     core::parametrs::{Parametr, SharedParametr},
     utils::interpolation::{interpolate_range, InterpolateMethod},
 };
-use ratatui::style::{Color, Style};
+use ratatui::style::Style;
 use ratatui::{prelude::*, widgets::*};
 
 use crate::ui::{
@@ -12,7 +12,7 @@ use crate::ui::{
     widgets::bar::BarWidget,
 };
 
-use super::{Component, Focus, FocusableComponent};
+use super::{Component, Focus, FocusableComponent, FocusableComponentContext};
 
 trait AnyParametrComponent {
     fn name(&self) -> &String;
@@ -37,9 +37,8 @@ pub struct ParametrComponentF32 {
     direction: Direction,
     steps: i32,
     interpolation_method: InterpolateMethod,
-    focused: bool,
-    keymap: KeyCode,
     events: EventContainer<f32>,
+    context: FocusableComponentContext,
 }
 
 impl ParametrComponentF32 {
@@ -51,14 +50,18 @@ impl ParametrComponentF32 {
         interpolation_method: InterpolateMethod,
         keymap: KeyCode,
     ) -> Self {
+        let context = FocusableComponentContext {
+            keymap: Some(keymap),
+            focused: false,
+            last_focus: None,
+        };
         Self {
             name,
             parametr,
             direction,
             steps,
             interpolation_method,
-            focused: false,
-            keymap,
+            context,
             events: EventContainer::<f32>::default(),
         }
     }
@@ -68,18 +71,33 @@ impl ParametrComponentF32 {
     }
 }
 
-impl FocusableComponent for ParametrComponentF32 {}
+impl FocusableComponent for ParametrComponentF32 {
+    fn context(&self) -> &FocusableComponentContext {
+        &self.context
+    }
+
+    fn context_mut(&mut self) -> &mut FocusableComponentContext {
+        &mut self.context
+    }
+}
 
 pub struct ParametrComponentI32 {
     name: String,
     parametr: SharedParametr<i32>,
     direction: Direction,
-    focused: bool,
-    keymap: KeyCode,
     events: EventContainer<i32>,
+    context: FocusableComponentContext,
 }
 
-impl FocusableComponent for ParametrComponentI32 {}
+impl FocusableComponent for ParametrComponentI32 {
+    fn context(&self) -> &FocusableComponentContext {
+        &self.context
+    }
+
+    fn context_mut(&mut self) -> &mut FocusableComponentContext {
+        &mut self.context
+    }
+}
 
 impl ParametrComponentI32 {
     pub fn new(
@@ -88,13 +106,17 @@ impl ParametrComponentI32 {
         direction: Direction,
         keymap: KeyCode,
     ) -> Self {
+        let context = FocusableComponentContext {
+            keymap: Some(keymap),
+            focused: false,
+            last_focus: None,
+        };
         Self {
             name,
             parametr,
             direction,
-            focused: false,
-            keymap,
             events: EventContainer::<i32>::default(),
+            context,
         }
     }
 
@@ -128,7 +150,7 @@ impl AnyParametrComponent for ParametrComponentF32 {
         {
             let mut parametr = self.parametr.write().unwrap();
             let step = 1.0 / self.steps as f32;
-            let time = { time_of(&*parametr) };
+            let time = time_of(&*parametr);
             let result =
                 interpolate_range(parametr.range(), time + step, self.interpolation_method);
             parametr.set_value(result);
@@ -141,7 +163,7 @@ impl AnyParametrComponent for ParametrComponentF32 {
         {
             let mut parametr = self.parametr.write().unwrap();
             let step = 1.0 / self.steps as f32;
-            let time = { time_of(&*parametr) };
+            let time = time_of(&*parametr);
             let result =
                 interpolate_range(parametr.range(), time - step, self.interpolation_method);
             parametr.set_value(result);
@@ -219,7 +241,7 @@ impl<T: AnyParametrComponent + Focus> Component for T {
             .title(format!(
                 "{}[{}]",
                 self.name().as_str(),
-                keycode_to_string(self.keymap())
+                keycode_to_string(self.keymap().unwrap_or(KeyCode::Null))
             ))
             .border_type(BorderType::Rounded)
             .title_alignment(Alignment::Center)
@@ -242,58 +264,6 @@ impl<T: AnyParametrComponent + Focus> Component for T {
             _ => (),
         };
         Ok(())
-    }
-}
-
-impl Focus for ParametrComponentF32 {
-    fn focus(&mut self) {
-        self.focused = true
-    }
-
-    fn unfocus(&mut self) {
-        self.focused = false
-    }
-
-    fn is_focused(&self) -> bool {
-        self.focused
-    }
-
-    fn color(&self) -> Color {
-        if self.is_focused() {
-            Color::Red
-        } else {
-            Color::Gray
-        }
-    }
-
-    fn keymap(&self) -> KeyCode {
-        self.keymap
-    }
-}
-
-impl Focus for ParametrComponentI32 {
-    fn focus(&mut self) {
-        self.focused = true
-    }
-
-    fn unfocus(&mut self) {
-        self.focused = false
-    }
-
-    fn is_focused(&self) -> bool {
-        self.focused
-    }
-
-    fn color(&self) -> Color {
-        if self.is_focused() {
-            Color::Red
-        } else {
-            Color::Gray
-        }
-    }
-
-    fn keymap(&self) -> KeyCode {
-        self.keymap
     }
 }
 
