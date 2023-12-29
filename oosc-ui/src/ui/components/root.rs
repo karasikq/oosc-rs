@@ -1,20 +1,16 @@
-use ratatui::Frame;
+use oosc_core::{core::synthesizer::Synthesizer, utils::SharedMutex};
 
-use crate::app::application::Application;
-
-use super::{Component, synthesizer::SynthesizerComponent};
+use super::{synthesizer::SynthesizerComponent, Component};
 
 pub struct Root {
     pub synthesizer: SynthesizerComponent,
 }
 
 impl Root {
-    pub fn new(app: &mut Application, frame: &Frame<'_>) -> Self {
-        let mut synthesizer = app.ctx.synthesizer.lock().unwrap();
-        let synthesizer = SynthesizerComponent::new(&mut synthesizer, frame.size());
-        Self {
-            synthesizer, 
-        }
+    pub fn new(synthesizer: SharedMutex<Synthesizer>) -> Self {
+        let mut synthesizer = synthesizer.lock().unwrap();
+        let synthesizer = SynthesizerComponent::new(&mut synthesizer);
+        Self { synthesizer }
     }
 }
 

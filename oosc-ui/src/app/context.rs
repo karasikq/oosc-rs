@@ -1,4 +1,12 @@
-use std::sync::{Arc, Mutex, RwLock};
+use anyhow::Result;
+use crossterm::{
+    execute,
+    terminal::{self, enable_raw_mode, EnterAlternateScreen},
+};
+use std::{
+    io::Stdout,
+    sync::{Arc, Mutex, RwLock},
+};
 
 use cpal::{
     traits::{DeviceTrait, HostTrait},
@@ -22,15 +30,20 @@ use oosc_core::{
     utils::{
         adsr_envelope::ADSREnvelope,
         interpolation::InterpolateMethod,
+        make_shared, make_shared_mutex,
         sample_buffer::{BufferSettings, SampleBufferBuilder},
+        Shared, SharedMutex,
     },
 };
+use ratatui::{prelude::CrosstermBackend, Terminal};
 
 use super::config::Config;
 
+type AppTerminal = Shared<Terminal<CrosstermBackend<Stdout>>>;
+
 pub struct CallbacksData {
-    pub synthesizer_callback: Arc<Mutex<SynthesizerStreamCallback>>,
-    pub midi_callback: Arc<Mutex<MidiStreamCallback>>,
+    pub synthesizer_callback: SharedMutex<SynthesizerStreamCallback>,
+    pub midi_callback: SharedMutex<MidiStreamCallback>,
 }
 
 impl CallbacksData {
@@ -43,13 +56,14 @@ impl CallbacksData {
 }
 
 pub struct Context {
-    pub synthesizer: Arc<Mutex<Synthesizer>>,
+    pub synthesizer: SharedMutex<Synthesizer>,
     pub callbacks: CallbacksData,
-    pub midi_control: Arc<Mutex<dyn MidiPlayback>>,
+    pub midi_control: SharedMutex<dyn MidiPlayback>,
+    pub terminal: AppTerminal,
 }
 
 impl Context {
-    pub fn build_default(config: &Config) -> Result<Self, Error> {
+    pub fn build_default(config: &Config) -> Result<Self> {
         let settings = BufferSettings {
             samples: config.buffer_size,
             channels: config.channels as usize,
@@ -57,10 +71,10 @@ impl Context {
         };
         let osc1 = Self::build_osc(config, WaveShape::Sin)?;
         let osc2 = Self::build_osc(config, WaveShape::Triangle)?;
-        let chorus = Self::wrap_lock(Chorus::default(&settings));
-        let compressor = Self::wrap_lock(Compressor::default(&settings));
-        let delay = Self::wrap_lock(Delay::default(&settings));
-        let amplifier = Self::wrap_lock(Amplifier::default());
+        let chorus = make_shared(Chorus::default(&settings));
+        let compressor = make_shared(Compressor::default(&settings));
+        let delay = make_shared(Delay::default(&settings));
+        let amplifier = make_shared(Amplifier::default());
         let synthesizer = Arc::new(Mutex::new(
             SynthesizerBuilder::new()
                 .set_buffer(config.buffer_size)?
@@ -75,8 +89,7 @@ impl Context {
         ));
 
         let synthesizer_cloned = synthesizer.clone();
-        let synthesizer_callback =
-            Arc::new(Mutex::new(SynthesizerStreamCallback(synthesizer_cloned)));
+        let synthesizer_callback = make_shared_mutex(SynthesizerStreamCallback(synthesizer_cloned));
 
         let synthesizer_cloned = synthesizer.clone();
         let midi_control = Arc::new(Mutex::new(SmfPlayback::default()));
@@ -90,11 +103,14 @@ impl Context {
             synthesizer_callback,
             midi_callback,
         };
+        let terminal = build_terminal()?;
+        setup_panic_hook();
 
         Ok(Self {
             synthesizer,
             callbacks,
             midi_control,
+            terminal,
         })
     }
 
@@ -139,7 +155,7 @@ impl Context {
             .from_shape(shape, config.buffer_size)
             .set_interpolation(InterpolateMethod::Linear)
             .build()?;
-        Ok(Self::wrap_lock(
+        Ok(make_shared(
             OscillatorBuilder::new()
                 .set_buffer(buffer)
                 .set_envelope(adsr)
@@ -147,8 +163,38 @@ impl Context {
                 .build()?,
         ))
     }
+}
 
-    fn wrap_lock<T>(t: T) -> Arc<RwLock<T>> {
-        Arc::new(RwLock::new(t))
-    }
+fn build_terminal() -> Result<AppTerminal> {
+    let mut stdout = std::io::stdout();
+    anyhow::Context::context(enable_raw_mode(), "Failed to enable raw mode")?;
+    anyhow::Context::context(
+        execute!(stdout, EnterAlternateScreen),
+        "Unable to enter alternate screen",
+    )?;
+    Ok(make_shared(anyhow::Context::context(
+        Terminal::new(CrosstermBackend::new(stdout)),
+        "Creating terminal failed",
+    )?))
+}
+
+pub fn restore_terminal() -> Result<(), anyhow::Error> {
+    execute!(std::io::stderr(), crossterm::terminal::LeaveAlternateScreen)?;
+    terminal::disable_raw_mode()?;
+    Ok(())
+}
+
+fn setup_panic_hook() {
+    let original_hook = std::panic::take_hook();
+
+    std::panic::set_hook(Box::new(move |panic| {
+        let restore = restore_terminal();
+        if restore.is_err() {
+            println!(
+                "Error until restore terminal on panic: {}",
+                restore.err().unwrap()
+            );
+        }
+        original_hook(panic);
+    }));
 }
