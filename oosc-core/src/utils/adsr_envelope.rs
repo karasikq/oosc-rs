@@ -16,6 +16,7 @@ pub enum State {
 pub struct ADSREnvelope {
     attack: CubicBezierCurve,
     decay: CubicBezierCurve,
+    sustain: CubicBezierCurve,
     release: CubicBezierCurve,
 }
 
@@ -31,13 +32,20 @@ impl ADSREnvelope {
                     .evaluate((t - attack_time) / self.decay.difference().x)
                     .y
             } else {
-                let release_time = self.time_range_of(State::Release).1;
-                if t < release_time {
-                    self.release
-                        .evaluate((t - decay_time) / self.release.difference().x)
+                let sustain_time = self.time_range_of(State::Sustain).1;
+                if t < sustain_time {
+                    self.sustain
+                        .evaluate((t - decay_time) / self.sustain.difference().x)
                         .y
                 } else {
-                    0.0
+                    let release_time = self.time_range_of(State::Release).1;
+                    if t < release_time {
+                        self.release
+                            .evaluate((t - sustain_time) / self.release.difference().x)
+                            .y
+                    } else {
+                        0.0
+                    }
                 }
             }
         }
@@ -48,7 +56,7 @@ impl ADSREnvelope {
             State::None => 0.0,
             State::Attack => self.attack.evaluate(1.0).y,
             State::Decay => self.decay.evaluate(1.0).y,
-            State::Sustain => self.decay.evaluate(1.0).y,
+            State::Sustain => self.sustain.evaluate(1.0).y,
             State::Release => self.release.evaluate(1.0).y,
         }
     }
@@ -63,11 +71,11 @@ impl ADSREnvelope {
             }
             State::Sustain => {
                 let decay = self.time_range_of(State::Decay);
-                (decay.1, decay.1)
+                (decay.1, decay.1 + self.sustain.difference().x)
             }
             State::Release => {
-                let decay = self.time_range_of(State::Decay);
-                (decay.1, decay.1 + self.release.difference().x)
+                let sustain = self.time_range_of(State::Sustain);
+                (sustain.1, sustain.1 + self.release.difference().x)
             }
         }
     }
@@ -76,6 +84,7 @@ impl ADSREnvelope {
 pub struct ADSREnvelopeBuilder {
     attack: Option<CubicBezierCurve>,
     decay: Option<CubicBezierCurve>,
+    sustain: Option<CubicBezierCurve>,
     release: Option<CubicBezierCurve>,
 }
 
@@ -84,6 +93,7 @@ impl ADSREnvelopeBuilder {
         Self {
             attack: None,
             decay: None,
+            sustain: None,
             release: None,
         }
     }
@@ -91,16 +101,18 @@ impl ADSREnvelopeBuilder {
     pub fn from_curves(
         attack: CubicBezierCurve,
         decay: CubicBezierCurve,
+        sustain: CubicBezierCurve,
         release: CubicBezierCurve,
     ) -> Self {
         Self {
             attack: Some(attack),
             decay: Some(decay),
+            sustain: Some(sustain),
             release: Some(release),
         }
     }
 
-    pub fn set_attack(&mut self, length: f32, amplitude: f32) -> Result<&mut Self, Error> {
+    pub fn attack(&mut self, length: f32, amplitude: f32) -> Result<&mut Self, Error> {
         self.attack = Some(CubicBezierCurve::new_linear(
             Vector2 { x: 0.0, y: 0.0 },
             Vector2 {
@@ -111,7 +123,7 @@ impl ADSREnvelopeBuilder {
         Ok(self)
     }
 
-    pub fn set_decay(&mut self, length: f32, amplitude_percent: f32) -> Result<&mut Self, Error> {
+    pub fn decay(&mut self, length: f32, amplitude_percent: f32) -> Result<&mut Self, Error> {
         let attack = self
             .attack
             .as_ref()
@@ -130,14 +142,33 @@ impl ADSREnvelopeBuilder {
         Ok(self)
     }
 
-    pub fn set_release(&mut self, length: f32) -> Result<&mut Self, Error> {
+    pub fn sustain(&mut self, length: f32, amplitude_percent: f32) -> Result<&mut Self, Error> {
         let decay = self
             .decay
             .as_ref()
-            .expect("Decay should be initialized before Release")
+            .expect("Decay should be initialized before Sustain")
+            .end();
+        self.sustain = Some(CubicBezierCurve::new_linear(
+            Vector2 { x: 0.0, y: decay.y },
+            Vector2 {
+                x: length,
+                y: decay.y * amplitude_percent,
+            },
+        ));
+        Ok(self)
+    }
+
+    pub fn release(&mut self, length: f32) -> Result<&mut Self, Error> {
+        let sustain = self
+            .sustain
+            .as_ref()
+            .expect("Sustain should be initialized before Release")
             .end();
         self.release = Some(CubicBezierCurve::new_linear(
-            Vector2 { x: 0.0, y: decay.y },
+            Vector2 {
+                x: 0.0,
+                y: sustain.y,
+            },
             Vector2 { x: length, y: 0.0 },
         ));
         Ok(self)
@@ -147,6 +178,7 @@ impl ADSREnvelopeBuilder {
         let adsr = ADSREnvelope {
             attack: self.attack.take().ok_or("Attack not specified")?,
             decay: self.decay.take().ok_or("Decay not specified")?,
+            sustain: self.sustain.take().ok_or("Sustain not specified")?,
             release: self.release.take().ok_or("Release not specified")?,
         };
         Ok(adsr)
@@ -162,11 +194,13 @@ impl Default for ADSREnvelopeBuilder {
 impl Default for ADSREnvelope {
     fn default() -> Self {
         ADSREnvelopeBuilder::new()
-            .set_attack(0.1, 1.)
+            .attack(0.1, 1.)
             .unwrap()
-            .set_decay(0.2, 0.5)
+            .decay(0.2, 0.5)
             .unwrap()
-            .set_release(0.1)
+            .sustain(0.03, 1.0)
+            .unwrap()
+            .release(0.1)
             .unwrap()
             .build()
             .unwrap()
@@ -181,11 +215,13 @@ mod tests {
     #[test]
     fn test_builder() {
         let adsr = ADSREnvelopeBuilder::new()
-            .set_attack(1.0, 0.7)
+            .attack(1.0, 0.7)
             .unwrap()
-            .set_decay(0.45, 0.4)
+            .decay(0.45, 0.4)
             .unwrap()
-            .set_release(1.0)
+            .sustain(0.0, 1.0)
+            .unwrap()
+            .release(1.0)
             .unwrap()
             .build()
             .unwrap();
@@ -195,11 +231,13 @@ mod tests {
     #[test]
     fn test_evaluate() {
         let adsr = ADSREnvelopeBuilder::new()
-            .set_attack(0.5, 0.8)
+            .attack(0.5, 0.8)
             .unwrap()
-            .set_decay(0.5, 0.5)
+            .decay(0.5, 0.5)
             .unwrap()
-            .set_release(1.0)
+            .sustain(0.0, 1.0)
+            .unwrap()
+            .release(1.0)
             .unwrap()
             .build()
             .unwrap();
