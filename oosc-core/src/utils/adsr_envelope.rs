@@ -162,7 +162,7 @@ impl Default for ADSREnvelopeBuilder {
 impl Default for ADSREnvelope {
     fn default() -> Self {
         ADSREnvelopeBuilder::new()
-            .set_attack(0., 1.)
+            .set_attack(0.1, 1.)
             .unwrap()
             .set_decay(0.2, 0.5)
             .unwrap()
