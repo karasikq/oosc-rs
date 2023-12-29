@@ -46,6 +46,23 @@ pub fn interpolate_range(range: (f32, f32), t: f32, method: InterpolateMethod) -
     }
 }
 
+pub fn time_at_linear(y: f32, y1: f32, y2: f32) -> f32 {
+    (y - y1) / (y2 - y1)
+}
+
+pub fn time_at_exponential(y: f32, y1: f32, y2: f32, coef: f32) -> f32 {
+    (time_at_linear(y, y1, y2) * (coef - 1.0) + 1.0).log(coef)
+}
+
+pub fn time_at(y: f32, range: (f32, f32), method: InterpolateMethod) -> f32 {
+    match method {
+        InterpolateMethod::Floor => time_at_linear(y, range.0, range.1),
+        InterpolateMethod::Linear => time_at_linear(y, range.0, range.1),
+        InterpolateMethod::LaGrange => unimplemented!(),
+        InterpolateMethod::Exponential(c) => time_at_exponential(y, range.0, range.1, c),
+    }
+}
+
 pub fn interpolate_sample(
     interpolation: InterpolateMethod,
     slice: &[f32],
@@ -135,7 +152,10 @@ mod tests {
 
     use crate::utils::{
         consts::*,
-        interpolation::{get_samples_points_ranged, interpolate_lagrange, interpolate_linear, interpolate_exponential},
+        interpolation::{
+            get_samples_points_ranged, interpolate_exponential, interpolate_lagrange,
+            interpolate_linear, time_at_exponential, time_at_linear,
+        },
     };
 
     use super::InPoint;
@@ -145,6 +165,18 @@ mod tests {
         assert_approx_eq!(interpolate_linear(-0.25, 0.25, 0.5), 0.);
         assert_approx_eq!(interpolate_linear(0., 1., 0.33), 0.33);
         assert_approx_eq!(interpolate_linear(0., 0.5, 0.25), 0.125);
+    }
+
+    #[test]
+    fn test_time_at_linear() {
+        assert_approx_eq!(time_at_linear(0.0, -0.25, 0.25), 0.5);
+        assert_approx_eq!(time_at_linear(0.25, 0.0, 10.0), 0.025);
+    }
+
+    #[test]
+    fn test_time_at_exponential() {
+        assert_approx_eq!(time_at_exponential(0.0, -0.25, 0.25, 0.99999), 0.5, 10e-3);
+        assert_approx_eq!(time_at_exponential(0.25, 0.0, 10.0, 0.99999), 0.025, 10e-3);
     }
 
     #[test]
