@@ -67,6 +67,7 @@ pub struct ParametrComponentF32 {
     parametr: SharedParametr<f32>,
     direction: Direction,
     steps: i32,
+    current_step: f32,
     interpolation_method: InterpolateMethod,
     events: EventContainer<f32>,
     context: FocusableComponentContext,
@@ -83,11 +84,14 @@ impl ParametrComponentF32 {
         keymap: KeyCode,
     ) -> Self {
         let context = FocusableComponentContext::new().keymap(keymap);
+        let current_step =
+            Self::normalize_parametr(&*parametr.read().unwrap()) * (steps as f32 - 1.0);
         Self {
             name,
             parametr,
             direction,
             steps,
+            current_step,
             interpolation_method,
             context,
             events: EventContainer::<f32>::default(),
@@ -97,6 +101,11 @@ impl ParametrComponentF32 {
 
     pub fn events(&mut self) -> &mut impl Notifier<SharedParametr<f32>, ParametrEvent> {
         &mut self.events
+    }
+
+    fn normalize_parametr(param: &(impl Parametr<f32> + ?Sized)) -> f32 {
+        let range = param.range();
+        (param.get_value() - range.0) / (range.1 - range.0)
     }
 }
 
@@ -176,10 +185,9 @@ impl AnyParametrComponent for ParametrComponentF32 {
     fn increment(&mut self) {
         {
             let mut parametr = self.parametr.write().unwrap();
-            let step = 1.0 / self.steps as f32;
-            let time = time_of(&*parametr);
-            let result =
-                interpolate_range(parametr.range(), time + step, self.interpolation_method);
+            self.current_step = (self.current_step + 1.0).clamp(0.0, self.steps as f32);
+            let t = self.current_step / self.steps as f32;
+            let result = interpolate_range(parametr.range(), t, self.interpolation_method);
             parametr.set_value(result);
         }
         self.events
@@ -189,10 +197,9 @@ impl AnyParametrComponent for ParametrComponentF32 {
     fn decrement(&mut self) {
         {
             let mut parametr = self.parametr.write().unwrap();
-            let step = 1.0 / self.steps as f32;
-            let time = time_of(&*parametr);
-            let result =
-                interpolate_range(parametr.range(), time - step, self.interpolation_method);
+            self.current_step = (self.current_step - 1.0).clamp(0.0, self.steps as f32);
+            let t = self.current_step / self.steps as f32;
+            let result = interpolate_range(parametr.range(), t, self.interpolation_method);
             parametr.set_value(result);
         }
         self.events
@@ -307,9 +314,4 @@ impl<T: AnyParametrComponent + Focus> Component for T {
         self.resize(rect);
         Ok(())
     }
-}
-
-fn time_of(param: &(impl Parametr<f32> + ?Sized)) -> f32 {
-    let range = param.range();
-    (param.get_value() - range.0) / (range.1 - range.0)
 }
