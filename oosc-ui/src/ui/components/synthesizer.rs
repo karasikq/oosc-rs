@@ -7,19 +7,18 @@ use super::{
     FocusableComponentContext,
 };
 
-pub enum Action {
-    SelectOscillator(u8),
-    SelectEffectsBlock,
+struct SynthesizerLayout {
+    rect: Rect,
 }
 
 pub struct SynthesizerComponent {
     pub oscillators: Vec<OscillatorComponent>,
-    pub rect: Rect,
     context: FocusableComponentContext,
+    layout: Option<SynthesizerLayout>,
 }
 
 impl SynthesizerComponent {
-    pub fn new(synthesizer: &mut Synthesizer, rect: Rect) -> Self {
+    pub fn new(synthesizer: &mut Synthesizer) -> Self {
         let oscillators = synthesizer
             .get_oscillators::<WavetableOscillator>()
             .enumerate()
@@ -28,18 +27,12 @@ impl SynthesizerComponent {
                 OscillatorComponent::new(osc, map)
             })
             .collect();
-        let context = FocusableComponentContext {
-            keymap: None,
-            focused: false,
-            last_focus: None,
-        };
-        let mut component = Self {
+        let context = FocusableComponentContext::new();
+        Self {
             oscillators,
-            rect,
             context,
-        };
-        component.resize(rect).unwrap();
-        component
+            layout: None,
+        }
     }
 
     fn unfocus_all(&mut self) {
@@ -65,10 +58,14 @@ impl Component for SynthesizerComponent {
     fn draw(
         &mut self,
         f: &mut ratatui::Frame<'_>,
-        rect: ratatui::prelude::Rect,
+        _rect: ratatui::prelude::Rect,
     ) -> anyhow::Result<()> {
+        if self.layout.is_none() {
+            return Err(oosc_core::error::Error::from("Create layout before draw"))?;
+        }
+        let layout = self.layout.as_ref().unwrap();
         self.oscillators.iter_mut().for_each(|osc| {
-            osc.draw(f, rect).unwrap();
+            osc.draw(f, layout.rect).unwrap();
         });
         Ok(())
     }
@@ -87,7 +84,9 @@ impl Component for SynthesizerComponent {
         oscillators
             .iter_mut()
             .enumerate()
-            .try_for_each(|(i, osc)| osc.resize(*layout.get(i).unwrap()))
+            .try_for_each(|(i, osc)| osc.resize(*layout.get(i).unwrap()))?;
+        self.layout = Some(SynthesizerLayout { rect });
+        Ok(())
     }
 
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {

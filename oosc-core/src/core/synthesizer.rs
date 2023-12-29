@@ -143,7 +143,7 @@ impl SynthesizerBuilder {
             .take()
             .ok_or(Error::Specify("oscillators"))?;
         let sample_rate = self.sample_rate.ok_or(Error::Specify("sample_rate"))?;
-        let effects = self.effects.take().unwrap();
+        let effects = self.effects.take().unwrap_or(vec![]);
 
         Ok(Synthesizer {
             buffer,
