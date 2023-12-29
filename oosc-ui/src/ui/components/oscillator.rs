@@ -11,6 +11,7 @@ use ratatui::{prelude::*, widgets::*};
 use crate::ui::observer::Notifier;
 
 use super::{
+    envelope::EnvelopeComponent,
     parametr::{ParametrComponentF32, ParametrComponentI32},
     wavetable::WavetableComponent,
     Component, Focus, FocusableComponent, FocusableComponentContext,
@@ -20,13 +21,14 @@ type ParametrsContainer = Vec<Shared<dyn FocusableComponent>>;
 
 struct OscillatorLayout {
     pub rect: Rect,
-    pub main: Rc<[Rect]>,
+    pub top: Rc<[Rect]>,
     pub parametrs: Rc<[Rect]>,
 }
 
 pub struct OscillatorComponent {
     pub oscillator: LockedOscillator,
     pub wavetable: Shared<WavetableComponent>,
+    pub envelope: Shared<EnvelopeComponent>,
     pub parametrs: ParametrsContainer,
     context: FocusableComponentContext,
     layout: Option<OscillatorLayout>,
@@ -55,10 +57,12 @@ impl OscillatorComponent {
             .subscribe(wavetable.clone());
         parametrs.push(wt_pos);
         let context = FocusableComponentContext::new().keymap(keymap);
+        let envelope = make_shared(EnvelopeComponent::from(osc.envelope()));
 
         Self {
             oscillator: oscillator.clone(),
             wavetable,
+            envelope,
             parametrs,
             context,
             layout: None,
@@ -92,7 +96,7 @@ impl OscillatorComponent {
                 osc.gain(),
                 Direction::Vertical,
                 20,
-                InterpolateMethod::Exponential(1000.0),
+                InterpolateMethod::Exponential(0.001),
                 KeyCode::Char('g'),
             )),
         ]
@@ -101,8 +105,15 @@ impl OscillatorComponent {
     fn build_main_layout(rect: Rect) -> Rc<[Rect]> {
         Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .margin(1)
+            .split(rect)
+    }
+
+    fn build_top_layout(rect: Rect) -> Rc<[Rect]> {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(rect)
     }
 
@@ -148,7 +159,8 @@ impl Component for OscillatorComponent {
             .title_alignment(Alignment::Center)
             .style(Style::default().fg(self.color()));
         b.render(layout.rect, buf);
-        self.wavetable.write().unwrap().draw(f, layout.main[0])?;
+        self.wavetable.write().unwrap().draw(f, layout.top[0])?;
+        self.envelope.write().unwrap().draw(f, layout.top[1])?;
         self.parametrs
             .iter_mut()
             .enumerate()
@@ -163,6 +175,7 @@ impl Component for OscillatorComponent {
 
     fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
         let main = Self::build_main_layout(rect);
+        let top = Self::build_top_layout(main[0]);
         let parametrs = Self::build_parametrs_layout(main[1], &self.parametrs);
         self.parametrs
             .iter_mut()
@@ -170,7 +183,7 @@ impl Component for OscillatorComponent {
             .try_for_each(|(i, p)| p.write().unwrap().resize(parametrs[i]))?;
         self.layout = Some(OscillatorLayout {
             rect,
-            main,
+            top,
             parametrs: parametrs.clone(),
         });
         Ok(())

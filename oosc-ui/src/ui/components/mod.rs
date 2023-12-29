@@ -3,6 +3,7 @@ pub mod parametr;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
+pub mod envelope;
 use anyhow::Result;
 use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent};
 use oosc_core::utils::Shared;
