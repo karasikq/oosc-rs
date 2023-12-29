@@ -50,11 +50,7 @@ impl ParametrComponentF32 {
         interpolation_method: InterpolateMethod,
         keymap: KeyCode,
     ) -> Self {
-        let context = FocusableComponentContext {
-            keymap: Some(keymap),
-            focused: false,
-            last_focus: None,
-        };
+        let context = FocusableComponentContext::new().keymap(keymap);
         Self {
             name,
             parametr,
@@ -106,11 +102,7 @@ impl ParametrComponentI32 {
         direction: Direction,
         keymap: KeyCode,
     ) -> Self {
-        let context = FocusableComponentContext {
-            keymap: Some(keymap),
-            focused: false,
-            last_focus: None,
-        };
+        let context = FocusableComponentContext::new().keymap(keymap);
         Self {
             name,
             parametr,

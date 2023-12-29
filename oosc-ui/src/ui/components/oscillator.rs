@@ -53,11 +53,7 @@ impl OscillatorComponent {
             .events()
             .subscribe(wavetable.clone());
         parametrs.push(wt_pos);
-        let context = FocusableComponentContext {
-            keymap: Some(keymap),
-            focused: false,
-            last_focus: None,
-        };
+        let context = FocusableComponentContext::new().keymap(keymap);
 
         Self {
             oscillator: oscillator.clone(),

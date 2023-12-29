@@ -28,11 +28,7 @@ impl SynthesizerComponent {
                 OscillatorComponent::new(osc, map)
             })
             .collect();
-        let context = FocusableComponentContext {
-            keymap: None,
-            focused: false,
-            last_focus: None,
-        };
+        let context = FocusableComponentContext::new();
         let mut component = Self {
             oscillators,
             rect,

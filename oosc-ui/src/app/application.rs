@@ -5,8 +5,6 @@ use std::{
     time::Duration,
 };
 
-use oosc_core::{core::note::Note, utils::adsr_envelope::State};
-
 use crate::ui::components::{root::Root, Component};
 
 use super::{config::Config, context};
@@ -15,7 +13,7 @@ use cpal::traits::DeviceTrait;
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{self, enable_raw_mode, EnterAlternateScreen},
 };
 use ratatui::prelude::*;
 
@@ -39,7 +37,7 @@ impl Application {
     }
 
     pub fn run(&mut self) -> Result<()> {
-        self.detach_keyboard()?;
+        self.setup_terminal_and_hooks()?;
         Ok(())
     }
 
@@ -66,16 +64,15 @@ impl Application {
         )?)
     }
 
-    // MOVE THIS TO UI MOD
-    pub fn detach_keyboard(&mut self) -> Result<()> {
-        let terminal = self.setup_terminal().context("setup failed")?;
-        Self::chain_hook(terminal.clone());
+    pub fn setup_terminal_and_hooks(&mut self) -> Result<()> {
+        let terminal = Self::setup_terminal().context("setup failed")?;
+        Self::chain_hook();
         self.run_term(terminal.clone()).context("app loop failed")?;
-        Self::restore_terminal(terminal.clone()).context("restore terminal failed")?;
+        Self::restore_terminal().context("restore terminal failed")?;
         Ok(())
     }
 
-    fn setup_terminal(&mut self) -> Result<AppTerminal> {
+    fn setup_terminal() -> Result<AppTerminal> {
         let mut stdout = std::io::stdout();
         enable_raw_mode().context("failed to enable raw mode")?;
         execute!(stdout, EnterAlternateScreen).context("unable to enter alternate screen")?;
@@ -84,18 +81,11 @@ impl Application {
         )))
     }
 
-    fn restore_terminal(terminal: AppTerminal) -> Result<(), anyhow::Error> {
-        disable_raw_mode().context("failed to disable raw mode")?;
-        execute!(
-            terminal.write().unwrap().backend_mut(),
-            LeaveAlternateScreen
-        )
-        .context("unable to switch to main screen")?;
-        terminal
-            .write()
-            .unwrap()
-            .show_cursor()
-            .context("unable to show cursor")
+    fn restore_terminal() -> Result<(), anyhow::Error> {
+        execute!(std::io::stderr(), crossterm::terminal::LeaveAlternateScreen)?;
+        terminal::disable_raw_mode()?;
+        // crossterm::terminal::show_cursor().context("unable to show cursor")
+        Ok(())
     }
 
     fn run_term(&mut self, terminal: AppTerminal) -> Result<(), anyhow::Error> {
@@ -114,13 +104,19 @@ impl Application {
         Ok(())
     }
 
-    fn chain_hook(terminal: AppTerminal) {
-        /* let original_hook = std::panic::take_hook();
+    fn chain_hook() {
+        let original_hook = std::panic::take_hook();
 
         std::panic::set_hook(Box::new(move |panic| {
-            Self::restore_terminal(terminal.clone()).unwrap();
+            let restore = Self::restore_terminal();
+            if restore.is_err() {
+                println!(
+                    "Error until restore terminal on panic: {}",
+                    restore.err().unwrap()
+                );
+            }
             original_hook(panic);
-        })); */
+        }));
     }
 
     fn read_events(&self, root: &mut Root) -> Result<bool> {
@@ -131,23 +127,10 @@ impl Application {
             if let Event::Key(key) = event {
                 return Ok(match key.code {
                     KeyCode::Char('q') => false,
-                    /* KeyCode::Char(c) => {
-                        self.play_note(c as u32 - 37);
-                        true
-                    } */
                     _ => true,
                 });
             }
         }
         Ok(true)
-    }
-
-    fn play_note(&mut self, note: u32) {
-        let syn = self.ctx.synthesizer.clone();
-        let mut locked = syn.lock().unwrap();
-        let mut note = Note::new(note, 127);
-        note.hold_on = State::None;
-        println!("Play note: {}", note.note);
-        locked.note_on(note).unwrap();
     }
 }

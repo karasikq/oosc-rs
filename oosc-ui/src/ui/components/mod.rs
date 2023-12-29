@@ -37,25 +37,59 @@ pub trait Component {
     fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> Result<()>;
 }
 
-// Need to create macro
 pub trait Focus {
     fn focus(&mut self);
     fn unfocus(&mut self);
     fn is_focused(&self) -> bool;
-    fn color(&self) -> Color {
-        if self.is_focused() {
-            Color::Yellow
-        } else {
-            Color::Gray
-        }
-    }
+    fn color(&self) -> Color;
     fn keymap(&self) -> Option<crossterm::event::KeyCode>;
 }
 
 pub struct FocusableComponentContext {
     pub keymap: Option<KeyCode>,
+    pub focused_color: Option<Color>,
+    pub unfocused_color: Option<Color>,
     pub focused: bool,
     last_focus: Option<Shared<dyn FocusableComponent>>,
+}
+
+impl FocusableComponentContext {
+    pub fn new() -> FocusableComponentContext {
+        FocusableComponentContext {
+            keymap: None,
+            focused_color: None,
+            unfocused_color: None,
+            focused: false,
+            last_focus: None,
+        }
+    }
+
+    pub fn keymap(self, keymap: KeyCode) -> FocusableComponentContext {
+        FocusableComponentContext {
+            keymap: Some(keymap),
+            ..self
+        }
+    }
+
+    pub fn focused_color(self, color: Color) -> FocusableComponentContext {
+        FocusableComponentContext {
+            focused_color: Some(color),
+            ..self
+        }
+    }
+
+    pub fn unfocused_color(self, color: Color) -> FocusableComponentContext {
+        FocusableComponentContext {
+            unfocused_color: Some(color),
+            ..self
+        }
+    }
+}
+
+impl Default for FocusableComponentContext {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Focus for FocusableComponentContext {
@@ -104,5 +138,21 @@ impl<T: FocusableComponent> Focus for T {
 
     fn keymap(&self) -> Option<crossterm::event::KeyCode> {
         self.context().keymap()
+    }
+
+    fn color(&self) -> Color {
+        if self.is_focused() {
+            *self
+                .context()
+                .focused_color
+                .as_ref()
+                .unwrap_or(&Color::Yellow)
+        } else {
+            *self
+                .context()
+                .unfocused_color
+                .as_ref()
+                .unwrap_or(&Color::Gray)
+        }
     }
 }
