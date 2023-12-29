@@ -16,6 +16,7 @@ use cpal::{
 use oosc_core::{
     callbacks::{
         stream_callback::{MidiStreamCallback, SynthesizerStreamCallback},
+        stream_renderer::{RenderStreamCallback, StreamWavRenderer},
         StreamCallback,
     },
     core::{
@@ -42,16 +43,14 @@ use super::config::Config;
 type AppTerminal = Shared<Terminal<CrosstermBackend<Stdout>>>;
 
 pub struct CallbacksData {
-    pub synthesizer_callback: SharedMutex<SynthesizerStreamCallback>,
-    pub midi_callback: SharedMutex<MidiStreamCallback>,
+    pub output: SharedMutex<SynthesizerStreamCallback>,
+    pub smf: SharedMutex<MidiStreamCallback>,
+    pub render: SharedMutex<RenderStreamCallback>,
 }
 
 impl CallbacksData {
     pub fn get_callbacks(&self) -> Vec<Arc<Mutex<dyn StreamCallback>>> {
-        vec![
-            self.synthesizer_callback.clone(),
-            self.midi_callback.clone(),
-        ]
+        vec![self.output.clone(), self.smf.clone(), self.render.clone()]
     }
 }
 
@@ -59,6 +58,7 @@ pub struct Context {
     pub synthesizer: SharedMutex<Synthesizer>,
     pub callbacks: CallbacksData,
     pub midi_control: SharedMutex<dyn MidiPlayback>,
+    pub render_control: SharedMutex<StreamWavRenderer>,
     pub terminal: AppTerminal,
 }
 
@@ -92,16 +92,18 @@ impl Context {
         let synthesizer_callback = make_shared_mutex(SynthesizerStreamCallback(synthesizer_cloned));
 
         let synthesizer_cloned = synthesizer.clone();
-        let midi_control = Arc::new(Mutex::new(SmfPlayback::default()));
+        let midi_control = make_shared_mutex(SmfPlayback::default());
         let midi_control_cloned = midi_control.clone();
-        let midi_callback = Arc::new(Mutex::new(MidiStreamCallback(
-            midi_control_cloned,
-            synthesizer_cloned,
-        )));
+        let midi_callback =
+            make_shared_mutex(MidiStreamCallback(midi_control_cloned, synthesizer_cloned));
+
+        let render_control = make_shared_mutex(StreamWavRenderer::from(&settings));
+        let render_callback = make_shared_mutex(RenderStreamCallback(render_control.clone()));
 
         let callbacks = CallbacksData {
-            synthesizer_callback,
-            midi_callback,
+            output: synthesizer_callback,
+            smf: midi_callback,
+            render: render_callback,
         };
         let terminal = build_terminal()?;
         setup_panic_hook();
@@ -110,6 +112,7 @@ impl Context {
             synthesizer,
             callbacks,
             midi_control,
+            render_control,
             terminal,
         })
     }

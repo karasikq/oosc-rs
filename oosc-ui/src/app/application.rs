@@ -32,7 +32,7 @@ impl Application {
 
     pub fn detach_stream(&mut self) -> Result<cpal::Stream> {
         let (_, device, config) = context::Context::get_default_device(&self.config)?;
-        let err_fn = |err| println!("an error occurred on stream: {}", err);
+        let err_fn = |err| println!("An error occurred on stream: {}", err);
         let callbacks = self.ctx.callbacks.get_callbacks();
         let mut total_playback_seconds = 0.;
         let delta = self.config.buffer_size as f32 / self.config.sample_rate as f32;
