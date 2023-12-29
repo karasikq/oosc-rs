@@ -1,8 +1,12 @@
-use std::{fs::File, io::BufWriter, sync::{Arc, Mutex}};
+use std::{
+    fs::File,
+    io::BufWriter,
+    sync::{Arc, Mutex},
+};
 
 use hound::{WavSpec, WavWriter};
 
-use crate::error::Error;
+use crate::{error::Error, utils::sample_buffer::BufferSettings};
 
 use super::StreamCallback;
 
@@ -40,6 +44,21 @@ impl StreamWavRenderer {
     pub fn to_file<P: AsRef<std::path::Path>>(&mut self, path: P) -> Result<&mut Self, Error> {
         self.writer = Some(WavWriter::create(path, self.spec).map_err(|e| e.to_string())?);
         Ok(self)
+    }
+}
+
+impl<'a, T> From<T> for StreamWavRenderer
+where
+    T: Into<&'a BufferSettings>,
+{
+    fn from(value: T) -> Self {
+        let settings = value.into();
+        Self::new(WavSpec {
+            channels: settings.channels as u16,
+            sample_rate: settings.sample_rate as u32,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        })
     }
 }
 
