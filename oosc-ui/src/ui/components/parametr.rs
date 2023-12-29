@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crossterm::event::KeyCode;
 use oosc_core::{
     core::parametrs::{Parametr, SharedParametr},
@@ -14,6 +16,22 @@ use crate::ui::{
 
 use super::{Component, Focus, FocusableComponent, FocusableComponentContext};
 
+struct ParametrLayout {
+    pub rect: Rect,
+    pub main: Rc<[Rect]>,
+}
+
+impl From<Rect> for ParametrLayout {
+    fn from(rect: Rect) -> Self {
+        let main = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(0), Constraint::Length(1)])
+            .margin(1)
+            .split(rect);
+        Self { rect, main }
+    }
+}
+
 trait AnyParametrComponent {
     fn name(&self) -> &String;
     fn value(&self) -> f32;
@@ -22,6 +40,19 @@ trait AnyParametrComponent {
     fn format_value(&self) -> String;
     fn increment(&mut self);
     fn decrement(&mut self);
+    fn resize(&mut self, rect: Rect);
+    fn layout(&self) -> &Option<ParametrLayout>;
+}
+
+fn build_bar(parametr: &(impl AnyParametrComponent + Focus), rect: Rect) -> BarWidget {
+    BarWidget {
+        resolution: (rect.width, rect.height),
+        direction: parametr.direction(),
+        bounds: parametr.range(),
+        center: 0.0,
+        value: parametr.value(),
+        color: parametr.color(),
+    }
 }
 
 #[derive(Eq, PartialEq, Hash)]
@@ -39,6 +70,7 @@ pub struct ParametrComponentF32 {
     interpolation_method: InterpolateMethod,
     events: EventContainer<f32>,
     context: FocusableComponentContext,
+    layout: Option<ParametrLayout>,
 }
 
 impl ParametrComponentF32 {
@@ -59,6 +91,7 @@ impl ParametrComponentF32 {
             interpolation_method,
             context,
             events: EventContainer::<f32>::default(),
+            layout: None,
         }
     }
 
@@ -83,6 +116,7 @@ pub struct ParametrComponentI32 {
     direction: Direction,
     events: EventContainer<i32>,
     context: FocusableComponentContext,
+    layout: Option<ParametrLayout>,
 }
 
 impl FocusableComponent for ParametrComponentI32 {
@@ -109,6 +143,7 @@ impl ParametrComponentI32 {
             direction,
             events: EventContainer::<i32>::default(),
             context,
+            layout: None,
         }
     }
 
@@ -163,6 +198,14 @@ impl AnyParametrComponent for ParametrComponentF32 {
         self.events
             .notify(ParametrEvent::ValueChanged, self.parametr.clone());
     }
+
+    fn resize(&mut self, rect: Rect) {
+        self.layout = Some(ParametrLayout::from(rect));
+    }
+
+    fn layout(&self) -> &Option<ParametrLayout> {
+        &self.layout
+    }
 }
 
 impl AnyParametrComponent for ParametrComponentI32 {
@@ -206,28 +249,30 @@ impl AnyParametrComponent for ParametrComponentI32 {
         self.events
             .notify(ParametrEvent::ValueChanged, self.parametr.clone());
     }
+
+    fn resize(&mut self, rect: Rect) {
+        self.layout = Some(ParametrLayout::from(rect));
+    }
+
+    fn layout(&self) -> &Option<ParametrLayout> {
+        &self.layout
+    }
 }
 
 impl<T: AnyParametrComponent + Focus> Component for T {
     fn draw(
         &mut self,
         f: &mut ratatui::Frame<'_>,
-        rect: ratatui::prelude::Rect,
+        _rect: ratatui::prelude::Rect,
     ) -> anyhow::Result<()> {
-        let range = self.range();
-        let layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Min(0), Constraint::Length(1)])
-            .margin(1)
-            .split(rect);
-        let bar = BarWidget {
-            resolution: (layout[0].width, layout[0].height),
-            direction: self.direction(),
-            bounds: range,
-            center: 0.0,
-            value: self.value(),
-            color: self.color(),
-        };
+        let layout_opt = self.layout();
+        if layout_opt.is_none() {
+            return Err(oosc_core::error::Error::from("Create layout before draw"))?;
+        }
+        let layout = layout_opt.as_ref().unwrap();
+        let bar = build_bar(self, layout.main[0]);
+        f.render_widget(bar, layout.main[0]);
+
         let b = Block::default()
             .borders(Borders::ALL)
             .title(format!(
@@ -238,10 +283,10 @@ impl<T: AnyParametrComponent + Focus> Component for T {
             .border_type(BorderType::Rounded)
             .title_alignment(Alignment::Center)
             .style(Style::default().fg(self.color()));
-        f.render_widget(b, rect);
-        f.render_widget(bar, layout[0]);
+        f.render_widget(b, layout.rect);
+
         let p = Paragraph::new(self.format_value()).alignment(Alignment::Center);
-        f.render_widget(p, layout[1]);
+        f.render_widget(p, layout.main[1]);
         Ok(())
     }
 
@@ -255,6 +300,11 @@ impl<T: AnyParametrComponent + Focus> Component for T {
             KeyCode::Esc => self.unfocus(),
             _ => (),
         };
+        Ok(())
+    }
+
+    fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
+        self.resize(rect);
         Ok(())
     }
 }

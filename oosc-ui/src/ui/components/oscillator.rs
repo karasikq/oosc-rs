@@ -1,5 +1,6 @@
 use std::{rc::Rc, sync::Arc};
 
+use anyhow::Context;
 use crossterm::event::KeyCode;
 use oosc_core::{
     core::{oscillator::WavetableOscillator, synthesizer::LockedOscillator},
@@ -151,17 +152,26 @@ impl Component for OscillatorComponent {
         self.parametrs
             .iter_mut()
             .enumerate()
-            .try_for_each(|(i, p)| p.write().unwrap().draw(f, layout.parametrs[i]))?;
+            .try_for_each(|(i, p)| {
+                p.write()
+                    .unwrap()
+                    .draw(f, layout.parametrs[i])
+                    .context("Cannot draw parametr")
+            })?;
         Ok(())
     }
 
     fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
         let main = Self::build_main_layout(rect);
         let parametrs = Self::build_parametrs_layout(main[1], &self.parametrs);
+        self.parametrs
+            .iter_mut()
+            .enumerate()
+            .try_for_each(|(i, p)| p.write().unwrap().resize(parametrs[i]))?;
         self.layout = Some(OscillatorLayout {
             rect,
             main,
-            parametrs,
+            parametrs: parametrs.clone(),
         });
         Ok(())
     }

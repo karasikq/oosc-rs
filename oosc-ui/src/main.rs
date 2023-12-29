@@ -4,7 +4,7 @@ pub mod ui;
 use anyhow::Error;
 use cpal::traits::StreamTrait;
 use midly::Smf;
-use oosc_core::core::{oscillator::WavetableOscillator, parametrs::Parametr};
+use oosc_core::core::oscillator::WavetableOscillator;
 
 use self::app::application::Application;
 
