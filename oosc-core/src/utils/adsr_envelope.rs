@@ -1,8 +1,11 @@
 use cgmath::Vector2;
 
-use crate::error::Error;
+use crate::{
+    core::parametrs::{CallbackParametr, SharedParametr},
+    error::Error,
+};
 
-use super::cubic_bezier::CubicBezierCurve;
+use super::{cubic_bezier::CubicBezierCurve, make_shared, Shared};
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum State {
@@ -13,35 +16,62 @@ pub enum State {
     Release,
 }
 
+pub struct SharedCurve {
+    pub length: SharedParametr<f32>,
+    pub amplitude: SharedParametr<f32>,
+    pub point_b: (SharedParametr<f32>, SharedParametr<f32>),
+    pub point_c: (SharedParametr<f32>, SharedParametr<f32>),
+    curve: Shared<CubicBezierCurve>,
+}
+
 pub struct ADSREnvelope {
-    attack: CubicBezierCurve,
-    decay: CubicBezierCurve,
-    sustain: CubicBezierCurve,
-    release: CubicBezierCurve,
+    attack: SharedCurve,
+    decay: SharedCurve,
+    sustain: SharedCurve,
+    release: SharedCurve,
 }
 
 impl ADSREnvelope {
     pub fn evaluate(&self, t: f32) -> f32 {
         let attack_time = self.time_range_of(State::Attack).1;
         if t < attack_time {
-            self.attack.evaluate(t / attack_time).y
+            self.attack
+                .curve
+                .read()
+                .unwrap()
+                .evaluate(t / attack_time)
+                .y
         } else {
             let decay_time = self.time_range_of(State::Decay).1;
             if t < decay_time {
                 self.decay
-                    .evaluate((t - attack_time) / self.decay.difference().x)
+                    .curve
+                    .read()
+                    .unwrap()
+                    .evaluate((t - attack_time) / self.decay.curve.read().unwrap().difference().x)
                     .y
             } else {
                 let sustain_time = self.time_range_of(State::Sustain).1;
                 if t < sustain_time {
                     self.sustain
-                        .evaluate((t - decay_time) / self.sustain.difference().x)
+                        .curve
+                        .read()
+                        .unwrap()
+                        .evaluate(
+                            (t - decay_time) / self.sustain.curve.read().unwrap().difference().x,
+                        )
                         .y
                 } else {
                     let release_time = self.time_range_of(State::Release).1;
                     if t < release_time {
                         self.release
-                            .evaluate((t - sustain_time) / self.release.difference().x)
+                            .curve
+                            .read()
+                            .unwrap()
+                            .evaluate(
+                                (t - sustain_time)
+                                    / self.release.curve.read().unwrap().difference().x,
+                            )
                             .y
                     } else {
                         0.0
@@ -54,28 +84,40 @@ impl ADSREnvelope {
     pub fn peak_at(&self, state: State) -> f32 {
         match state {
             State::None => 0.0,
-            State::Attack => self.attack.evaluate(1.0).y,
-            State::Decay => self.decay.evaluate(1.0).y,
-            State::Sustain => self.sustain.evaluate(1.0).y,
-            State::Release => self.release.evaluate(1.0).y,
+            State::Attack => self.attack.curve.read().unwrap().evaluate(1.0).y,
+            State::Decay => self.decay.curve.read().unwrap().evaluate(1.0).y,
+            State::Sustain => self.sustain.curve.read().unwrap().evaluate(1.0).y,
+            State::Release => self.release.curve.read().unwrap().evaluate(1.0).y,
         }
     }
 
     pub fn time_range_of(&self, state: State) -> (f32, f32) {
         match state {
             State::None => (0., 0.),
-            State::Attack => (self.attack.start().x, self.attack.difference().x),
+            State::Attack => (
+                self.attack.curve.read().unwrap().start().x,
+                self.attack.curve.read().unwrap().difference().x,
+            ),
             State::Decay => {
                 let attack = self.time_range_of(State::Attack);
-                (attack.1, attack.1 + self.decay.difference().x)
+                (
+                    attack.1,
+                    attack.1 + self.decay.curve.read().unwrap().difference().x,
+                )
             }
             State::Sustain => {
                 let decay = self.time_range_of(State::Decay);
-                (decay.1, decay.1 + self.sustain.difference().x)
+                (
+                    decay.1,
+                    decay.1 + self.sustain.curve.read().unwrap().difference().x,
+                )
             }
             State::Release => {
                 let sustain = self.time_range_of(State::Sustain);
-                (sustain.1, sustain.1 + self.release.difference().x)
+                (
+                    sustain.1,
+                    sustain.1 + self.release.curve.read().unwrap().difference().x,
+                )
             }
         }
     }
@@ -176,12 +218,73 @@ impl ADSREnvelopeBuilder {
 
     pub fn build(&mut self) -> Result<ADSREnvelope, Error> {
         let adsr = ADSREnvelope {
-            attack: self.attack.take().ok_or("Attack not specified")?,
-            decay: self.decay.take().ok_or("Decay not specified")?,
-            sustain: self.sustain.take().ok_or("Sustain not specified")?,
-            release: self.release.take().ok_or("Release not specified")?,
+            attack: Self::create_shared_curve(self.attack.take().ok_or("Attack not specified")?),
+            decay: Self::create_shared_curve(self.decay.take().ok_or("Decay not specified")?),
+            sustain: Self::create_shared_curve(self.sustain.take().ok_or("Sustain not specified")?),
+            release: Self::create_shared_curve(self.release.take().ok_or("Release not specified")?),
         };
         Ok(adsr)
+    }
+
+    fn create_shared_curve(curve: CubicBezierCurve) -> SharedCurve {
+        let curve = make_shared(curve);
+
+        let curve_clone = curve.clone();
+        let curve_clone2 = curve.clone();
+        let length = CallbackParametr::new(
+            move |v| curve_clone.write().unwrap().a.x = v,
+            move || curve_clone2.read().unwrap().a.x,
+            || (0.0, 10.0),
+        );
+        let curve_clone = curve.clone();
+        let curve_clone2 = curve.clone();
+        let amplitude = CallbackParametr::new(
+            move |v| curve_clone.write().unwrap().a.y = v,
+            move || curve_clone2.read().unwrap().a.y,
+            || (0.0, 1.0),
+        );
+
+        let curve_clone = curve.clone();
+        let curve_clone2 = curve.clone();
+        let point_b_x = CallbackParametr::new(
+            move |v| curve_clone.write().unwrap().b.x = v,
+            move || curve_clone2.read().unwrap().b.x,
+            || (0.0, 1.0),
+        );
+        let curve_clone = curve.clone();
+        let curve_clone2 = curve.clone();
+        let point_b_y = CallbackParametr::new(
+            move |v| curve_clone.write().unwrap().b.y = v,
+            move || curve_clone2.read().unwrap().b.y,
+            || (0.0, 1.0),
+        );
+        let point_b: (SharedParametr<f32>, SharedParametr<f32>) =
+            (make_shared(point_b_x), make_shared(point_b_y));
+
+        let curve_clone = curve.clone();
+        let curve_clone2 = curve.clone();
+        let point_c_x = CallbackParametr::new(
+            move |v| curve_clone.write().unwrap().c.x = v,
+            move || curve_clone2.read().unwrap().c.x,
+            || (0.0, 1.0),
+        );
+        let curve_clone = curve.clone();
+        let curve_clone2 = curve.clone();
+        let point_c_y = CallbackParametr::new(
+            move |v| curve_clone.write().unwrap().c.y = v,
+            move || curve_clone2.read().unwrap().c.y,
+            || (0.0, 1.0),
+        );
+        let point_c: (SharedParametr<f32>, SharedParametr<f32>) =
+            (make_shared(point_c_x), make_shared(point_c_y));
+
+        SharedCurve {
+            length: make_shared(length),
+            amplitude: make_shared(amplitude),
+            point_b,
+            point_c,
+            curve,
+        }
     }
 }
 
