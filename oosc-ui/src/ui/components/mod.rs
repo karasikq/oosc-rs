@@ -1,10 +1,10 @@
+pub mod envelope;
 pub mod oscillator;
 pub mod parametr;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
-pub mod envelope;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent};
 use oosc_core::utils::Shared;
 use ratatui::{layout::Rect, style::Color, Frame};
@@ -155,5 +155,86 @@ impl<T: FocusableComponent> Focus for T {
                 .as_ref()
                 .unwrap_or(&Color::Gray)
         }
+    }
+}
+
+pub struct ComponentsContainer<T>
+where
+    T: FocusableComponent + ?Sized,
+{
+    pub components: Vec<Shared<T>>,
+}
+
+impl<T> ComponentsContainer<T>
+where
+    T: FocusableComponent + ?Sized,
+{
+    pub fn iter(&self) -> impl Iterator<Item = &Shared<T>> {
+        self.components.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Shared<T>> {
+        self.components.iter_mut()
+    }
+
+    pub fn draw_in_layout(&mut self, f: &mut Frame<'_>, layout: &[Rect]) -> Result<()> {
+        self.components
+            .iter_mut()
+            .enumerate()
+            .try_for_each(|(i, c)| {
+                c.write()
+                    .unwrap()
+                    .draw(f, *layout.get(i).context("Cannot get layout")?)
+            })
+    }
+}
+
+impl<T> Component for ComponentsContainer<T>
+where
+    T: FocusableComponent + ?Sized,
+{
+    fn init(&mut self) -> Result<()> {
+        self.components.iter_mut().try_for_each(|c| {
+            c.write()
+                .unwrap()
+                .init()
+                .context("Cannot init child component")
+        })
+    }
+
+    fn resize(&mut self, rect: Rect) -> Result<()> {
+        self.components.iter_mut().try_for_each(|c| {
+            c.write()
+                .unwrap()
+                .resize(rect)
+                .context("Cannot resize child component")
+        })
+    }
+
+    fn handle_events(&mut self, event: Option<Event>) -> Result<()> {
+        self.components.iter_mut().try_for_each(|c| {
+            c.write()
+                .unwrap()
+                .handle_events(event.clone())
+                .context("Child component handle event error")
+        })
+    }
+
+    fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> Result<()> {
+        self.components.iter_mut().try_for_each(|c| {
+            c.write()
+                .unwrap()
+                .draw(f, rect)
+                .context("Cannot draw child component")
+        })
+    }
+}
+
+impl<T> From<Vec<Shared<T>>> for ComponentsContainer<T>
+where
+    T: FocusableComponent + ?Sized,
+{
+    fn from(value: Vec<Shared<T>>) -> Self {
+        Self { components: value }
     }
 }
