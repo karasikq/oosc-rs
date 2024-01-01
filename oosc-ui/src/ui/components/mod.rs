@@ -4,6 +4,8 @@ pub mod parametr;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
+use std::sync::Arc;
+
 use anyhow::{Context, Result};
 use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent};
 use oosc_core::utils::Shared;
@@ -46,12 +48,22 @@ pub trait Focus {
     fn keymap(&self) -> Option<crossterm::event::KeyCode>;
 }
 
+type SharedComponent = Shared<dyn FocusableComponent>;
+
 pub struct FocusableComponentContext {
     pub keymap: Option<KeyCode>,
     pub focused_color: Option<Color>,
     pub unfocused_color: Option<Color>,
     pub focused: bool,
-    last_focus: Option<Shared<dyn FocusableComponent>>,
+    last_focus: Option<SharedComponent>,
+}
+
+pub enum FocusContextResult {
+    Focused {
+        previous: Option<SharedComponent>,
+        current: SharedComponent,
+    },
+    AlreadyFocused(Shared<dyn FocusableComponent>),
 }
 
 impl FocusableComponentContext {
@@ -84,6 +96,32 @@ impl FocusableComponentContext {
             unfocused_color: Some(color),
             ..self
         }
+    }
+
+    pub fn focus_if_key<T>(&mut self, components: T, key: KeyCode) -> Option<FocusContextResult>
+    where
+        T: Iterator<Item = Shared<dyn FocusableComponent>>,
+    {
+        for p in components {
+            let mut component = p.write().unwrap();
+            if component.keymap() == Some(key) {
+                let last = self.last_focus.clone();
+                if let Some(last) = last.clone() {
+                    if !Arc::ptr_eq(&last, &p) {
+                        last.write().unwrap().unfocus();
+                    } else {
+                        return Some(FocusContextResult::AlreadyFocused(last));
+                    }
+                }
+                component.focus();
+                self.last_focus = Some(p.clone());
+                return Some(FocusContextResult::Focused {
+                    previous: last,
+                    current: p.clone(),
+                });
+            }
+        }
+        None
     }
 }
 
@@ -169,12 +207,8 @@ impl<T> ComponentsContainer<T>
 where
     T: FocusableComponent + ?Sized,
 {
-    pub fn iter(&self) -> impl Iterator<Item = &Shared<T>> {
-        self.components.iter()
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Shared<T>> {
-        self.components.iter_mut()
+    pub fn iter(&self) -> impl Iterator<Item = Shared<T>> + '_ {
+        self.components.iter().cloned()
     }
 
     pub fn draw_in_layout(&mut self, f: &mut Frame<'_>, layout: &[Rect]) -> Result<()> {
@@ -226,6 +260,24 @@ where
                 .unwrap()
                 .draw(f, rect)
                 .context("Cannot draw child component")
+        })
+    }
+
+    fn handle_key_events(&mut self, key: KeyEvent) -> Result<()> {
+        self.components.iter_mut().try_for_each(|c| {
+            c.write()
+                .unwrap()
+                .handle_key_events(key)
+                .context("Child component handle key event error")
+        })
+    }
+
+    fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Result<()> {
+        self.components.iter_mut().try_for_each(|c| {
+            c.write()
+                .unwrap()
+                .handle_mouse_events(mouse)
+                .context("Child component handle mouse event error")
         })
     }
 }

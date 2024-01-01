@@ -178,7 +178,7 @@ impl Component for OscillatorComponent {
         let top = Self::build_top_layout(main[0]);
         let parametrs = Self::build_parametrs_layout(main[1], &self.parametrs);
         self.parametrs
-            .iter_mut()
+            .iter()
             .enumerate()
             .try_for_each(|(i, p)| p.write().unwrap().resize(parametrs[i]))?;
         self.layout = Some(OscillatorLayout {
@@ -194,22 +194,8 @@ impl Component for OscillatorComponent {
             return Ok(());
         }
         let parametrs = &mut self.parametrs;
-        parametrs
-            .iter_mut()
-            .try_for_each(|p| p.write().unwrap().handle_key_events(key))?;
-        parametrs.iter_mut().for_each(|p| {
-            let mut param = p.write().unwrap();
-            if param.keymap() == Some(key.code) {
-                let last = self.context.last_focus.clone();
-                if let Some(last) = last {
-                    if !Arc::ptr_eq(&last, p) {
-                        last.write().unwrap().unfocus();
-                    }
-                }
-                param.focus();
-                self.context.last_focus = Some(p.clone());
-            }
-        });
+        parametrs.handle_key_events(key)?;
+        self.context.focus_if_key(parametrs.iter(), key.code);
         if let KeyCode::Esc = key.code {
             self.unfocus()
         };
