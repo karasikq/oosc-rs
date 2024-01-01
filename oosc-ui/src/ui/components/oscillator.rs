@@ -1,6 +1,5 @@
 use std::{rc::Rc, sync::Arc};
 
-use anyhow::Context;
 use crossterm::event::KeyCode;
 use oosc_core::{
     core::{oscillator::WavetableOscillator, synthesizer::LockedOscillator},
@@ -14,10 +13,8 @@ use super::{
     envelope::EnvelopeComponent,
     parametr::{ParametrComponentF32, ParametrComponentI32},
     wavetable::WavetableComponent,
-    Component, Focus, FocusableComponent, FocusableComponentContext,
+    Component, ComponentsContainer, Focus, FocusableComponent, FocusableComponentContext,
 };
-
-type ParametrsContainer = Vec<Shared<dyn FocusableComponent>>;
 
 struct OscillatorLayout {
     pub rect: Rect,
@@ -29,7 +26,7 @@ pub struct OscillatorComponent {
     pub oscillator: LockedOscillator,
     pub wavetable: Shared<WavetableComponent>,
     pub envelope: Shared<EnvelopeComponent>,
-    pub parametrs: ParametrsContainer,
+    pub parametrs: ComponentsContainer<dyn FocusableComponent>,
     context: FocusableComponentContext,
     layout: Option<OscillatorLayout>,
 }
@@ -42,7 +39,7 @@ impl OscillatorComponent {
             .as_any_mut()
             .downcast_mut::<WavetableOscillator>()
             .unwrap();
-        let mut parametrs = Self::build_parametr_components(osc);
+        let mut parametrs = ComponentsContainer::from(Self::build_parametr_components(osc));
         let wavetable = make_shared(WavetableComponent::from(osc.wavetable()));
         let wt_pos = make_shared(ParametrComponentI32::new(
             "Wt Pos".to_owned(),
@@ -55,7 +52,7 @@ impl OscillatorComponent {
             .unwrap()
             .events()
             .subscribe(wavetable.clone());
-        parametrs.push(wt_pos);
+        parametrs.components.push(wt_pos);
         let context = FocusableComponentContext::new().keymap(keymap);
         let envelope = make_shared(EnvelopeComponent::from(osc.envelope()));
 
@@ -69,7 +66,7 @@ impl OscillatorComponent {
         }
     }
 
-    fn build_parametr_components(osc: &WavetableOscillator) -> ParametrsContainer {
+    fn build_parametr_components(osc: &WavetableOscillator) -> Vec<Shared<dyn FocusableComponent>> {
         vec![
             make_shared(ParametrComponentF32::new(
                 "Pan".to_owned(),
@@ -99,6 +96,14 @@ impl OscillatorComponent {
                 InterpolateMethod::Exponential(0.001),
                 KeyCode::Char('g'),
             )),
+            make_shared(ParametrComponentF32::new(
+                "Attack".to_owned(),
+                osc.envelope().read().unwrap().attack.length.clone(),
+                Direction::Horizontal,
+                30,
+                InterpolateMethod::Exponential(10000.0),
+                KeyCode::Char('l'),
+            )),
         ]
     }
 
@@ -117,8 +122,11 @@ impl OscillatorComponent {
             .split(rect)
     }
 
-    fn build_parametrs_layout(rect: Rect, parametrs: &ParametrsContainer) -> Rc<[Rect]> {
-        let len = parametrs.len();
+    fn build_parametrs_layout<T: FocusableComponent + ?Sized>(
+        rect: Rect,
+        parametrs: &ComponentsContainer<T>,
+    ) -> Rc<[Rect]> {
+        let len = parametrs.components.len();
         let size = 100 / len;
         Layout::default()
             .direction(Direction::Horizontal)
@@ -161,15 +169,7 @@ impl Component for OscillatorComponent {
         b.render(layout.rect, buf);
         self.wavetable.write().unwrap().draw(f, layout.top[0])?;
         self.envelope.write().unwrap().draw(f, layout.top[1])?;
-        self.parametrs
-            .iter_mut()
-            .enumerate()
-            .try_for_each(|(i, p)| {
-                p.write()
-                    .unwrap()
-                    .draw(f, layout.parametrs[i])
-                    .context("Cannot draw parametr")
-            })?;
+        self.parametrs.draw_in_layout(f, &layout.parametrs)?;
         Ok(())
     }
 
