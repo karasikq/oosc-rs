@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use oosc_core::utils::{
     adsr_envelope::{ADSREnvelope, State},
     Shared,
@@ -8,6 +10,21 @@ use ratatui::{
 };
 
 use super::Component;
+
+enum ShowState {
+    Info,
+    Attack,
+    Decay,
+    Sustain,
+    Release,
+}
+
+struct EnvelopeLayout {
+    pub rect: Rect,
+    pub main: Rc<[Rect]>,
+    pub selected: Rc<[Rect]>,
+    pub parametrs: Rc<[Rect]>,
+}
 
 pub struct EnvelopeComponent {
     pub envelope: Shared<ADSREnvelope>,
@@ -56,6 +73,47 @@ impl EnvelopeComponent {
             })
             .collect()
     }
+
+    fn build_main_layout(rect: Rect) -> Rc<[Rect]> {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Min(0),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+            ])
+            .margin(1)
+            .split(rect)
+    }
+
+    fn build_selected_layout(rect: Rect) -> Rc<[Rect]> {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+            .margin(1)
+            .split(rect)
+    }
+
+    fn build_parametrs_layout(rect: Rect) -> Rc<[Rect]> {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(100 / 6); 6])
+            .margin(1)
+            .split(rect)
+    }
+
+    /* fn build_parametr_components(envelope: &ADSREnvelope) -> Vec<Shared<dyn FocusableComponent>> {
+        vec![make_shared(ParametrComponentF32::new(
+            "Length".to_owned(),
+            envelope.attack.length,
+            Direction::Horizontal,
+            10,
+            InterpolateMethod::Exponential(10000.0),
+            KeyCode::Char('l'),
+        ))]
+    } */
 }
 
 impl<T> From<T> for EnvelopeComponent
@@ -75,6 +133,7 @@ impl Component for EnvelopeComponent {
             .unwrap()
             .time_range_of(State::Release)
             .1;
+        self.line = self.render_line();
         let canvas = Canvas::default()
             .block(
                 Block::default()
@@ -88,6 +147,19 @@ impl Component for EnvelopeComponent {
                 self.line.iter().for_each(|line| ctx.draw(line));
             });
         canvas.render(rect, f.buffer_mut());
+        Ok(())
+    }
+
+    fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
+        let main = Self::build_main_layout(rect);
+        let selected = Self::build_selected_layout(rect);
+        let parametrs = Self::build_parametrs_layout(selected[1]);
+        /* self.layout = Some(EnvelopeLayout {
+            rect,
+            main,
+            selected,
+            parametrs,
+        }); */
         Ok(())
     }
 }

@@ -1,4 +1,4 @@
-use std::{rc::Rc, sync::Arc};
+use std::rc::Rc;
 
 use crossterm::event::KeyCode;
 use oosc_core::{
@@ -10,10 +10,11 @@ use ratatui::{prelude::*, widgets::*};
 use crate::ui::observer::Notifier;
 
 use super::{
+    components_container::ComponentsContainer,
     envelope::EnvelopeComponent,
     parametr::{ParametrComponentF32, ParametrComponentI32},
     wavetable::WavetableComponent,
-    Component, ComponentsContainer, Focus, FocusableComponent, FocusableComponentContext,
+    Component, Focus, FocusableComponent, FocusableComponentContext,
 };
 
 struct OscillatorLayout {
@@ -53,6 +54,7 @@ impl OscillatorComponent {
             .events()
             .subscribe(wavetable.clone());
         parametrs.components.push(wt_pos);
+        parametrs.focus();
         let context = FocusableComponentContext::new().keymap(keymap);
         let envelope = make_shared(EnvelopeComponent::from(osc.envelope()));
 
@@ -122,10 +124,10 @@ impl OscillatorComponent {
             .split(rect)
     }
 
-    fn build_parametrs_layout<T: FocusableComponent + ?Sized>(
-        rect: Rect,
-        parametrs: &ComponentsContainer<T>,
-    ) -> Rc<[Rect]> {
+    fn build_parametrs_layout<T>(rect: Rect, parametrs: &ComponentsContainer<T>) -> Rc<[Rect]>
+    where
+        T: FocusableComponent + ?Sized,
+    {
         let len = parametrs.components.len();
         let size = 100 / len;
         Layout::default()
@@ -146,6 +148,14 @@ impl FocusableComponent for OscillatorComponent {
 
     fn context_mut(&mut self) -> &mut FocusableComponentContext {
         &mut self.context
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 
@@ -193,12 +203,6 @@ impl Component for OscillatorComponent {
         if !self.is_focused() {
             return Ok(());
         }
-        let parametrs = &mut self.parametrs;
-        parametrs.handle_key_events(key)?;
-        self.context.focus_if_key(parametrs.iter(), key.code);
-        if let KeyCode::Esc = key.code {
-            self.unfocus()
-        };
-        Ok(())
+        self.parametrs.handle_key_events(key)
     }
 }

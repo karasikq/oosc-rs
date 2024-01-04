@@ -1,12 +1,13 @@
+pub mod components_container;
 pub mod envelope;
 pub mod oscillator;
 pub mod parametr;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
-use std::sync::Arc;
+use std::any::Any;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent};
 use oosc_core::utils::Shared;
 use ratatui::{layout::Rect, style::Color, Frame};
@@ -48,22 +49,13 @@ pub trait Focus {
     fn keymap(&self) -> Option<crossterm::event::KeyCode>;
 }
 
-type SharedComponent = Shared<dyn FocusableComponent>;
+pub type SharedComponent = Shared<dyn FocusableComponent>;
 
 pub struct FocusableComponentContext {
     pub keymap: Option<KeyCode>,
     pub focused_color: Option<Color>,
     pub unfocused_color: Option<Color>,
     pub focused: bool,
-    last_focus: Option<SharedComponent>,
-}
-
-pub enum FocusContextResult {
-    Focused {
-        previous: Option<SharedComponent>,
-        current: SharedComponent,
-    },
-    AlreadyFocused(Shared<dyn FocusableComponent>),
 }
 
 impl FocusableComponentContext {
@@ -73,7 +65,6 @@ impl FocusableComponentContext {
             focused_color: None,
             unfocused_color: None,
             focused: false,
-            last_focus: None,
         }
     }
 
@@ -98,30 +89,11 @@ impl FocusableComponentContext {
         }
     }
 
-    pub fn focus_if_key<T>(&mut self, components: T, key: KeyCode) -> Option<FocusContextResult>
-    where
-        T: Iterator<Item = Shared<dyn FocusableComponent>>,
-    {
-        for p in components {
-            let mut component = p.write().unwrap();
-            if component.keymap() == Some(key) {
-                let last = self.last_focus.clone();
-                if let Some(last) = last.clone() {
-                    if !Arc::ptr_eq(&last, &p) {
-                        last.write().unwrap().unfocus();
-                    } else {
-                        return Some(FocusContextResult::AlreadyFocused(last));
-                    }
-                }
-                component.focus();
-                self.last_focus = Some(p.clone());
-                return Some(FocusContextResult::Focused {
-                    previous: last,
-                    current: p.clone(),
-                });
-            }
+    pub fn focused(self, focused: bool) -> FocusableComponentContext {
+        FocusableComponentContext {
+            focused,
+            ..self
         }
-        None
     }
 }
 
@@ -160,6 +132,8 @@ impl Focus for FocusableComponentContext {
 pub trait FocusableComponent: Component + Focus {
     fn context(&self) -> &FocusableComponentContext;
     fn context_mut(&mut self) -> &mut FocusableComponentContext;
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 impl<T: FocusableComponent> Focus for T {
@@ -193,100 +167,5 @@ impl<T: FocusableComponent> Focus for T {
                 .as_ref()
                 .unwrap_or(&Color::Gray)
         }
-    }
-}
-
-pub struct ComponentsContainer<T>
-where
-    T: FocusableComponent + ?Sized,
-{
-    pub components: Vec<Shared<T>>,
-}
-
-impl<T> ComponentsContainer<T>
-where
-    T: FocusableComponent + ?Sized,
-{
-    pub fn iter(&self) -> impl Iterator<Item = Shared<T>> + '_ {
-        self.components.iter().cloned()
-    }
-
-    pub fn draw_in_layout(&mut self, f: &mut Frame<'_>, layout: &[Rect]) -> Result<()> {
-        self.components
-            .iter_mut()
-            .enumerate()
-            .try_for_each(|(i, c)| {
-                c.write()
-                    .unwrap()
-                    .draw(f, *layout.get(i).context("Cannot get layout")?)
-            })
-    }
-}
-
-impl<T> Component for ComponentsContainer<T>
-where
-    T: FocusableComponent + ?Sized,
-{
-    fn init(&mut self) -> Result<()> {
-        self.components.iter_mut().try_for_each(|c| {
-            c.write()
-                .unwrap()
-                .init()
-                .context("Cannot init child component")
-        })
-    }
-
-    fn resize(&mut self, rect: Rect) -> Result<()> {
-        self.components.iter_mut().try_for_each(|c| {
-            c.write()
-                .unwrap()
-                .resize(rect)
-                .context("Cannot resize child component")
-        })
-    }
-
-    fn handle_events(&mut self, event: Option<Event>) -> Result<()> {
-        self.components.iter_mut().try_for_each(|c| {
-            c.write()
-                .unwrap()
-                .handle_events(event.clone())
-                .context("Child component handle event error")
-        })
-    }
-
-    fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> Result<()> {
-        self.components.iter_mut().try_for_each(|c| {
-            c.write()
-                .unwrap()
-                .draw(f, rect)
-                .context("Cannot draw child component")
-        })
-    }
-
-    fn handle_key_events(&mut self, key: KeyEvent) -> Result<()> {
-        self.components.iter_mut().try_for_each(|c| {
-            c.write()
-                .unwrap()
-                .handle_key_events(key)
-                .context("Child component handle key event error")
-        })
-    }
-
-    fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Result<()> {
-        self.components.iter_mut().try_for_each(|c| {
-            c.write()
-                .unwrap()
-                .handle_mouse_events(mouse)
-                .context("Child component handle mouse event error")
-        })
-    }
-}
-
-impl<T> From<Vec<Shared<T>>> for ComponentsContainer<T>
-where
-    T: FocusableComponent + ?Sized,
-{
-    fn from(value: Vec<Shared<T>>) -> Self {
-        Self { components: value }
     }
 }

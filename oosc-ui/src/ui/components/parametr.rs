@@ -16,7 +16,7 @@ use crate::ui::{
 
 use super::{Component, Focus, FocusableComponent, FocusableComponentContext};
 
-struct ParametrLayout {
+pub struct ParametrLayout {
     pub rect: Rect,
     pub main: Rc<[Rect]>,
 }
@@ -32,7 +32,7 @@ impl From<Rect> for ParametrLayout {
     }
 }
 
-trait AnyParametrComponent {
+pub trait AnyParametrComponent {
     fn name(&self) -> &String;
     fn value(&self) -> f32;
     fn range(&self) -> (f32, f32);
@@ -117,6 +117,14 @@ impl FocusableComponent for ParametrComponentF32 {
     fn context_mut(&mut self) -> &mut FocusableComponentContext {
         &mut self.context
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 pub struct ParametrComponentI32 {
@@ -135,6 +143,14 @@ impl FocusableComponent for ParametrComponentI32 {
 
     fn context_mut(&mut self) -> &mut FocusableComponentContext {
         &mut self.context
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 
