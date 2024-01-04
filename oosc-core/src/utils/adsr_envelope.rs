@@ -25,10 +25,10 @@ pub struct SharedCurve {
 }
 
 pub struct ADSREnvelope {
-    attack: SharedCurve,
-    decay: SharedCurve,
-    sustain: SharedCurve,
-    release: SharedCurve,
+    pub attack: SharedCurve,
+    pub decay: SharedCurve,
+    pub sustain: SharedCurve,
+    pub release: SharedCurve,
 }
 
 impl ADSREnvelope {
