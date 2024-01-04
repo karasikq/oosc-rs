@@ -5,6 +5,7 @@ pub mod parametr;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
+pub mod bezier;
 use std::any::Any;
 
 use anyhow::Result;

@@ -191,6 +191,7 @@ impl Component for OscillatorComponent {
             .iter()
             .enumerate()
             .try_for_each(|(i, p)| p.write().unwrap().resize(parametrs[i]))?;
+        self.envelope.write().unwrap().resize(top[1])?;
         self.layout = Some(OscillatorLayout {
             rect,
             top,

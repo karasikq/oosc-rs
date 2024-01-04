@@ -22,8 +22,6 @@ enum ShowState {
 struct EnvelopeLayout {
     pub rect: Rect,
     pub main: Rc<[Rect]>,
-    pub selected: Rc<[Rect]>,
-    pub parametrs: Rc<[Rect]>,
 }
 
 pub struct EnvelopeComponent {
@@ -31,6 +29,7 @@ pub struct EnvelopeComponent {
     pub samples: usize,
     line: Vec<canvas::Line>,
     color: Color,
+    layout: Option<EnvelopeLayout>,
 }
 
 impl EnvelopeComponent {
@@ -40,6 +39,7 @@ impl EnvelopeComponent {
             samples: 0,
             line: vec![],
             color: Color::Red,
+            layout: None,
         }
     }
 
@@ -87,33 +87,6 @@ impl EnvelopeComponent {
             .margin(1)
             .split(rect)
     }
-
-    fn build_selected_layout(rect: Rect) -> Rc<[Rect]> {
-        Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
-            .margin(1)
-            .split(rect)
-    }
-
-    fn build_parametrs_layout(rect: Rect) -> Rc<[Rect]> {
-        Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(100 / 6); 6])
-            .margin(1)
-            .split(rect)
-    }
-
-    /* fn build_parametr_components(envelope: &ADSREnvelope) -> Vec<Shared<dyn FocusableComponent>> {
-        vec![make_shared(ParametrComponentF32::new(
-            "Length".to_owned(),
-            envelope.attack.length,
-            Direction::Horizontal,
-            10,
-            InterpolateMethod::Exponential(10000.0),
-            KeyCode::Char('l'),
-        ))]
-    } */
 }
 
 impl<T> From<T> for EnvelopeComponent
@@ -126,7 +99,8 @@ where
 }
 
 impl Component for EnvelopeComponent {
-    fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> anyhow::Result<()> {
+    fn draw(&mut self, f: &mut Frame<'_>, _rect: Rect) -> anyhow::Result<()> {
+        let layout = self.layout.as_ref().unwrap();
         let max_time = self
             .envelope
             .read()
@@ -135,31 +109,31 @@ impl Component for EnvelopeComponent {
             .1;
         self.line = self.render_line();
         let canvas = Canvas::default()
-            .block(
-                Block::default()
-                    .borders(Borders::TOP | Borders::BOTTOM | Borders::LEFT)
-                    .title("Envelope"),
-            )
             .marker(Marker::Braille)
             .x_bounds([0.0, max_time as f64])
             .y_bounds([0.0, 1.0])
             .paint(|ctx| {
                 self.line.iter().for_each(|line| ctx.draw(line));
             });
-        canvas.render(rect, f.buffer_mut());
+        canvas.render(layout.main[0], f.buffer_mut());
+        let p = Paragraph::new("Attack [a]").alignment(Alignment::Center);
+        f.render_widget(p, layout.main[1]);
+        let p = Paragraph::new("Decay [d]").alignment(Alignment::Center);
+        f.render_widget(p, layout.main[2]);
+        let p = Paragraph::new("Sustain [s]").alignment(Alignment::Center);
+        f.render_widget(p, layout.main[3]);
+        let p = Paragraph::new("Release [r]").alignment(Alignment::Center);
+        f.render_widget(p, layout.main[4]);
+        let b = Block::default()
+            .borders(Borders::TOP | Borders::BOTTOM | Borders::LEFT)
+            .title("Envelope");
+        f.render_widget(b, layout.rect);
         Ok(())
     }
 
     fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
         let main = Self::build_main_layout(rect);
-        let selected = Self::build_selected_layout(rect);
-        let parametrs = Self::build_parametrs_layout(selected[1]);
-        /* self.layout = Some(EnvelopeLayout {
-            rect,
-            main,
-            selected,
-            parametrs,
-        }); */
+        self.layout = Some(EnvelopeLayout { rect, main });
         Ok(())
     }
 }

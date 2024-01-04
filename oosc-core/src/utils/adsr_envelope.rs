@@ -21,7 +21,7 @@ pub struct SharedCurve {
     pub amplitude: SharedParametr<f32>,
     pub point_b: (SharedParametr<f32>, SharedParametr<f32>),
     pub point_c: (SharedParametr<f32>, SharedParametr<f32>),
-    curve: Shared<CubicBezierCurve>,
+    pub curve: Shared<CubicBezierCurve>,
 }
 
 pub struct ADSREnvelope {
