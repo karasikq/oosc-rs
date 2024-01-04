@@ -14,10 +14,10 @@ pub enum State {
 }
 
 pub struct ADSREnvelope {
-    attack: CubicBezierCurve,
-    decay: CubicBezierCurve,
-    sustain: CubicBezierCurve,
-    release: CubicBezierCurve,
+    pub attack: SharedCurve,
+    pub decay: SharedCurve,
+    pub sustain: SharedCurve,
+    pub release: SharedCurve,
 }
 
 impl ADSREnvelope {
