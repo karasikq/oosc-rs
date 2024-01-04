@@ -1,9 +1,13 @@
+pub mod components_container;
+pub mod envelope;
 pub mod oscillator;
 pub mod parametr;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
-pub mod envelope;
+pub mod bezier;
+use std::any::Any;
+
 use anyhow::Result;
 use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent};
 use oosc_core::utils::Shared;
@@ -46,12 +50,13 @@ pub trait Focus {
     fn keymap(&self) -> Option<crossterm::event::KeyCode>;
 }
 
+pub type SharedComponent = Shared<dyn FocusableComponent>;
+
 pub struct FocusableComponentContext {
     pub keymap: Option<KeyCode>,
     pub focused_color: Option<Color>,
     pub unfocused_color: Option<Color>,
     pub focused: bool,
-    last_focus: Option<Shared<dyn FocusableComponent>>,
 }
 
 impl FocusableComponentContext {
@@ -61,7 +66,6 @@ impl FocusableComponentContext {
             focused_color: None,
             unfocused_color: None,
             focused: false,
-            last_focus: None,
         }
     }
 
@@ -82,6 +86,13 @@ impl FocusableComponentContext {
     pub fn unfocused_color(self, color: Color) -> FocusableComponentContext {
         FocusableComponentContext {
             unfocused_color: Some(color),
+            ..self
+        }
+    }
+
+    pub fn focused(self, focused: bool) -> FocusableComponentContext {
+        FocusableComponentContext {
+            focused,
             ..self
         }
     }
@@ -122,6 +133,8 @@ impl Focus for FocusableComponentContext {
 pub trait FocusableComponent: Component + Focus {
     fn context(&self) -> &FocusableComponentContext;
     fn context_mut(&mut self) -> &mut FocusableComponentContext;
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 impl<T: FocusableComponent> Focus for T {

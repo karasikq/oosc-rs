@@ -287,6 +287,22 @@ where
     pub range: R,
 }
 
+impl<S, G, R, T> CallbackParametr<S, G, R, T>
+where
+    S: FnMut(T) + Send + Sync + 'static,
+    G: Fn() -> T + Send + Sync + 'static,
+    R: Fn() -> (T, T) + Send + Sync + 'static,
+    T: Clone + PartialOrd + Default + Send + Sync + 'static,
+{
+    pub fn new(setter: S, getter: G, range: R) -> Self {
+        Self {
+            setter,
+            getter,
+            range,
+        }
+    }
+}
+
 impl<S, G, R, T> Parametr<T> for CallbackParametr<S, G, R, T>
 where
     S: FnMut(T) + Send + Sync + 'static,

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use oosc_core::utils::{
     adsr_envelope::{ADSREnvelope, State},
     Shared,
@@ -9,11 +11,25 @@ use ratatui::{
 
 use super::Component;
 
+enum ShowState {
+    Info,
+    Attack,
+    Decay,
+    Sustain,
+    Release,
+}
+
+struct EnvelopeLayout {
+    pub rect: Rect,
+    pub main: Rc<[Rect]>,
+}
+
 pub struct EnvelopeComponent {
     pub envelope: Shared<ADSREnvelope>,
     pub samples: usize,
     line: Vec<canvas::Line>,
     color: Color,
+    layout: Option<EnvelopeLayout>,
 }
 
 impl EnvelopeComponent {
@@ -23,6 +39,7 @@ impl EnvelopeComponent {
             samples: 0,
             line: vec![],
             color: Color::Red,
+            layout: None,
         }
     }
 
@@ -56,6 +73,20 @@ impl EnvelopeComponent {
             })
             .collect()
     }
+
+    fn build_main_layout(rect: Rect) -> Rc<[Rect]> {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Min(0),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Length(1),
+            ])
+            .margin(1)
+            .split(rect)
+    }
 }
 
 impl<T> From<T> for EnvelopeComponent
@@ -68,26 +99,41 @@ where
 }
 
 impl Component for EnvelopeComponent {
-    fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> anyhow::Result<()> {
+    fn draw(&mut self, f: &mut Frame<'_>, _rect: Rect) -> anyhow::Result<()> {
+        let layout = self.layout.as_ref().unwrap();
         let max_time = self
             .envelope
             .read()
             .unwrap()
             .time_range_of(State::Release)
             .1;
+        self.line = self.render_line();
         let canvas = Canvas::default()
-            .block(
-                Block::default()
-                    .borders(Borders::TOP | Borders::BOTTOM | Borders::LEFT)
-                    .title("Envelope"),
-            )
             .marker(Marker::Braille)
             .x_bounds([0.0, max_time as f64])
             .y_bounds([0.0, 1.0])
             .paint(|ctx| {
                 self.line.iter().for_each(|line| ctx.draw(line));
             });
-        canvas.render(rect, f.buffer_mut());
+        canvas.render(layout.main[0], f.buffer_mut());
+        let p = Paragraph::new("Attack [a]").alignment(Alignment::Center);
+        f.render_widget(p, layout.main[1]);
+        let p = Paragraph::new("Decay [d]").alignment(Alignment::Center);
+        f.render_widget(p, layout.main[2]);
+        let p = Paragraph::new("Sustain [s]").alignment(Alignment::Center);
+        f.render_widget(p, layout.main[3]);
+        let p = Paragraph::new("Release [r]").alignment(Alignment::Center);
+        f.render_widget(p, layout.main[4]);
+        let b = Block::default()
+            .borders(Borders::TOP | Borders::BOTTOM | Borders::LEFT)
+            .title("Envelope");
+        f.render_widget(b, layout.rect);
+        Ok(())
+    }
+
+    fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
+        let main = Self::build_main_layout(rect);
+        self.layout = Some(EnvelopeLayout { rect, main });
         Ok(())
     }
 }

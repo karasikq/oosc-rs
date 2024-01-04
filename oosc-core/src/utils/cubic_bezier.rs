@@ -3,10 +3,10 @@ use cgmath::Vector2;
 type Point = Vector2<f32>;
 
 pub struct CubicBezierCurve {
-    a: Point,
-    b: Point,
-    c: Point,
-    d: Point,
+    pub a: Point,
+    pub b: Point,
+    pub c: Point,
+    pub d: Point,
 }
 
 impl CubicBezierCurve {

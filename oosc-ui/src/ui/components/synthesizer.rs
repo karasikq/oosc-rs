@@ -52,6 +52,14 @@ impl FocusableComponent for SynthesizerComponent {
     fn context_mut(&mut self) -> &mut FocusableComponentContext {
         &mut self.context
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 impl Component for SynthesizerComponent {
