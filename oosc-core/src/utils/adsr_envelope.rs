@@ -175,13 +175,92 @@ impl ADSREnvelopeBuilder {
     }
 
     pub fn build(&mut self) -> Result<ADSREnvelope, Error> {
+        let attack = make_shared(self.attack.take().ok_or("Attack not specified")?);
+        let decay = make_shared(self.decay.take().ok_or("Decay not specified")?);
+        let sustain = make_shared(self.sustain.take().ok_or("Sustain not specified")?);
+        let release = make_shared(self.release.take().ok_or("Release not specified")?);
+        let attack = Self::create_shared_curve(attack, Some(decay.clone()));
+        let decay = Self::create_shared_curve(decay, Some(sustain.clone()));
+        let sustain = Self::create_shared_curve(sustain, Some(release.clone()));
+        let release = Self::create_shared_curve(release, None);
+
         let adsr = ADSREnvelope {
-            attack: self.attack.take().ok_or("Attack not specified")?,
-            decay: self.decay.take().ok_or("Decay not specified")?,
-            sustain: self.sustain.take().ok_or("Sustain not specified")?,
-            release: self.release.take().ok_or("Release not specified")?,
+            attack,
+            decay,
+            sustain,
+            release,
         };
         Ok(adsr)
+    }
+
+    fn create_shared_curve(
+        curve: Shared<CubicBezierCurve>,
+        next_curve: Option<Shared<CubicBezierCurve>>,
+    ) -> SharedCurve {
+        let curve_clone = curve.clone();
+        let curve_clone2 = curve.clone();
+        let length = CallbackParametr::new(
+            move |v| curve_clone.write().unwrap().d.x = v,
+            move || curve_clone2.read().unwrap().d.x,
+            || (0.0, 10.0),
+        );
+        let curve_clone = curve.clone();
+        let curve_clone2 = curve.clone();
+        let next_clone = next_curve.clone();
+        let amplitude = CallbackParametr::new(
+            move |v| {
+                curve_clone.write().unwrap().d.y = v;
+                if let Some(next) = &next_clone {
+                    next.write().unwrap().a.y = v;
+                }
+            },
+            move || curve_clone2.read().unwrap().d.y,
+            || (0.0, 1.0),
+        );
+
+        let curve_clone = curve.clone();
+        let curve_clone2 = curve.clone();
+        let curve_clone3 = curve.clone();
+        let point_b_x = CallbackParametr::new(
+            move |v| curve_clone.write().unwrap().b.x = v,
+            move || curve_clone2.read().unwrap().b.x,
+            move || (0.0, curve_clone3.read().unwrap().end().x),
+        );
+        let curve_clone = curve.clone();
+        let curve_clone2 = curve.clone();
+        let point_b_y = CallbackParametr::new(
+            move |v| curve_clone.write().unwrap().b.y = v,
+            move || curve_clone2.read().unwrap().b.y,
+            || (0.0, 1.0),
+        );
+        let point_b: (SharedParametr<f32>, SharedParametr<f32>) =
+            (make_shared(point_b_x), make_shared(point_b_y));
+
+        let curve_clone = curve.clone();
+        let curve_clone2 = curve.clone();
+        let curve_clone3 = curve.clone();
+        let point_c_x = CallbackParametr::new(
+            move |v| curve_clone.write().unwrap().c.x = v,
+            move || curve_clone2.read().unwrap().c.x,
+            move || (0.0, curve_clone3.read().unwrap().end().x),
+        );
+        let curve_clone = curve.clone();
+        let curve_clone2 = curve.clone();
+        let point_c_y = CallbackParametr::new(
+            move |v| curve_clone.write().unwrap().c.y = v,
+            move || curve_clone2.read().unwrap().c.y,
+            || (0.0, 1.0),
+        );
+        let point_c: (SharedParametr<f32>, SharedParametr<f32>) =
+            (make_shared(point_c_x), make_shared(point_c_y));
+
+        SharedCurve {
+            length: make_shared(length),
+            amplitude: make_shared(amplitude),
+            point_b,
+            point_c,
+            curve,
+        }
     }
 }
 
