@@ -1,3 +1,4 @@
+pub mod bezier;
 pub mod components_container;
 pub mod envelope;
 pub mod oscillator;
@@ -5,7 +6,6 @@ pub mod parametr;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
-pub mod bezier;
 use std::any::Any;
 
 use anyhow::Result;
@@ -51,6 +51,7 @@ pub trait Focus {
 }
 
 pub type SharedComponent = Shared<dyn FocusableComponent>;
+pub type FocusCallback<T> = Option<Box<dyn FnMut(T)>>;
 
 pub struct FocusableComponentContext {
     pub keymap: Option<KeyCode>,
@@ -91,10 +92,7 @@ impl FocusableComponentContext {
     }
 
     pub fn focused(self, focused: bool) -> FocusableComponentContext {
-        FocusableComponentContext {
-            focused,
-            ..self
-        }
+        FocusableComponentContext { focused, ..self }
     }
 }
 

@@ -13,8 +13,11 @@ where
 {
     pub components: Vec<Shared<T>>,
     pub ctx: FocusableComponentContext,
+    active_if_child_focused: bool,
+    next_keymap: Option<KeyCode>,
+    previous_keymap: Option<KeyCode>,
     last_focus: Option<Shared<T>>,
-    current: usize,
+    current: i32,
 }
 
 impl<T> FocusableComponent for ComponentsContainer<T>
@@ -66,9 +69,27 @@ where
         Self {
             components: vec![],
             ctx: FocusableComponentContext::new(),
+            active_if_child_focused: false,
+            next_keymap: None,
+            previous_keymap: None,
             last_focus: None,
             current: 0,
         }
+    }
+
+    pub fn next_keymap(&mut self, keymap: KeyCode) -> &mut Self {
+        self.next_keymap = Some(keymap);
+        self
+    }
+
+    pub fn previous_keymap(&mut self, keymap: KeyCode) -> &mut Self {
+        self.previous_keymap = Some(keymap);
+        self
+    }
+
+    pub fn active_if_child_focused(&mut self, value: bool) -> &mut Self {
+        self.active_if_child_focused = value;
+        self
     }
 
     pub fn container(&mut self) -> &mut Vec<Shared<T>> {
@@ -98,9 +119,14 @@ where
         self.focus_on(self.current - 1)
     }
 
-    pub fn focus_on(&mut self, index: usize) {
-        self.current = index.clamp(0, self.components.len());
-        let component = self.components.get(self.current).unwrap();
+    pub fn focus_on(&mut self, index: i32) {
+        let len = self.components.len() as i32;
+        let mut index = index;
+        if index < 0 {
+            index = len + index % len;
+        }
+        self.current = (index % len).abs();
+        let component = self.components.get(self.current as usize).unwrap();
         self.focus_to(component.clone());
     }
 
@@ -170,13 +196,14 @@ where
     }
 
     fn handle_key_events(&mut self, key: KeyEvent) -> Result<()> {
-        if !self.is_focused() {
+        /* if !self.is_focused() {
             return Ok(());
-        }
+        } */
         if !self
             .components
             .iter()
             .any(|c| c.read().unwrap().is_focused())
+            || self.active_if_child_focused
         {
             self.focus_if_key(key.code);
             match key.code {
@@ -185,6 +212,16 @@ where
                     if let Some(keymap) = self.keymap() {
                         if c == keymap {
                             self.focus()
+                        }
+                    }
+                    if let Some(next) = self.next_keymap {
+                        if next == c {
+                            self.focus_next()
+                        }
+                    }
+                    if let Some(previous) = self.previous_keymap {
+                        if previous == c {
+                            self.focus_previous()
                         }
                     }
                 }
@@ -225,6 +262,9 @@ where
         Self {
             components: value,
             ctx: FocusableComponentContext::new(),
+            active_if_child_focused: false,
+            previous_keymap: None,
+            next_keymap: None,
             last_focus: None,
             current: 0,
         }
