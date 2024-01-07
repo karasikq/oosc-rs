@@ -1,29 +1,57 @@
 use std::rc::Rc;
 
-use oosc_core::utils::{adsr_envelope::SharedCurve, cubic_bezier::CubicBezierCurve, Shared};
+use anyhow::Context;
+use crossterm::event::KeyCode;
+use oosc_core::utils::{
+    adsr_envelope::SharedCurve, cubic_bezier::CubicBezierCurve, interpolation::InterpolateMethod,
+    make_shared, Shared,
+};
 use ratatui::{
     prelude::*,
     widgets::{canvas::*, *},
 };
 
-use super::Component;
+use crate::ui::components::parametr::ParametrComponentF32;
+
+use super::{components_container::ComponentsContainer, Component, Focus};
+
+struct BezierLayout {
+    pub rect: Rect,
+    pub main: Rc<[Rect]>,
+    pub parameters: Vec<Rect>,
+}
 
 pub struct BezierComponent {
     curve: Shared<CubicBezierCurve>,
+    parameters: ComponentsContainer<ParametrComponentF32>,
     samples: usize,
     line: Vec<canvas::Line>,
     color: Color,
+    layout: Option<BezierLayout>,
 }
 
 impl BezierComponent {
     pub fn new(curve: &SharedCurve) -> Self {
+        let mut parameters = ComponentsContainer::from(Self::build_parametr_components(curve));
+        parameters.active_if_child_focused(true);
+        parameters.focus();
+        parameters.next_keymap(KeyCode::Char('k'));
+        parameters.previous_keymap(KeyCode::Char('j'));
         let curve = curve.curve.clone();
         Self {
             curve,
-            samples: 0,
+            parameters,
+            samples: 30,
             line: vec![],
             color: Color::Red,
+            layout: None,
         }
+    }
+
+    pub fn new_curve(&mut self, curve: &SharedCurve) {
+        *self.parameters.container() = Self::build_parametr_components(curve);
+        self.curve = curve.curve.clone();
+        self.resize(self.layout.as_ref().unwrap().rect).unwrap();
     }
 
     pub fn samples(self, samples: usize) -> Self {
@@ -41,8 +69,7 @@ impl BezierComponent {
 
     pub fn render_line(&self) -> Vec<canvas::Line> {
         let table = self.curve.read().unwrap();
-        let max_time = table.d.x;
-        let rate = max_time / self.samples as f32;
+        let rate = 1.0 / self.samples as f32;
         (1..=self.samples)
             .map(|t| {
                 let mut line = canvas::Line::new(0.0, 0.0, 0.0, 0.0, self.color);
@@ -60,43 +87,79 @@ impl BezierComponent {
     fn build_main_layout(rect: Rect) -> Rc<[Rect]> {
         Layout::default()
             .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Min(0),
-                Constraint::Length(1),
-                Constraint::Length(1),
-                Constraint::Length(1),
-                Constraint::Length(1),
-            ])
+            .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
             .margin(1)
             .split(rect)
     }
 
-    fn build_selected_layout(rect: Rect) -> Rc<[Rect]> {
-        Layout::default()
+    fn build_parametrs_layout(rect: Rect) -> Vec<Rect> {
+        let rows = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
-            .margin(1)
-            .split(rect)
+            .constraints([Constraint::Percentage(50); 2])
+            .split(rect);
+        rows.iter()
+            .flat_map(|r| {
+                (*Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints([Constraint::Percentage(100 / 3); 3])
+                    .split(*r))
+                .to_vec()
+            })
+            .collect()
     }
 
-    fn build_parametrs_layout(rect: Rect) -> Rc<[Rect]> {
-        Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(100 / 6); 6])
-            .margin(1)
-            .split(rect)
+    fn build_parametr_components(curve: &SharedCurve) -> Vec<Shared<ParametrComponentF32>> {
+        vec![
+            make_shared(ParametrComponentF32::new(
+                "Length".to_owned(),
+                curve.length.clone(),
+                Direction::Horizontal,
+                10,
+                InterpolateMethod::Exponential(10000.0),
+                KeyCode::Null,
+            )),
+            make_shared(ParametrComponentF32::new(
+                "Amplitude".to_owned(),
+                curve.amplitude.clone(),
+                Direction::Vertical,
+                40,
+                InterpolateMethod::Linear,
+                KeyCode::Null,
+            )),
+            make_shared(ParametrComponentF32::new(
+                "B-x".to_owned(),
+                curve.point_b.0.clone(),
+                Direction::Horizontal,
+                40,
+                InterpolateMethod::Linear,
+                KeyCode::Null,
+            )),
+            make_shared(ParametrComponentF32::new(
+                "B-y".to_owned(),
+                curve.point_b.1.clone(),
+                Direction::Vertical,
+                40,
+                InterpolateMethod::Linear,
+                KeyCode::Null,
+            )),
+            make_shared(ParametrComponentF32::new(
+                "C-x".to_owned(),
+                curve.point_c.0.clone(),
+                Direction::Horizontal,
+                40,
+                InterpolateMethod::Linear,
+                KeyCode::Null,
+            )),
+            make_shared(ParametrComponentF32::new(
+                "C-y".to_owned(),
+                curve.point_c.1.clone(),
+                Direction::Vertical,
+                40,
+                InterpolateMethod::Linear,
+                KeyCode::Null,
+            )),
+        ]
     }
-
-    /* fn build_parametr_components(envelope: &ADSREnvelope) -> Vec<Shared<dyn FocusableComponent>> {
-        vec![make_shared(ParametrComponentF32::new(
-            "Length".to_owned(),
-            envelope.attack.length,
-            Direction::Horizontal,
-            10,
-            InterpolateMethod::Exponential(10000.0),
-            KeyCode::Char('l'),
-        ))]
-    } */
 }
 
 impl<T> From<T> for BezierComponent
@@ -109,35 +172,47 @@ where
 }
 
 impl Component for BezierComponent {
-    fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> anyhow::Result<()> {
-        let max_time = self.curve.read().unwrap().d.x;
+    fn draw(&mut self, f: &mut Frame<'_>, _rect: Rect) -> anyhow::Result<()> {
+        if self.layout.is_none() {
+            return Ok(());
+        }
+        let layout = self
+            .layout
+            .as_ref()
+            .context("Cannot get BezierComponent layout")?;
         self.line = self.render_line();
+        let b = Block::default()
+            .borders(Borders::TOP | Borders::BOTTOM | Borders::LEFT)
+            .title("Curve");
+        f.render_widget(b, layout.rect);
         let canvas = Canvas::default()
-            .block(
-                Block::default()
-                    .borders(Borders::TOP | Borders::BOTTOM | Borders::LEFT)
-                    .title("Envelope"),
-            )
             .marker(Marker::Braille)
-            .x_bounds([0.0, max_time as f64])
+            .x_bounds([0.0, 1.0])
             .y_bounds([0.0, 1.0])
             .paint(|ctx| {
                 self.line.iter().for_each(|line| ctx.draw(line));
             });
-        canvas.render(rect, f.buffer_mut());
+        canvas.render(layout.main[0], f.buffer_mut());
+        self.parameters.draw_in_layout(f, &layout.parameters)?;
         Ok(())
+    }
+
+    fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
+        self.parameters.handle_key_events(key)
     }
 
     fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
         let main = Self::build_main_layout(rect);
-        let selected = Self::build_selected_layout(rect);
-        let parametrs = Self::build_parametrs_layout(selected[1]);
-        /* self.layout = Some(EnvelopeLayout {
+        let parameters = Self::build_parametrs_layout(main[1]);
+        self.parameters
+            .iter()
+            .enumerate()
+            .try_for_each(|(i, p)| p.write().unwrap().resize(parameters[i]))?;
+        self.layout = Some(BezierLayout {
             rect,
             main,
-            selected,
-            parametrs,
-        }); */
+            parameters,
+        });
         Ok(())
     }
 }

@@ -72,9 +72,9 @@ impl Component for SynthesizerComponent {
             return Err(oosc_core::error::Error::from("Create layout before draw"))?;
         }
         let layout = self.layout.as_ref().unwrap();
-        self.oscillators.iter_mut().for_each(|osc| {
-            osc.draw(f, layout.rect).unwrap();
-        });
+        self.oscillators.iter_mut().try_for_each(|osc| {
+            osc.draw(f, layout.rect)
+        })?;
         Ok(())
     }
 

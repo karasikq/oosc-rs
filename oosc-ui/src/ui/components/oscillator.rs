@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use anyhow::Context;
 use crossterm::event::KeyCode;
 use oosc_core::{
     core::{oscillator::WavetableOscillator, synthesizer::LockedOscillator},
@@ -27,6 +28,7 @@ pub struct OscillatorComponent {
     pub oscillator: LockedOscillator,
     pub wavetable: Shared<WavetableComponent>,
     pub envelope: Shared<EnvelopeComponent>,
+    pub components: ComponentsContainer<dyn FocusableComponent>,
     pub parametrs: ComponentsContainer<dyn FocusableComponent>,
     context: FocusableComponentContext,
     layout: Option<OscillatorLayout>,
@@ -57,11 +59,15 @@ impl OscillatorComponent {
         parametrs.focus();
         let context = FocusableComponentContext::new().keymap(keymap);
         let envelope = make_shared(EnvelopeComponent::from(osc.envelope()));
+        let mut components =
+            ComponentsContainer::from(vec![envelope.clone() as Shared<dyn FocusableComponent>]);
+        components.focus();
 
         Self {
             oscillator: oscillator.clone(),
             wavetable,
             envelope,
+            components,
             parametrs,
             context,
             layout: None,
@@ -97,14 +103,6 @@ impl OscillatorComponent {
                 20,
                 InterpolateMethod::Exponential(0.001),
                 KeyCode::Char('g'),
-            )),
-            make_shared(ParametrComponentF32::new(
-                "Attack".to_owned(),
-                osc.envelope().read().unwrap().attack.length.clone(),
-                Direction::Horizontal,
-                30,
-                InterpolateMethod::Exponential(10000.0),
-                KeyCode::Char('l'),
             )),
         ]
     }
@@ -165,10 +163,7 @@ impl Component for OscillatorComponent {
         f: &mut ratatui::Frame<'_>,
         _rect: ratatui::prelude::Rect,
     ) -> anyhow::Result<()> {
-        if self.layout.is_none() {
-            return Err(oosc_core::error::Error::from("Create layout before draw"))?;
-        }
-        let layout = self.layout.as_ref().unwrap();
+        let layout = self.layout.as_ref().context("Cannot get OscillatorComponent layout")?;
         let buf = f.buffer_mut();
         let b = Block::default()
             .borders(Borders::ALL)
@@ -179,6 +174,7 @@ impl Component for OscillatorComponent {
         b.render(layout.rect, buf);
         self.wavetable.write().unwrap().draw(f, layout.top[0])?;
         self.envelope.write().unwrap().draw(f, layout.top[1])?;
+        // self.components.draw(f, rect)?;
         self.parametrs.draw_in_layout(f, &layout.parametrs)?;
         Ok(())
     }
@@ -191,7 +187,8 @@ impl Component for OscillatorComponent {
             .iter()
             .enumerate()
             .try_for_each(|(i, p)| p.write().unwrap().resize(parametrs[i]))?;
-        self.envelope.write().unwrap().resize(top[1])?;
+        // self.envelope.write().unwrap().resize(top[1]).unwrap();
+        self.components.resize(top[1])?;
         self.layout = Some(OscillatorLayout {
             rect,
             top,
@@ -204,6 +201,7 @@ impl Component for OscillatorComponent {
         if !self.is_focused() {
             return Ok(());
         }
-        self.parametrs.handle_key_events(key)
+        self.parametrs.handle_key_events(key)?;
+        self.components.handle_key_events(key)
     }
 }

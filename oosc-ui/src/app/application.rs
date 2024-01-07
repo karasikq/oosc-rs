@@ -18,7 +18,7 @@ impl Application {
             channels: 2,
             sample_rate: 48000,
             delta_time: 1.0 / 48000.0,
-            buffer_size: 512,
+            buffer_size: 2048,
         };
         let ctx = context::Context::build_default(&config)?;
         let mut root = Root::new(ctx.synthesizer.clone());
