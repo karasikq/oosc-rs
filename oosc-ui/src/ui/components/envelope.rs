@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use crossterm::event::KeyCode;
 use oosc_core::utils::{
@@ -10,10 +10,13 @@ use ratatui::{
     widgets::{canvas::*, *},
 };
 
+use crate::ui::utils::keycode_to_string_prefixed;
+
 use super::{
     bezier::BezierComponent, Component, Focus, FocusableComponent, FocusableComponentContext,
 };
 
+#[derive(Eq, PartialEq, Hash, Clone, Copy)]
 enum ShowState {
     Info,
     Attack,
@@ -31,6 +34,7 @@ pub struct EnvelopeComponent {
     pub envelope: Shared<ADSREnvelope>,
     pub samples: usize,
     ctx: FocusableComponentContext,
+    envelope_keymaps: HashMap<ShowState, KeyCode>,
     bezier: BezierComponent,
     state: ShowState,
     line: Vec<canvas::Line>,
@@ -59,11 +63,17 @@ impl EnvelopeComponent {
     pub fn new(envelope: Shared<ADSREnvelope>) -> Self {
         let bezier = BezierComponent::new(&envelope.read().unwrap().attack);
         let ctx = FocusableComponentContext::new().keymap(KeyCode::Char('e'));
+        let mut envelope_keymaps = HashMap::new();
+        envelope_keymaps.insert(ShowState::Attack, KeyCode::Char('a'));
+        envelope_keymaps.insert(ShowState::Decay, KeyCode::Char('d'));
+        envelope_keymaps.insert(ShowState::Sustain, KeyCode::Char('s'));
+        envelope_keymaps.insert(ShowState::Release, KeyCode::Char('r'));
 
         Self {
             envelope,
             samples: 0,
             ctx,
+            envelope_keymaps,
             bezier,
             state: ShowState::Info,
             line: vec![],
@@ -142,7 +152,11 @@ impl Component for EnvelopeComponent {
                 f.render_widget(p, layout.main[1]);
                 let b = Block::default()
                     .borders(Borders::TOP | Borders::BOTTOM | Borders::LEFT)
-                    .title("Envelope")
+                    .title(format!(
+                        "{}{}",
+                        "Envelope",
+                        keycode_to_string_prefixed(self.keymap(), "[", "]")
+                    ))
                     .style(Style::default().fg(self.color()));
                 f.render_widget(b, layout.rect);
                 Ok(())
@@ -168,25 +182,26 @@ impl Component for EnvelopeComponent {
                 self.unfocus();
                 self.state = ShowState::Info;
             }
-            KeyCode::Char('a') => {
-                self.state = ShowState::Attack;
-                self.bezier.new_curve(&self.envelope.read().unwrap().attack)
+            c => {
+                if c == self.envelope_keymaps[&ShowState::Attack] {
+                    self.state = ShowState::Attack;
+                    self.bezier.new_curve(&self.envelope.read().unwrap().attack);
+                }
+                if c == self.envelope_keymaps[&ShowState::Decay] {
+                    self.state = ShowState::Decay;
+                    self.bezier.new_curve(&self.envelope.read().unwrap().decay)
+                }
+                if c == self.envelope_keymaps[&ShowState::Sustain] {
+                    self.state = ShowState::Sustain;
+                    self.bezier
+                        .new_curve(&self.envelope.read().unwrap().sustain)
+                }
+                if c == self.envelope_keymaps[&ShowState::Decay] {
+                    self.state = ShowState::Release;
+                    self.bezier
+                        .new_curve(&self.envelope.read().unwrap().release)
+                }
             }
-            KeyCode::Char('d') => {
-                self.state = ShowState::Decay;
-                self.bezier.new_curve(&self.envelope.read().unwrap().decay)
-            }
-            KeyCode::Char('s') => {
-                self.state = ShowState::Sustain;
-                self.bezier
-                    .new_curve(&self.envelope.read().unwrap().sustain)
-            }
-            KeyCode::Char('r') => {
-                self.state = ShowState::Release;
-                self.bezier
-                    .new_curve(&self.envelope.read().unwrap().release)
-            }
-            _ => (),
         };
         Ok(())
     }
