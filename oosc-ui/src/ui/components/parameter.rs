@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crossterm::event::KeyCode;
 use oosc_core::{
-    core::parametrs::{Parametr, SharedParametr},
+    core::parameter::{Parametr, SharedParametr},
     utils::interpolation::{interpolate_range, InterpolateMethod},
 };
 use ratatui::style::Style;

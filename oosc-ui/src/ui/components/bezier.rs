@@ -11,7 +11,7 @@ use ratatui::{
     widgets::{canvas::*, *},
 };
 
-use crate::ui::components::parametr::ParametrComponentF32;
+use crate::ui::components::parameter::ParametrComponentF32;
 
 use super::{components_container::ComponentsContainer, Component, Focus};
 

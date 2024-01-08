@@ -1,5 +1,5 @@
 use crate::{
-    core::parametrs::{Parametr, ValueParametr},
+    core::parameter::{Parametr, ValueParametr},
     error::Error,
     utils::{
         interpolation::{interpolate_sample_mut, InterpolateMethod},

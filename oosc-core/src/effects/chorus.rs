@@ -1,6 +1,6 @@
 use crate::{
     core::{
-        parametrs::{Parametr, ValueParametr, VolumeParametr},
+        parameter::{Parametr, ValueParametr, VolumeParametr},
         waveshape::WaveShape,
     },
     error::Error,

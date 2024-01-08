@@ -2,7 +2,7 @@ pub mod bezier;
 pub mod components_container;
 pub mod envelope;
 pub mod oscillator;
-pub mod parametr;
+pub mod parameter;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;

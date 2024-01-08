@@ -12,9 +12,9 @@ use crate::utils::{
 use crate::utils::{make_shared, Shared};
 
 use super::note::NoteEventReceiver;
-use super::parametrs::{CallbackParametr, CentsParametr, SharedParametr, VolumeParametr};
+use super::parameter::{CallbackParametr, CentsParametr, SharedParametr, VolumeParametr};
 use super::{
-    parametrs::{OctaveParametr, PanParametr, ValueParametr},
+    parameter::{OctaveParametr, PanParametr, ValueParametr},
     wavetable::WaveTable,
 };
 

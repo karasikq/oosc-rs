@@ -1,11 +1,11 @@
 use std::sync::{Arc, RwLock};
 
-use crate::core::parametrs::SharedParametr;
+use crate::core::parameter::SharedParametr;
 use crate::effects::Effect;
 use crate::utils::convert::power_to_linear;
 use crate::utils::sample_buffer::BufferSettings;
 use crate::{
-    core::parametrs::{ExponentialTimeParametr, Parametr, ValueParametr, VolumeParametr},
+    core::parameter::{ExponentialTimeParametr, Parametr, ValueParametr, VolumeParametr},
     error::Error,
     utils::sample_buffer::SampleBuffer,
 };

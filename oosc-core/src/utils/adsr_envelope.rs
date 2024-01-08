@@ -1,7 +1,7 @@
 use cgmath::Vector2;
 
 use crate::{
-    core::parametrs::{CallbackParametr, SharedParametr},
+    core::parameter::{CallbackParametr, SharedParametr},
     error::Error,
 };
 

@@ -1,5 +1,5 @@
 use crate::{
-    core::parametrs::{PanParametr, Parametr, ValueParametr, VolumeParametr},
+    core::parameter::{PanParametr, Parametr, ValueParametr, VolumeParametr},
     error::Error,
     utils::sample_buffer::SampleBuffer,
 };

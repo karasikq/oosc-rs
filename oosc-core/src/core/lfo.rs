@@ -1,7 +1,7 @@
 use crate::utils::{consts::PI_2M, evaluate::Evaluate, make_shared};
 
 use super::{
-    parametrs::{SharedParametr, ValueParametr},
+    parameter::{SharedParametr, ValueParametr},
     waveshape::WaveShape,
 };
 

@@ -1,5 +1,5 @@
 use oosc_core::{
-    core::{wavetable::WaveTable, parametrs::SharedParametr},
+    core::{wavetable::WaveTable, parameter::SharedParametr},
     utils::{consts::PI_2M, evaluate::Evaluate, Shared},
 };
 use ratatui::{
@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::ui::observer::Observer;
 
-use super::{Component, parametr::ParametrEvent};
+use super::{Component, parameter::ParametrEvent};
 
 pub struct WavetableComponent {
     pub wavetable: Shared<WaveTable>,

@@ -13,7 +13,7 @@ use crate::ui::observer::Notifier;
 use super::{
     components_container::ComponentsContainer,
     envelope::EnvelopeComponent,
-    parametr::{ParametrComponentF32, ParametrComponentI32},
+    parameter::{ParametrComponentF32, ParametrComponentI32},
     wavetable::WavetableComponent,
     Component, Focus, FocusableComponent, FocusableComponentContext,
 };
