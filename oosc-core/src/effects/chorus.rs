@@ -1,6 +1,6 @@
 use crate::{
     core::{
-        parameter::{Parametr, ValueParametr, VolumeParametr},
+        parameter::{Parameter, ValueParameter, VolumeParameter},
         waveshape::WaveShape,
     },
     error::Error,
@@ -18,12 +18,12 @@ pub struct Chorus {
     settings: BufferSettings,
     buffer: SampleBuffer,
     time: Vec<usize>,
-    depth: VolumeParametr,
-    rate: ValueParametr<f32>,
-    phase: ValueParametr<f32>,
+    depth: VolumeParameter,
+    rate: ValueParameter<f32>,
+    phase: ValueParameter<f32>,
     lfo: WaveShape,
-    width: ValueParametr<f32>,
-    delay: ValueParametr<f32>,
+    width: ValueParameter<f32>,
+    delay: ValueParameter<f32>,
     state: State,
 }
 
@@ -31,12 +31,12 @@ impl Chorus {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         settings: &BufferSettings,
-        depth: VolumeParametr,
-        rate: ValueParametr<f32>,
-        phase: ValueParametr<f32>,
+        depth: VolumeParameter,
+        rate: ValueParameter<f32>,
+        phase: ValueParameter<f32>,
         lfo: WaveShape,
-        width: ValueParametr<f32>,
-        delay: ValueParametr<f32>,
+        width: ValueParameter<f32>,
+        delay: ValueParameter<f32>,
         state: State,
     ) -> Self {
         let sampled_time =
@@ -62,12 +62,12 @@ impl Chorus {
     }
 
     pub fn default(settings: &BufferSettings) -> Self {
-        let depth = VolumeParametr::new(ValueParametr::<f32>::new(-3.0, (-96.0, 3.0)));
-        let rate = ValueParametr::<f32>::new(0.2, (0.01, 20.0));
-        let phase = ValueParametr::<f32>::new(PI_2, (0.0, PI_2M));
+        let depth = VolumeParameter::new(ValueParameter::<f32>::new(-3.0, (-96.0, 3.0)));
+        let rate = ValueParameter::<f32>::new(0.2, (0.01, 20.0));
+        let phase = ValueParameter::<f32>::new(PI_2, (0.0, PI_2M));
         let lfo = WaveShape::Triangle;
-        let width = ValueParametr::<f32>::new(0.05, (0.0, 0.1));
-        let delay = ValueParametr::<f32>::new(0.05, (0.0, 0.1));
+        let width = ValueParameter::<f32>::new(0.05, (0.0, 0.1));
+        let delay = ValueParameter::<f32>::new(0.05, (0.0, 0.1));
 
         Self::new(settings, depth, rate, phase, lfo, width, delay, State::Enabled)
     }
@@ -111,23 +111,23 @@ impl Chorus {
         })
     }
 
-    pub fn depth(&mut self) -> &mut impl Parametr<f32> {
+    pub fn depth(&mut self) -> &mut impl Parameter<f32> {
         &mut self.depth
     }
 
-    pub fn rate(&mut self) -> &mut impl Parametr<f32> {
+    pub fn rate(&mut self) -> &mut impl Parameter<f32> {
         &mut self.rate
     }
 
-    pub fn phase(&mut self) -> &mut impl Parametr<f32> {
+    pub fn phase(&mut self) -> &mut impl Parameter<f32> {
         &mut self.rate
     }
 
-    pub fn width(&mut self) -> &mut impl Parametr<f32> {
+    pub fn width(&mut self) -> &mut impl Parameter<f32> {
         &mut self.width
     }
 
-    pub fn delay(&mut self) -> &mut impl Parametr<f32> {
+    pub fn delay(&mut self) -> &mut impl Parameter<f32> {
         &mut self.delay
     }
 }

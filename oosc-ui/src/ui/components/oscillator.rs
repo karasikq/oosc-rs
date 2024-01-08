@@ -13,7 +13,7 @@ use crate::ui::observer::Notifier;
 use super::{
     components_container::ComponentsContainer,
     envelope::EnvelopeComponent,
-    parameter::{ParametrComponentF32, ParametrComponentI32},
+    parameter::{ParameterComponentF32, ParameterComponentI32},
     wavetable::WavetableComponent,
     Component, Focus, FocusableComponent, FocusableComponentContext,
 };
@@ -44,7 +44,7 @@ impl OscillatorComponent {
             .unwrap();
         let mut parametrs = ComponentsContainer::from(Self::build_parametr_components(osc));
         let wavetable = make_shared(WavetableComponent::from(osc.wavetable()));
-        let wt_pos = make_shared(ParametrComponentI32::new(
+        let wt_pos = make_shared(ParameterComponentI32::new(
             "Wt Pos".to_owned(),
             osc.wavetable_position(),
             Direction::Vertical,
@@ -76,7 +76,7 @@ impl OscillatorComponent {
 
     fn build_parametr_components(osc: &WavetableOscillator) -> Vec<Shared<dyn FocusableComponent>> {
         vec![
-            make_shared(ParametrComponentF32::new(
+            make_shared(ParameterComponentF32::new(
                 "Pan".to_owned(),
                 osc.pan(),
                 Direction::Horizontal,
@@ -84,19 +84,19 @@ impl OscillatorComponent {
                 InterpolateMethod::Linear,
                 KeyCode::Char('p'),
             )),
-            make_shared(ParametrComponentI32::new(
+            make_shared(ParameterComponentI32::new(
                 "Octave".to_owned(),
                 osc.octave_offset(),
                 Direction::Vertical,
                 KeyCode::Char('o'),
             )),
-            make_shared(ParametrComponentI32::new(
+            make_shared(ParameterComponentI32::new(
                 "Cents".to_owned(),
                 osc.cents_offset(),
                 Direction::Vertical,
                 KeyCode::Char('c'),
             )),
-            make_shared(ParametrComponentF32::new(
+            make_shared(ParameterComponentF32::new(
                 "Gain".to_owned(),
                 osc.gain(),
                 Direction::Vertical,

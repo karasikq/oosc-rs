@@ -1,5 +1,5 @@
 use crate::{
-    core::parameter::{Parametr, ValueParametr},
+    core::parameter::{Parameter, ValueParameter},
     error::Error,
     utils::{
         interpolation::{interpolate_sample_mut, InterpolateMethod},
@@ -13,18 +13,18 @@ pub struct Delay {
     settings: BufferSettings,
     buffer: SampleBuffer,
     time: Vec<usize>,
-    mix: ValueParametr<f32>,
-    feedback: ValueParametr<f32>,
-    delay: ValueParametr<f32>,
+    mix: ValueParameter<f32>,
+    feedback: ValueParameter<f32>,
+    delay: ValueParameter<f32>,
     state: State,
 }
 
 impl Delay {
     pub fn new(
         settings: &BufferSettings,
-        mix: ValueParametr<f32>,
-        feedback: ValueParametr<f32>,
-        delay: ValueParametr<f32>,
+        mix: ValueParameter<f32>,
+        feedback: ValueParameter<f32>,
+        delay: ValueParameter<f32>,
         state: State,
     ) -> Self {
         let sampled_time = (delay.range().1 * settings.sample_rate).round() as usize;
@@ -46,9 +46,9 @@ impl Delay {
     }
 
     pub fn default(settings: &BufferSettings) -> Self {
-        let mix = ValueParametr::<f32>::new(1.0, (0.0, 1.0));
-        let feedback = ValueParametr::<f32>::new(0.7, (0.0, 1.0));
-        let delay = ValueParametr::<f32>::new(0.01, (0.0, 0.1));
+        let mix = ValueParameter::<f32>::new(1.0, (0.0, 1.0));
+        let feedback = ValueParameter::<f32>::new(0.7, (0.0, 1.0));
+        let delay = ValueParameter::<f32>::new(0.01, (0.0, 0.1));
 
         Self::new(settings, mix, feedback, delay, State::Enabled)
     }

@@ -11,7 +11,7 @@ use ratatui::{
     widgets::{canvas::*, *},
 };
 
-use crate::ui::components::parameter::ParametrComponentF32;
+use crate::ui::components::parameter::ParameterComponentF32;
 
 use super::{components_container::ComponentsContainer, Component, Focus};
 
@@ -23,7 +23,7 @@ struct BezierLayout {
 
 pub struct BezierComponent {
     curve: Shared<CubicBezierCurve>,
-    parameters: ComponentsContainer<ParametrComponentF32>,
+    parameters: ComponentsContainer<ParameterComponentF32>,
     samples: usize,
     line: Vec<canvas::Line>,
     color: Color,
@@ -108,9 +108,9 @@ impl BezierComponent {
             .collect()
     }
 
-    fn build_parametr_components(curve: &SharedCurve) -> Vec<Shared<ParametrComponentF32>> {
+    fn build_parametr_components(curve: &SharedCurve) -> Vec<Shared<ParameterComponentF32>> {
         vec![
-            make_shared(ParametrComponentF32::new(
+            make_shared(ParameterComponentF32::new(
                 "Length".to_owned(),
                 curve.length.clone(),
                 Direction::Horizontal,
@@ -118,7 +118,7 @@ impl BezierComponent {
                 InterpolateMethod::Exponential(10000.0),
                 KeyCode::Null,
             )),
-            make_shared(ParametrComponentF32::new(
+            make_shared(ParameterComponentF32::new(
                 "Amplitude".to_owned(),
                 curve.amplitude.clone(),
                 Direction::Vertical,
@@ -126,7 +126,7 @@ impl BezierComponent {
                 InterpolateMethod::Linear,
                 KeyCode::Null,
             )),
-            make_shared(ParametrComponentF32::new(
+            make_shared(ParameterComponentF32::new(
                 "B-x".to_owned(),
                 curve.point_b.0.clone(),
                 Direction::Horizontal,
@@ -134,7 +134,7 @@ impl BezierComponent {
                 InterpolateMethod::Linear,
                 KeyCode::Null,
             )),
-            make_shared(ParametrComponentF32::new(
+            make_shared(ParameterComponentF32::new(
                 "B-y".to_owned(),
                 curve.point_b.1.clone(),
                 Direction::Vertical,
@@ -142,7 +142,7 @@ impl BezierComponent {
                 InterpolateMethod::Linear,
                 KeyCode::Null,
             )),
-            make_shared(ParametrComponentF32::new(
+            make_shared(ParameterComponentF32::new(
                 "C-x".to_owned(),
                 curve.point_c.0.clone(),
                 Direction::Horizontal,
@@ -150,7 +150,7 @@ impl BezierComponent {
                 InterpolateMethod::Linear,
                 KeyCode::Null,
             )),
-            make_shared(ParametrComponentF32::new(
+            make_shared(ParameterComponentF32::new(
                 "C-y".to_owned(),
                 curve.point_c.1.clone(),
                 Direction::Vertical,

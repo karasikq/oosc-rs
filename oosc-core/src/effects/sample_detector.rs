@@ -1,10 +1,10 @@
 use std::sync::{Arc, RwLock};
 
-use crate::{core::parameter::ExponentialTimeParametr, utils::convert::linear_to_power};
+use crate::{core::parameter::ExponentialTimeParameter, utils::convert::linear_to_power};
 
 use super::SampleProcessor;
 
-pub type TimeParametr = Arc<RwLock<ExponentialTimeParametr>>;
+pub type TimeParametr = Arc<RwLock<ExponentialTimeParameter>>;
 
 pub struct SampleDetector {
     attack: TimeParametr,

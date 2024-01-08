@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crossterm::event::KeyCode;
 use oosc_core::{
-    core::parameter::{Parametr, SharedParametr},
+    core::parameter::{Parameter, SharedParameter},
     utils::interpolation::{interpolate_range, InterpolateMethod},
 };
 use ratatui::style::Style;
@@ -16,12 +16,12 @@ use crate::ui::{
 
 use super::{Component, Focus, FocusableComponent, FocusableComponentContext};
 
-pub struct ParametrLayout {
+pub struct ParameterLayout {
     pub rect: Rect,
     pub main: Rc<[Rect]>,
 }
 
-impl From<Rect> for ParametrLayout {
+impl From<Rect> for ParameterLayout {
     fn from(rect: Rect) -> Self {
         let main = Layout::default()
             .direction(Direction::Vertical)
@@ -32,7 +32,7 @@ impl From<Rect> for ParametrLayout {
     }
 }
 
-pub trait AnyParametrComponent {
+pub trait AnyParameterComponent {
     fn name(&self) -> &String;
     fn value(&self) -> f32;
     fn range(&self) -> (f32, f32);
@@ -41,10 +41,10 @@ pub trait AnyParametrComponent {
     fn increment(&mut self);
     fn decrement(&mut self);
     fn resize(&mut self, rect: Rect);
-    fn layout(&self) -> &Option<ParametrLayout>;
+    fn layout(&self) -> &Option<ParameterLayout>;
 }
 
-fn build_bar(parametr: &(impl AnyParametrComponent + Focus), rect: Rect) -> BarWidget {
+fn build_bar(parametr: &(impl AnyParameterComponent + Focus), rect: Rect) -> BarWidget {
     BarWidget {
         resolution: (rect.width, rect.height),
         direction: parametr.direction(),
@@ -56,28 +56,28 @@ fn build_bar(parametr: &(impl AnyParametrComponent + Focus), rect: Rect) -> BarW
 }
 
 #[derive(Eq, PartialEq, Hash)]
-pub enum ParametrEvent {
+pub enum ParameterEvent {
     ValueChanged,
 }
 
-type EventContainer<T> = NotifierContainer<ParametrEvent, SharedParametr<T>>;
+type EventContainer<T> = NotifierContainer<ParameterEvent, SharedParameter<T>>;
 
-pub struct ParametrComponentF32 {
+pub struct ParameterComponentF32 {
     name: String,
-    parametr: SharedParametr<f32>,
+    parametr: SharedParameter<f32>,
     direction: Direction,
     steps: i32,
     current_step: f32,
     interpolation_method: InterpolateMethod,
     events: EventContainer<f32>,
     context: FocusableComponentContext,
-    layout: Option<ParametrLayout>,
+    layout: Option<ParameterLayout>,
 }
 
-impl ParametrComponentF32 {
+impl ParameterComponentF32 {
     pub fn new(
         name: String,
-        parametr: SharedParametr<f32>,
+        parametr: SharedParameter<f32>,
         direction: Direction,
         steps: i32,
         interpolation_method: InterpolateMethod,
@@ -99,17 +99,17 @@ impl ParametrComponentF32 {
         }
     }
 
-    pub fn events(&mut self) -> &mut impl Notifier<SharedParametr<f32>, ParametrEvent> {
+    pub fn events(&mut self) -> &mut impl Notifier<SharedParameter<f32>, ParameterEvent> {
         &mut self.events
     }
 
-    fn normalize_parametr(param: &(impl Parametr<f32> + ?Sized)) -> f32 {
+    fn normalize_parametr(param: &(impl Parameter<f32> + ?Sized)) -> f32 {
         let range = param.range();
         (param.get_value() - range.0) / (range.1 - range.0)
     }
 }
 
-impl FocusableComponent for ParametrComponentF32 {
+impl FocusableComponent for ParameterComponentF32 {
     fn context(&self) -> &FocusableComponentContext {
         &self.context
     }
@@ -127,16 +127,16 @@ impl FocusableComponent for ParametrComponentF32 {
     }
 }
 
-pub struct ParametrComponentI32 {
+pub struct ParameterComponentI32 {
     name: String,
-    parametr: SharedParametr<i32>,
+    parametr: SharedParameter<i32>,
     direction: Direction,
     events: EventContainer<i32>,
     context: FocusableComponentContext,
-    layout: Option<ParametrLayout>,
+    layout: Option<ParameterLayout>,
 }
 
-impl FocusableComponent for ParametrComponentI32 {
+impl FocusableComponent for ParameterComponentI32 {
     fn context(&self) -> &FocusableComponentContext {
         &self.context
     }
@@ -154,10 +154,10 @@ impl FocusableComponent for ParametrComponentI32 {
     }
 }
 
-impl ParametrComponentI32 {
+impl ParameterComponentI32 {
     pub fn new(
         name: String,
-        parametr: SharedParametr<i32>,
+        parametr: SharedParameter<i32>,
         direction: Direction,
         keymap: KeyCode,
     ) -> Self {
@@ -172,12 +172,12 @@ impl ParametrComponentI32 {
         }
     }
 
-    pub fn events(&mut self) -> &mut impl Notifier<SharedParametr<i32>, ParametrEvent> {
+    pub fn events(&mut self) -> &mut impl Notifier<SharedParameter<i32>, ParameterEvent> {
         &mut self.events
     }
 }
 
-impl AnyParametrComponent for ParametrComponentF32 {
+impl AnyParameterComponent for ParameterComponentF32 {
     fn name(&self) -> &String {
         &self.name
     }
@@ -207,7 +207,7 @@ impl AnyParametrComponent for ParametrComponentF32 {
             parametr.set_value(result);
         }
         self.events
-            .notify(ParametrEvent::ValueChanged, self.parametr.clone());
+            .notify(ParameterEvent::ValueChanged, self.parametr.clone());
     }
 
     fn decrement(&mut self) {
@@ -219,19 +219,19 @@ impl AnyParametrComponent for ParametrComponentF32 {
             parametr.set_value(result);
         }
         self.events
-            .notify(ParametrEvent::ValueChanged, self.parametr.clone());
+            .notify(ParameterEvent::ValueChanged, self.parametr.clone());
     }
 
     fn resize(&mut self, rect: Rect) {
-        self.layout = Some(ParametrLayout::from(rect));
+        self.layout = Some(ParameterLayout::from(rect));
     }
 
-    fn layout(&self) -> &Option<ParametrLayout> {
+    fn layout(&self) -> &Option<ParameterLayout> {
         &self.layout
     }
 }
 
-impl AnyParametrComponent for ParametrComponentI32 {
+impl AnyParameterComponent for ParameterComponentI32 {
     fn name(&self) -> &String {
         &self.name
     }
@@ -260,7 +260,7 @@ impl AnyParametrComponent for ParametrComponentI32 {
             parametr.set_value(result);
         }
         self.events
-            .notify(ParametrEvent::ValueChanged, self.parametr.clone());
+            .notify(ParameterEvent::ValueChanged, self.parametr.clone());
     }
 
     fn decrement(&mut self) {
@@ -270,19 +270,19 @@ impl AnyParametrComponent for ParametrComponentI32 {
             parametr.set_value(result);
         }
         self.events
-            .notify(ParametrEvent::ValueChanged, self.parametr.clone());
+            .notify(ParameterEvent::ValueChanged, self.parametr.clone());
     }
 
     fn resize(&mut self, rect: Rect) {
-        self.layout = Some(ParametrLayout::from(rect));
+        self.layout = Some(ParameterLayout::from(rect));
     }
 
-    fn layout(&self) -> &Option<ParametrLayout> {
+    fn layout(&self) -> &Option<ParameterLayout> {
         &self.layout
     }
 }
 
-impl<T: AnyParametrComponent + Focus> Component for T {
+impl<T: AnyParameterComponent + Focus> Component for T {
     fn draw(
         &mut self,
         f: &mut ratatui::Frame<'_>,

@@ -1,5 +1,5 @@
 use crate::{
-    core::parameter::{PanParametr, Parametr, ValueParametr, VolumeParametr},
+    core::parameter::{PanParameter, Parameter, ValueParameter, VolumeParameter},
     error::Error,
     utils::sample_buffer::SampleBuffer,
 };
@@ -7,21 +7,21 @@ use crate::{
 use super::{Effect, State};
 
 pub struct Amplifier {
-    gain: VolumeParametr,
-    pan: PanParametr,
+    gain: VolumeParameter,
+    pan: PanParameter,
     state: State,
 }
 
 impl Amplifier {
-    pub fn new(gain: VolumeParametr, pan: PanParametr, state: State) -> Self {
+    pub fn new(gain: VolumeParameter, pan: PanParameter, state: State) -> Self {
         Self { gain, pan, state }
     }
 
-    pub fn volume(&mut self) -> &mut impl Parametr<f32> {
+    pub fn volume(&mut self) -> &mut impl Parameter<f32> {
         &mut self.gain
     }
 
-    pub fn pan(&mut self) -> &mut impl Parametr<f32> {
+    pub fn pan(&mut self) -> &mut impl Parameter<f32> {
         &mut self.pan
     }
 }
@@ -52,8 +52,8 @@ impl Effect for Amplifier {
 
 impl Default for Amplifier {
     fn default() -> Self {
-        let gain = VolumeParametr::from(ValueParametr::new(3.0, (-96.0, 3.0)));
-        let pan = PanParametr::from(ValueParametr::new(0.0, (-1.0, 1.0)));
+        let gain = VolumeParameter::from(ValueParameter::new(3.0, (-96.0, 3.0)));
+        let pan = PanParameter::from(ValueParameter::new(0.0, (-1.0, 1.0)));
         Self::new(gain, pan, State::Enabled)
     }
 }

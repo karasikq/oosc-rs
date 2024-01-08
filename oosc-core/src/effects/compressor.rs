@@ -1,11 +1,11 @@
 use std::sync::{Arc, RwLock};
 
-use crate::core::parameter::SharedParametr;
+use crate::core::parameter::SharedParameter;
 use crate::effects::Effect;
 use crate::utils::convert::power_to_linear;
 use crate::utils::sample_buffer::BufferSettings;
 use crate::{
-    core::parameter::{ExponentialTimeParametr, Parametr, ValueParametr, VolumeParametr},
+    core::parameter::{ExponentialTimeParameter, Parameter, ValueParameter, VolumeParameter},
     error::Error,
     utils::sample_buffer::SampleBuffer,
 };
@@ -14,13 +14,13 @@ use super::sample_detector::{SampleDetector, TimeParametr};
 use super::{SampleProcessor, State};
 
 pub enum KneeType {
-    Soft(VolumeParametr),
+    Soft(VolumeParameter),
     Hard,
 }
 
 pub struct Compressor {
-    threshold: VolumeParametr,
-    ratio: ValueParametr<f32>,
+    threshold: VolumeParameter,
+    ratio: ValueParameter<f32>,
     knee_type: KneeType,
     attack: TimeParametr,
     release: TimeParametr,
@@ -30,11 +30,11 @@ pub struct Compressor {
 
 impl Compressor {
     pub fn new(
-        threshold: VolumeParametr,
-        ratio: ValueParametr<f32>,
+        threshold: VolumeParameter,
+        ratio: ValueParameter<f32>,
         knee_type: KneeType,
-        attack: ExponentialTimeParametr,
-        release: ExponentialTimeParametr,
+        attack: ExponentialTimeParameter,
+        release: ExponentialTimeParameter,
         channels: usize,
         state: State,
     ) -> Self {
@@ -55,24 +55,24 @@ impl Compressor {
         }
     }
 
-    pub fn attack(&self) -> SharedParametr<f32> {
+    pub fn attack(&self) -> SharedParameter<f32> {
         self.attack.clone()
     }
 
-    pub fn release(&self) -> SharedParametr<f32> {
+    pub fn release(&self) -> SharedParameter<f32> {
         self.release.clone()
     }
 
     pub fn default(settings: &BufferSettings) -> Self {
-        let threshold = VolumeParametr::new(ValueParametr::new(-3.0, (-96.0, 0.0)));
-        let ratio = ValueParametr::new(50.0, (1.0, 100.0));
-        let knee_type = KneeType::Soft(VolumeParametr::new(ValueParametr::new(6.0, (0.0, 36.0))));
-        let attack = ExponentialTimeParametr::new(
-            ValueParametr::new(0.005, (0.001, 0.5)),
+        let threshold = VolumeParameter::new(ValueParameter::new(-3.0, (-96.0, 0.0)));
+        let ratio = ValueParameter::new(50.0, (1.0, 100.0));
+        let knee_type = KneeType::Soft(VolumeParameter::new(ValueParameter::new(6.0, (0.0, 36.0))));
+        let attack = ExponentialTimeParameter::new(
+            ValueParameter::new(0.005, (0.001, 0.5)),
             settings.sample_rate,
         );
-        let release = ExponentialTimeParametr::new(
-            ValueParametr::new(0.005, (0.001, 5.0)),
+        let release = ExponentialTimeParameter::new(
+            ValueParameter::new(0.005, (0.001, 5.0)),
             settings.sample_rate,
         );
 

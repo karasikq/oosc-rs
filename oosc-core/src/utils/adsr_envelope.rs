@@ -1,7 +1,7 @@
 use cgmath::Vector2;
 
 use crate::{
-    core::parameter::{CallbackParametr, SharedParametr},
+    core::parameter::{CallbackParameter, SharedParameter},
     error::Error,
 };
 
@@ -17,10 +17,10 @@ pub enum State {
 }
 
 pub struct SharedCurve {
-    pub length: SharedParametr<f32>,
-    pub amplitude: SharedParametr<f32>,
-    pub point_b: (SharedParametr<f32>, SharedParametr<f32>),
-    pub point_c: (SharedParametr<f32>, SharedParametr<f32>),
+    pub length: SharedParameter<f32>,
+    pub amplitude: SharedParameter<f32>,
+    pub point_b: (SharedParameter<f32>, SharedParameter<f32>),
+    pub point_c: (SharedParameter<f32>, SharedParameter<f32>),
     pub curve: Shared<CubicBezierCurve>,
 }
 
@@ -241,7 +241,7 @@ impl ADSREnvelopeBuilder {
     ) -> SharedCurve {
         let curve_clone = curve.clone();
         let curve_clone2 = curve.clone();
-        let length = CallbackParametr::new(
+        let length = CallbackParameter::new(
             move |v| curve_clone.write().unwrap().d.x = v,
             move || curve_clone2.read().unwrap().d.x,
             || (0.0, 10.0),
@@ -249,7 +249,7 @@ impl ADSREnvelopeBuilder {
         let curve_clone = curve.clone();
         let curve_clone2 = curve.clone();
         let next_clone = next_curve.clone();
-        let amplitude = CallbackParametr::new(
+        let amplitude = CallbackParameter::new(
             move |v| {
                 curve_clone.write().unwrap().d.y = v;
                 if let Some(next) = &next_clone {
@@ -263,37 +263,37 @@ impl ADSREnvelopeBuilder {
         let curve_clone = curve.clone();
         let curve_clone2 = curve.clone();
         let curve_clone3 = curve.clone();
-        let point_b_x = CallbackParametr::new(
+        let point_b_x = CallbackParameter::new(
             move |v| curve_clone.write().unwrap().b.x = v,
             move || curve_clone2.read().unwrap().b.x,
             move || (0.0, curve_clone3.read().unwrap().end().x),
         );
         let curve_clone = curve.clone();
         let curve_clone2 = curve.clone();
-        let point_b_y = CallbackParametr::new(
+        let point_b_y = CallbackParameter::new(
             move |v| curve_clone.write().unwrap().b.y = v,
             move || curve_clone2.read().unwrap().b.y,
             || (0.0, 1.0),
         );
-        let point_b: (SharedParametr<f32>, SharedParametr<f32>) =
+        let point_b: (SharedParameter<f32>, SharedParameter<f32>) =
             (make_shared(point_b_x), make_shared(point_b_y));
 
         let curve_clone = curve.clone();
         let curve_clone2 = curve.clone();
         let curve_clone3 = curve.clone();
-        let point_c_x = CallbackParametr::new(
+        let point_c_x = CallbackParameter::new(
             move |v| curve_clone.write().unwrap().c.x = v,
             move || curve_clone2.read().unwrap().c.x,
             move || (0.0, curve_clone3.read().unwrap().end().x),
         );
         let curve_clone = curve.clone();
         let curve_clone2 = curve.clone();
-        let point_c_y = CallbackParametr::new(
+        let point_c_y = CallbackParameter::new(
             move |v| curve_clone.write().unwrap().c.y = v,
             move || curve_clone2.read().unwrap().c.y,
             || (0.0, 1.0),
         );
-        let point_c: (SharedParametr<f32>, SharedParametr<f32>) =
+        let point_c: (SharedParameter<f32>, SharedParameter<f32>) =
             (make_shared(point_c_x), make_shared(point_c_y));
 
         SharedCurve {

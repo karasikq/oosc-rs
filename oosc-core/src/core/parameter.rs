@@ -13,7 +13,7 @@ use crate::{
     },
 };
 
-pub trait Parametr<T>: Send + Sync
+pub trait Parameter<T>: Send + Sync
 where
     T: Clone + PartialOrd + Default,
 {
@@ -24,9 +24,9 @@ where
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-pub type SharedParametr<T> = Shared<dyn Parametr<T>>;
+pub type SharedParameter<T> = Shared<dyn Parameter<T>>;
 
-pub struct ValueParametr<T>
+pub struct ValueParameter<T>
 where
     T: Clone,
 {
@@ -35,7 +35,7 @@ where
     modifiers: ModulationContainer,
 }
 
-impl<T> ValueParametr<T>
+impl<T> ValueParameter<T>
 where
     T: Clone,
 {
@@ -48,14 +48,14 @@ where
     }
 }
 
-impl ValueParametr<f32> {
+impl ValueParameter<f32> {
     pub fn set_evaluate_range(&mut self, range: (f32, f32)) -> &mut Self {
         self.container_mut().modulation_range = range;
         self
     }
 }
 
-impl<T> Modulation for ValueParametr<T>
+impl<T> Modulation for ValueParameter<T>
 where
     T: Clone,
 {
@@ -70,14 +70,14 @@ where
 
 impl<T> Evaluate<f32> for T
 where
-    T: Modulation + Parametr<f32> + Send + Sync,
+    T: Modulation + Parameter<f32> + Send + Sync,
 {
     fn evaluate(&self, t: f32) -> Result<f32, Error> {
         self.container().evaluate(t)
     }
 }
 
-impl<T> Parametr<T> for ValueParametr<T>
+impl<T> Parameter<T> for ValueParameter<T>
 where
     T: Clone + PartialOrd + Default + Send + Sync + 'static,
 {
@@ -102,13 +102,13 @@ where
     }
 }
 
-pub struct OctaveParametr {
+pub struct OctaveParameter {
     pub notes: i32,
-    parametr: ValueParametr<i32>,
+    parametr: ValueParameter<i32>,
 }
 
-impl OctaveParametr {
-    pub fn new(parametr: ValueParametr<i32>) -> Self {
+impl OctaveParameter {
+    pub fn new(parametr: ValueParameter<i32>) -> Self {
         Self {
             notes: octave_offset_to_notes(parametr.get_value()),
             parametr,
@@ -116,7 +116,7 @@ impl OctaveParametr {
     }
 }
 
-impl Parametr<i32> for OctaveParametr {
+impl Parameter<i32> for OctaveParameter {
     fn set_value(&mut self, value: i32) {
         self.parametr.set_value(value);
         self.notes = octave_offset_to_notes(self.parametr.get_value());
@@ -139,13 +139,13 @@ impl Parametr<i32> for OctaveParametr {
     }
 }
 
-pub struct PanParametr {
+pub struct PanParameter {
     pub polar: (f32, f32),
-    bipolar: ValueParametr<f32>,
+    bipolar: ValueParameter<f32>,
 }
 
-impl PanParametr {
-    pub fn new(parametr: ValueParametr<f32>) -> Self {
+impl PanParameter {
+    pub fn new(parametr: ValueParameter<f32>) -> Self {
         Self {
             polar: split_bipolar_pan(parametr.get_value()),
             bipolar: parametr,
@@ -161,13 +161,13 @@ impl PanParametr {
     }
 }
 
-impl From<ValueParametr<f32>> for PanParametr {
-    fn from(parametr: ValueParametr<f32>) -> Self {
+impl From<ValueParameter<f32>> for PanParameter {
+    fn from(parametr: ValueParameter<f32>) -> Self {
         Self::new(parametr)
     }
 }
 
-impl Parametr<f32> for PanParametr {
+impl Parameter<f32> for PanParameter {
     fn set_value(&mut self, value: f32) {
         self.bipolar.set_value(value);
         self.polar = split_bipolar_pan(value);
@@ -190,7 +190,7 @@ impl Parametr<f32> for PanParametr {
     }
 }
 
-impl Modulation for PanParametr {
+impl Modulation for PanParameter {
     fn container(&self) -> &ModulationContainer {
         self.bipolar.container()
     }
@@ -200,19 +200,19 @@ impl Modulation for PanParametr {
     }
 }
 
-impl Default for PanParametr {
+impl Default for PanParameter {
     fn default() -> Self {
-        Self::from(ValueParametr::new(0.0, (-1.0, 1.0)))
+        Self::from(ValueParameter::new(0.0, (-1.0, 1.0)))
     }
 }
 
-pub struct VolumeParametr {
+pub struct VolumeParameter {
     pub linear: f32,
-    db: ValueParametr<f32>,
+    db: ValueParameter<f32>,
 }
 
-impl VolumeParametr {
-    pub fn new(parametr: ValueParametr<f32>) -> Self {
+impl VolumeParameter {
+    pub fn new(parametr: ValueParameter<f32>) -> Self {
         Self {
             linear: power_to_linear(parametr.get_value()),
             db: parametr,
@@ -224,13 +224,13 @@ impl VolumeParametr {
     }
 }
 
-impl From<ValueParametr<f32>> for VolumeParametr {
-    fn from(parametr: ValueParametr<f32>) -> Self {
+impl From<ValueParameter<f32>> for VolumeParameter {
+    fn from(parametr: ValueParameter<f32>) -> Self {
         Self::new(parametr)
     }
 }
 
-impl Parametr<f32> for VolumeParametr {
+impl Parameter<f32> for VolumeParameter {
     fn set_value(&mut self, value: f32) {
         self.db.set_value(value);
         self.linear = power_to_linear(value);
@@ -253,7 +253,7 @@ impl Parametr<f32> for VolumeParametr {
     }
 }
 
-impl Modulation for VolumeParametr {
+impl Modulation for VolumeParameter {
     fn container(&self) -> &ModulationContainer {
         self.db.container()
     }
@@ -263,20 +263,20 @@ impl Modulation for VolumeParametr {
     }
 }
 
-impl Default for VolumeParametr {
+impl Default for VolumeParameter {
     fn default() -> Self {
-        Self::from(ValueParametr::new(0.0, (-96.0, 3.0)))
+        Self::from(ValueParameter::new(0.0, (-96.0, 3.0)))
     }
 }
 
-pub struct ExponentialTimeParametr {
+pub struct ExponentialTimeParameter {
     pub exponential_time: f32,
     sample_rate: f32,
-    linear_time: ValueParametr<f32>,
+    linear_time: ValueParameter<f32>,
 }
 
-impl ExponentialTimeParametr {
-    pub fn new(parametr: ValueParametr<f32>, sample_rate: f32) -> Self {
+impl ExponentialTimeParameter {
+    pub fn new(parametr: ValueParameter<f32>, sample_rate: f32) -> Self {
         Self {
             exponential_time: exponential_time(parametr.get_value(), sample_rate),
             linear_time: parametr,
@@ -285,7 +285,7 @@ impl ExponentialTimeParametr {
     }
 }
 
-impl Parametr<f32> for ExponentialTimeParametr {
+impl Parameter<f32> for ExponentialTimeParameter {
     fn set_value(&mut self, value: f32) {
         self.linear_time.set_value(value);
         self.exponential_time = exponential_time(value, self.sample_rate);
@@ -308,7 +308,7 @@ impl Parametr<f32> for ExponentialTimeParametr {
     }
 }
 
-impl Modulation for ExponentialTimeParametr {
+impl Modulation for ExponentialTimeParameter {
     fn container(&self) -> &ModulationContainer {
         self.linear_time.container()
     }
@@ -318,13 +318,13 @@ impl Modulation for ExponentialTimeParametr {
     }
 }
 
-pub struct CentsParametr {
+pub struct CentsParameter {
     pub freq: f32,
-    parametr: ValueParametr<i32>,
+    parametr: ValueParameter<i32>,
 }
 
-impl CentsParametr {
-    pub fn new(parametr: ValueParametr<i32>) -> Self {
+impl CentsParameter {
+    pub fn new(parametr: ValueParameter<i32>) -> Self {
         Self {
             freq: cents_to_freq_coefficient(parametr.get_value() as f32),
             parametr,
@@ -332,7 +332,7 @@ impl CentsParametr {
     }
 }
 
-impl Parametr<i32> for CentsParametr {
+impl Parameter<i32> for CentsParameter {
     fn set_value(&mut self, value: i32) {
         self.parametr.set_value(value);
         self.freq = cents_to_freq_coefficient(value as f32);
@@ -355,7 +355,7 @@ impl Parametr<i32> for CentsParametr {
     }
 }
 
-pub struct CallbackParametr<S, G, R, T>
+pub struct CallbackParameter<S, G, R, T>
 where
     S: FnMut(T) + Send + Sync,
     G: Fn() -> T + Send + Sync,
@@ -367,7 +367,7 @@ where
     pub range: R,
 }
 
-impl<S, G, R, T> CallbackParametr<S, G, R, T>
+impl<S, G, R, T> CallbackParameter<S, G, R, T>
 where
     S: FnMut(T) + Send + Sync + 'static,
     G: Fn() -> T + Send + Sync + 'static,
@@ -383,7 +383,7 @@ where
     }
 }
 
-impl<S, G, R, T> Parametr<T> for CallbackParametr<S, G, R, T>
+impl<S, G, R, T> Parameter<T> for CallbackParameter<S, G, R, T>
 where
     S: FnMut(T) + Send + Sync + 'static,
     G: Fn() -> T + Send + Sync + 'static,
