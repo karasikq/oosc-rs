@@ -1,12 +1,16 @@
 use std::any::Any;
 
-use crate::utils::{
-    convert::{
-        cents_to_freq_coefficient, exponential_time, octave_offset_to_notes, power_to_linear,
-        split_bipolar_pan,
+use crate::{
+    error::Error,
+    utils::{
+        convert::{
+            cents_to_freq_coefficient, exponential_time, octave_offset_to_notes, power_to_linear,
+            split_bipolar_pan,
+        },
+        evaluate::{Modulation, Evaluate, ModulationContainer},
+        math::clamp,
+        Shared,
     },
-    math::clamp,
-    Shared,
 };
 
 pub trait Parametr<T>: Send + Sync
@@ -28,6 +32,7 @@ where
 {
     value: T,
     range: (T, T),
+    modifiers: ModulationContainer,
 }
 
 impl<T> ValueParametr<T>
@@ -35,7 +40,40 @@ where
     T: Clone,
 {
     pub fn new(value: T, range: (T, T)) -> Self {
-        Self { value, range }
+        Self {
+            value,
+            range,
+            modifiers: Default::default(),
+        }
+    }
+}
+
+impl ValueParametr<f32> {
+    pub fn set_evaluate_range(&mut self, range: (f32, f32)) -> &mut Self {
+        self.container_mut().modulation_range = range;
+        self
+    }
+}
+
+impl<T> Modulation for ValueParametr<T>
+where
+    T: Clone,
+{
+    fn container(&self) -> &ModulationContainer {
+        &self.modifiers
+    }
+
+    fn container_mut(&mut self) -> &mut ModulationContainer {
+        &mut self.modifiers
+    }
+}
+
+impl<T> Evaluate<f32> for T
+where
+    T: Modulation + Parametr<f32> + Send + Sync,
+{
+    fn evaluate(&self, t: f32) -> Result<f32, Error> {
+        self.container().evaluate(t)
     }
 }
 
@@ -113,6 +151,14 @@ impl PanParametr {
             bipolar: parametr,
         }
     }
+
+    pub fn evaluate_polar(&self, t: f32) -> Result<(f32, f32), Error> {
+        if self.modulated() {
+            Ok(split_bipolar_pan(self.evaluate(t)?))
+        } else {
+            Ok(self.polar)
+        }
+    }
 }
 
 impl From<ValueParametr<f32>> for PanParametr {
@@ -144,6 +190,16 @@ impl Parametr<f32> for PanParametr {
     }
 }
 
+impl Modulation for PanParametr {
+    fn container(&self) -> &ModulationContainer {
+        self.bipolar.container()
+    }
+
+    fn container_mut(&mut self) -> &mut ModulationContainer {
+        self.bipolar.container_mut()
+    }
+}
+
 impl Default for PanParametr {
     fn default() -> Self {
         Self::from(ValueParametr::new(0.0, (-1.0, 1.0)))
@@ -161,6 +217,10 @@ impl VolumeParametr {
             linear: power_to_linear(parametr.get_value()),
             db: parametr,
         }
+    }
+
+    pub fn evaluate_linear(&self, t: f32) -> Result<f32, Error> {
+        Ok(power_to_linear(self.evaluate(t)?))
     }
 }
 
@@ -190,6 +250,16 @@ impl Parametr<f32> for VolumeParametr {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl Modulation for VolumeParametr {
+    fn container(&self) -> &ModulationContainer {
+        self.db.container()
+    }
+
+    fn container_mut(&mut self) -> &mut ModulationContainer {
+        self.db.container_mut()
     }
 }
 
@@ -238,6 +308,16 @@ impl Parametr<f32> for ExponentialTimeParametr {
     }
 }
 
+impl Modulation for ExponentialTimeParametr {
+    fn container(&self) -> &ModulationContainer {
+        self.linear_time.container()
+    }
+
+    fn container_mut(&mut self) -> &mut ModulationContainer {
+        self.linear_time.container_mut()
+    }
+}
+
 pub struct CentsParametr {
     pub freq: f32,
     parametr: ValueParametr<i32>,
@@ -246,7 +326,7 @@ pub struct CentsParametr {
 impl CentsParametr {
     pub fn new(parametr: ValueParametr<i32>) -> Self {
         Self {
-            freq: cents_to_freq_coefficient(parametr.get_value()),
+            freq: cents_to_freq_coefficient(parametr.get_value() as f32),
             parametr,
         }
     }
@@ -255,7 +335,7 @@ impl CentsParametr {
 impl Parametr<i32> for CentsParametr {
     fn set_value(&mut self, value: i32) {
         self.parametr.set_value(value);
-        self.freq = 2.0_f32.powf(value as f32 / 1200.0)
+        self.freq = cents_to_freq_coefficient(value as f32);
     }
 
     fn get_value(&self) -> i32 {

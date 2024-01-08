@@ -41,6 +41,7 @@ pub struct WavetableOscillator {
     notes: Vec<Note>,
     release_notes: Vec<Note>,
     parametrs: Parametrs,
+    time: f32,
 }
 
 impl WavetableOscillator {
@@ -64,7 +65,7 @@ impl WavetableOscillator {
         self.parametrs.wt_pos.clone()
     }
 
-    pub fn pan(&self) -> SharedParametr<f32> {
+    pub fn pan(&self) -> Shared<PanParametr> {
         self.parametrs.pan.clone()
     }
 
@@ -108,20 +109,22 @@ impl WavetableOscillator {
 
 impl Oscillator for WavetableOscillator {
     fn evaluate(&mut self, delta_time: f32) -> Result<(), Error> {
+        self.remove_released_notes();
         let buffer = &mut self.buffer;
-        buffer.fill(0.);
-        let pan = self.parametrs.pan.read().unwrap().polar;
+        let pan = self.parametrs.pan.read().unwrap();
         let octave_offset = self.parametrs.octave_offset.read().unwrap().notes;
         let cents = self.parametrs.cents_offset.read().unwrap().freq;
         let gain = self.parametrs.gain.read().unwrap().linear;
 
-        self.notes
-            .iter_mut()
-            .chain(self.release_notes.iter_mut())
-            .try_for_each(|note| -> Result<(), Error> {
-                let mut t = note.play_time;
-                let mut iteration_buffer = [0.0; 2];
-                (0..buffer.len()).try_for_each(|i| -> Result<(), Error> {
+        (0..buffer.len()).try_for_each(|i| -> Result<(), Error> {
+            let mut iteration_buffer = [0.0; 2];
+            let osc_time = self.time;
+            let polar_pan = pan.evaluate_polar(osc_time)?;
+            self.notes
+                .iter_mut()
+                .chain(self.release_notes.iter_mut())
+                .try_for_each(|note| -> Result<(), Error> {
+                    let t = note.play_time;
                     let envelope = Self::envelope_value_at(t, note, self.envelope.clone());
                     let freq =
                         PI_2M * note_to_freq((note.note as i32 + octave_offset) as u32) * t * cents;
@@ -130,22 +133,22 @@ impl Oscillator for WavetableOscillator {
                         wavetable.evaluate(freq)?
                     };
 
-                    iteration_buffer[0] = sample * envelope * pan.0 * note.velocity * gain;
-                    iteration_buffer[1] = sample * envelope * pan.1 * note.velocity * gain;
-                    buffer.iter_buffers().enumerate().try_for_each(
-                        |(ind, buf)| -> Result<(), Error> {
-                            *(buf.get_mut(i)?) += iteration_buffer[ind];
-                            Ok(())
-                        },
-                    )?;
+                    iteration_buffer[0] += sample * envelope * polar_pan.0 * note.velocity * gain;
+                    iteration_buffer[1] += sample * envelope * polar_pan.1 * note.velocity * gain;
 
-                    t += delta_time;
+                    note.play_time += delta_time;
                     Ok(())
                 })?;
-                note.play_time = t;
-                Ok(())
-            })?;
-        self.remove_released_notes();
+            buffer
+                .iter_buffers()
+                .enumerate()
+                .try_for_each(|(ind, buf)| -> Result<(), Error> {
+                    *(buf.get_mut(i)?) = iteration_buffer[ind];
+                    Ok(())
+                })?;
+            self.time += delta_time;
+            Ok(())
+        })?;
         Ok(())
     }
 
@@ -245,7 +248,6 @@ impl OscillatorBuilder {
             getter: move || wt_clone2.read().unwrap().position() as i32,
             range: move || {
                 let wt_range = wt_clone3.read().unwrap().position_range();
-                // println!("{}", wt_range.1);
                 (wt_range.0 as i32, wt_range.1 as i32)
             },
         });
@@ -264,6 +266,7 @@ impl OscillatorBuilder {
             notes: vec![],
             release_notes: vec![],
             parametrs,
+            time: 0.0,
         })
     }
 }

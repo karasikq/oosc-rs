@@ -51,8 +51,8 @@ pub fn exponential_time(value: f32, sample_rate: f32) -> f32 {
 }
 
 #[inline]
-pub fn cents_to_freq_coefficient(cents: i32) -> f32 {
-    2.0_f32.powf(cents as f32 / 1200.0)
+pub fn cents_to_freq_coefficient(cents: f32) -> f32 {
+    2.0_f32.powf(cents / 1200.0)
 }
 
 #[inline]
