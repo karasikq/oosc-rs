@@ -8,7 +8,7 @@ use oosc_core::{
 };
 use ratatui::{prelude::*, widgets::*};
 
-use crate::ui::observer::Notifier;
+use crate::ui::{observer::Notifier, utils::keycode_to_string_prefixed};
 
 use super::{
     components_container::ComponentsContainer,
@@ -90,10 +90,12 @@ impl OscillatorComponent {
                 Direction::Vertical,
                 KeyCode::Char('o'),
             )),
-            make_shared(ParameterComponentI32::new(
+            make_shared(ParameterComponentF32::new(
                 "Cents".to_owned(),
                 osc.cents_offset(),
                 Direction::Vertical,
+                200,
+                InterpolateMethod::Linear,
                 KeyCode::Char('c'),
             )),
             make_shared(ParameterComponentF32::new(
@@ -163,11 +165,18 @@ impl Component for OscillatorComponent {
         f: &mut ratatui::Frame<'_>,
         _rect: ratatui::prelude::Rect,
     ) -> anyhow::Result<()> {
-        let layout = self.layout.as_ref().context("Cannot get OscillatorComponent layout")?;
+        let layout = self
+            .layout
+            .as_ref()
+            .context("Cannot get OscillatorComponent layout")?;
         let buf = f.buffer_mut();
         let b = Block::default()
             .borders(Borders::ALL)
-            .title("osc")
+            .title(format!(
+                "{}{}",
+                "osc",
+                keycode_to_string_prefixed(self.keymap(), "[", "]")
+            ))
             .border_type(BorderType::Rounded)
             .title_alignment(Alignment::Center)
             .style(Style::default().fg(self.color()));
@@ -201,7 +210,14 @@ impl Component for OscillatorComponent {
         if !self.is_focused() {
             return Ok(());
         }
+        if !self.parametrs.is_any_focused()
+            && !self.components.is_any_focused()
+            && key.code == KeyCode::Esc
+        {
+            self.unfocus()
+        }
+        self.components.handle_key_events(key)?;
         self.parametrs.handle_key_events(key)?;
-        self.components.handle_key_events(key)
+        Ok(())
     }
 }

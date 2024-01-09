@@ -77,6 +77,11 @@ impl FocusableComponentContext {
         }
     }
 
+    pub fn set_keymap(&mut self, keymap: KeyCode) -> &mut Self {
+        self.keymap = Some(keymap);
+        self
+    }
+
     pub fn focused_color(self, color: Color) -> FocusableComponentContext {
         FocusableComponentContext {
             focused_color: Some(color),

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent};
-use oosc_core::utils::Shared;
+use oosc_core::utils::{make_shared, Shared};
 use ratatui::{prelude::Rect, Frame};
 
 use super::{Component, Focus, FocusableComponent, FocusableComponentContext};
@@ -68,7 +68,7 @@ where
     pub fn new() -> Self {
         Self {
             components: vec![],
-            ctx: FocusableComponentContext::new(),
+            ctx: FocusableComponentContext::new().focused(true),
             active_if_child_focused: false,
             next_keymap: None,
             previous_keymap: None,
@@ -92,6 +92,12 @@ where
         self
     }
 
+    pub fn is_any_focused(&self) -> bool {
+        self.components
+            .iter()
+            .any(|c| c.read().unwrap().is_focused())
+    }
+
     pub fn container(&mut self) -> &mut Vec<Shared<T>> {
         &mut self.components
     }
@@ -108,6 +114,17 @@ where
                 c.write()
                     .unwrap()
                     .draw(f, *layout.get(i).context("Cannot get layout")?)
+            })
+    }
+
+    pub fn resize_in_layout(&mut self, layout: &[Rect]) -> Result<()> {
+        self.components
+            .iter_mut()
+            .enumerate()
+            .try_for_each(|(i, c)| {
+                c.write()
+                    .unwrap()
+                    .resize(*layout.get(i).context("Cannot get layout")?)
             })
     }
 
@@ -146,6 +163,15 @@ where
             previous: last,
             current: component.clone(),
         })
+    }
+
+    fn unfocus_last(&mut self) {
+        let last = self.last_focus.clone();
+        if let Some(last) = last.clone() {
+            if !last.read().unwrap().is_focused() {
+                self.last_focus = None;
+            }
+        }
     }
 
     fn focus_if_key(&mut self, key: KeyCode) -> Option<FocusContextResult<T>> {
@@ -199,6 +225,7 @@ where
         /* if !self.is_focused() {
             return Ok(());
         } */
+        self.unfocus_last();
         if !self
             .components
             .iter()
@@ -207,7 +234,7 @@ where
         {
             self.focus_if_key(key.code);
             match key.code {
-                KeyCode::Esc => self.unfocus(),
+                // KeyCode::Esc => self.unfocus(),
                 c => {
                     if let Some(keymap) = self.keymap() {
                         if c == keymap {
@@ -261,6 +288,24 @@ where
     fn from(value: Vec<Shared<T>>) -> Self {
         Self {
             components: value,
+            ctx: FocusableComponentContext::new(),
+            active_if_child_focused: false,
+            previous_keymap: None,
+            next_keymap: None,
+            last_focus: None,
+            current: 0,
+        }
+    }
+}
+
+impl<T> From<Vec<T>> for ComponentsContainer<T>
+where
+    T: FocusableComponent,
+{
+    fn from(value: Vec<T>) -> Self {
+        let components = value.into_iter().map(|c| make_shared(c)).collect();
+        Self {
+            components,
             ctx: FocusableComponentContext::new(),
             active_if_child_focused: false,
             previous_keymap: None,

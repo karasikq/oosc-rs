@@ -176,10 +176,13 @@ impl Component for EnvelopeComponent {
         if !self.is_focused() {
             return Ok(());
         }
+        if self.state == ShowState::Info && key.code == KeyCode::Esc {
+            self.unfocus();
+            return Ok(())
+        }
         self.bezier.handle_key_events(key)?;
         match key.code {
             KeyCode::Esc => {
-                self.unfocus();
                 self.state = ShowState::Info;
             }
             c => {
