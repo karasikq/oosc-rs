@@ -20,6 +20,6 @@ impl LFO {
 impl Evaluate<f32> for LFO {
     fn evaluate(&self, t: f32) -> Result<f32, crate::error::Error> {
         let freq = PI_2M * self.frequency.read().unwrap().get_value() * t;
-        self.shape.evaluate(freq)
+        Ok(0.5 + self.shape.evaluate(freq)? * 0.5)
     }
 }
