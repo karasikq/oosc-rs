@@ -3,6 +3,7 @@ use std::any::Any;
 use crate::core::note::Note;
 use crate::error::Error;
 use crate::utils::convert::note_to_freq;
+use crate::utils::evaluate::Modulation;
 use crate::utils::{
     adsr_envelope::{ADSREnvelope, State},
     consts::PI_2M,
@@ -57,7 +58,7 @@ impl WavetableOscillator {
         self.parametrs.octave_offset.clone()
     }
 
-    pub fn cents_offset(&self) -> SharedParameter<i32> {
+    pub fn cents_offset(&self) -> Shared<CentsParameter> {
         self.parametrs.cents_offset.clone()
     }
 
@@ -111,15 +112,17 @@ impl Oscillator for WavetableOscillator {
     fn evaluate(&mut self, delta_time: f32) -> Result<(), Error> {
         self.remove_released_notes();
         let buffer = &mut self.buffer;
-        let pan = self.parametrs.pan.read().unwrap();
+        let mut pan = self.parametrs.pan.write().unwrap();
         let octave_offset = self.parametrs.octave_offset.read().unwrap().notes;
-        let cents = self.parametrs.cents_offset.read().unwrap().freq;
+        let mut cents = self.parametrs.cents_offset.write().unwrap();
         let gain = self.parametrs.gain.read().unwrap().linear;
 
         (0..buffer.len()).try_for_each(|i| -> Result<(), Error> {
             let mut iteration_buffer = [0.0; 2];
-            let osc_time = self.time;
-            let polar_pan = pan.evaluate_polar(osc_time)?;
+            pan.next_value(delta_time)?;
+            let polar_pan = pan.polar;
+            cents.next_value(delta_time)?;
+            let cents = cents.freq;
             self.notes
                 .iter_mut()
                 .chain(self.release_notes.iter_mut())
@@ -234,7 +237,7 @@ impl OscillatorBuilder {
         let envelope = make_shared(self.envelope.take().ok_or(Error::Specify("envelope"))?);
         let wavetable = make_shared(self.wavetable.take().ok_or(Error::Specify("wavetable"))?);
         let octave_offset = make_shared(OctaveParameter::new(ValueParameter::new(0, (-2, 2))));
-        let cents_offset = make_shared(CentsParameter::new(ValueParameter::new(0, (-100, 100))));
+        let cents_offset = make_shared(CentsParameter::new(ValueParameter::new(0.0, (-100.0, 100.0))));
         let pan = make_shared(PanParameter::default());
         let gain = make_shared(VolumeParameter::default());
 

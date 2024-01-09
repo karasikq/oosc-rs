@@ -13,6 +13,7 @@ pub trait Evaluate<T>: Send + Sync {
 pub struct ModulationContainer {
     pub modulators: Vec<Shared<dyn Evaluate<f32>>>,
     pub modulation_range: (f32, f32),
+    pub time: f32,
 }
 
 pub trait Modulation {
@@ -21,6 +22,10 @@ pub trait Modulation {
     }
     fn container(&self) -> &ModulationContainer;
     fn container_mut(&mut self) -> &mut ModulationContainer;
+    fn next_value(&mut self, delta_time: f32) -> Result<(), Error> {
+        self.container_mut().next_value(delta_time)?;
+        Ok(())
+    }
 }
 
 impl ModulationContainer {
@@ -28,6 +33,7 @@ impl ModulationContainer {
         Self {
             modulators: Vec::new(),
             modulation_range: (0.0, 0.0),
+            time: 0.0,
         }
     }
 
@@ -36,6 +42,12 @@ impl ModulationContainer {
             modulation_range: range,
             ..self
         }
+    }
+
+    pub fn next_value(&mut self, delta_time: f32) -> Result<f32, Error> {
+        let evaluate = self.evaluate(self.time)?;
+        self.time += delta_time;
+        Ok(evaluate)
     }
 }
 

@@ -7,7 +7,7 @@ use crate::{
             cents_to_freq_coefficient, exponential_time, octave_offset_to_notes, power_to_linear,
             split_bipolar_pan,
         },
-        evaluate::{Modulation, Evaluate, ModulationContainer},
+        evaluate::{Evaluate, Modulation, ModulationContainer},
         math::clamp,
         Shared,
     },
@@ -55,16 +55,21 @@ impl ValueParameter<f32> {
     }
 }
 
-impl<T> Modulation for ValueParameter<T>
-where
-    T: Clone,
-{
+impl Modulation for ValueParameter<f32> {
     fn container(&self) -> &ModulationContainer {
         &self.modifiers
     }
 
     fn container_mut(&mut self) -> &mut ModulationContainer {
         &mut self.modifiers
+    }
+
+    fn next_value(&mut self, delta_time: f32) -> Result<(), Error> {
+        if self.modulated() {
+            let value = self.container_mut().next_value(delta_time)?;
+            self.set_value(value);
+        }
+        Ok(())
     }
 }
 
@@ -151,14 +156,6 @@ impl PanParameter {
             bipolar: parametr,
         }
     }
-
-    pub fn evaluate_polar(&self, t: f32) -> Result<(f32, f32), Error> {
-        if self.modulated() {
-            Ok(split_bipolar_pan(self.evaluate(t)?))
-        } else {
-            Ok(self.polar)
-        }
-    }
 }
 
 impl From<ValueParameter<f32>> for PanParameter {
@@ -197,6 +194,14 @@ impl Modulation for PanParameter {
 
     fn container_mut(&mut self) -> &mut ModulationContainer {
         self.bipolar.container_mut()
+    }
+
+    fn next_value(&mut self, delta_time: f32) -> Result<(), Error> {
+        if self.modulated() {
+            self.bipolar.next_value(delta_time)?;
+            self.polar = split_bipolar_pan(self.bipolar.value);
+        }
+        Ok(())
     }
 }
 
@@ -261,6 +266,14 @@ impl Modulation for VolumeParameter {
     fn container_mut(&mut self) -> &mut ModulationContainer {
         self.db.container_mut()
     }
+
+    fn next_value(&mut self, delta_time: f32) -> Result<(), Error> {
+        if self.modulated() {
+            self.db.next_value(delta_time)?;
+            self.linear = power_to_linear(self.db.value);
+        }
+        Ok(())
+    }
 }
 
 impl Default for VolumeParameter {
@@ -316,34 +329,42 @@ impl Modulation for ExponentialTimeParameter {
     fn container_mut(&mut self) -> &mut ModulationContainer {
         self.linear_time.container_mut()
     }
+
+    fn next_value(&mut self, delta_time: f32) -> Result<(), Error> {
+        if self.modulated() {
+            self.linear_time.next_value(delta_time)?;
+            self.exponential_time = exponential_time(self.linear_time.value, self.sample_rate);
+        }
+        Ok(())
+    }
 }
 
 pub struct CentsParameter {
     pub freq: f32,
-    parametr: ValueParameter<i32>,
+    parameter: ValueParameter<f32>,
 }
 
 impl CentsParameter {
-    pub fn new(parametr: ValueParameter<i32>) -> Self {
+    pub fn new(parametr: ValueParameter<f32>) -> Self {
         Self {
-            freq: cents_to_freq_coefficient(parametr.get_value() as f32),
-            parametr,
+            freq: cents_to_freq_coefficient(parametr.get_value()),
+            parameter: parametr,
         }
     }
 }
 
-impl Parameter<i32> for CentsParameter {
-    fn set_value(&mut self, value: i32) {
-        self.parametr.set_value(value);
-        self.freq = cents_to_freq_coefficient(value as f32);
+impl Parameter<f32> for CentsParameter {
+    fn set_value(&mut self, value: f32) {
+        self.parameter.set_value(value);
+        self.freq = cents_to_freq_coefficient(value);
     }
 
-    fn get_value(&self) -> i32 {
-        self.parametr.get_value()
+    fn get_value(&self) -> f32 {
+        self.parameter.get_value()
     }
 
-    fn range(&self) -> (i32, i32) {
-        self.parametr.range()
+    fn range(&self) -> (f32, f32) {
+        self.parameter.range()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -352,6 +373,24 @@ impl Parameter<i32> for CentsParameter {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl Modulation for CentsParameter {
+    fn container(&self) -> &ModulationContainer {
+        self.parameter.container()
+    }
+
+    fn container_mut(&mut self) -> &mut ModulationContainer {
+        self.parameter.container_mut()
+    }
+
+    fn next_value(&mut self, delta_time: f32) -> Result<(), Error> {
+        if self.modulated() {
+            self.parameter.next_value(delta_time)?;
+            self.freq = cents_to_freq_coefficient(self.parameter.value);
+        }
+        Ok(())
     }
 }
 
