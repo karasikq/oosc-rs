@@ -49,7 +49,6 @@ impl Component for Root {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Min(0), Constraint::Length(3)])
-            .margin(1)
             .split(rect);
         self.components.resize_in_layout(&layout)
     }
