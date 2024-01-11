@@ -216,8 +216,12 @@ impl Component for OscillatorComponent {
         {
             self.unfocus()
         }
-        self.components.handle_key_events(key)?;
-        self.parametrs.handle_key_events(key)?;
+        if !self.parametrs.is_any_focused() {
+            self.components.handle_key_events(key)?;
+        }
+        if !self.components.is_any_focused() {
+            self.parametrs.handle_key_events(key)?;
+        }
         Ok(())
     }
 }

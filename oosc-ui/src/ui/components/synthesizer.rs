@@ -69,6 +69,7 @@ impl Component for SynthesizerComponent {
             return Err(oosc_core::error::Error::from("Create layout before draw"))?;
         }
         let layout = self.layout.as_ref().unwrap();
+        let _rect = layout.rect;
         self.oscillators.draw_in_layout(f, &layout.oscillators)?;
         Ok(())
     }
