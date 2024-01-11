@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent};
 use oosc_core::utils::{make_shared, Shared};
-use ratatui::{prelude::Rect, Frame};
+use ratatui::{prelude::Rect, style::Color, Frame};
 
 use super::{Component, Focus, FocusableComponent, FocusableComponentContext};
 
@@ -43,7 +43,7 @@ where
 
 impl<T> Default for ComponentsContainer<T>
 where
-    T: FocusableComponent + ?Sized,
+    T: FocusableComponent + ?Sized + 'static,
 {
     fn default() -> Self {
         Self::new()
@@ -63,7 +63,7 @@ where
 
 impl<T> ComponentsContainer<T>
 where
-    T: FocusableComponent + ?Sized,
+    T: FocusableComponent + ?Sized + 'static,
 {
     pub fn new() -> Self {
         Self {
@@ -182,6 +182,24 @@ where
         }
         None
     }
+
+    fn handle_container_key(&mut self, key: KeyCode) {
+        if let Some(keymap) = self.keymap() {
+            if key == keymap {
+                self.focus()
+            }
+        }
+        if let Some(next) = self.next_keymap {
+            if next == key {
+                self.focus_next()
+            }
+        }
+        if let Some(previous) = self.previous_keymap {
+            if previous == key {
+                self.focus_previous()
+            }
+        }
+    }
 }
 
 impl<T> Component for ComponentsContainer<T>
@@ -226,40 +244,30 @@ where
             return Ok(());
         } */
         self.unfocus_last();
-        if !self
-            .components
-            .iter()
-            .any(|c| c.read().unwrap().is_focused())
-            || self.active_if_child_focused
-        {
-            self.focus_if_key(key.code);
-            match key.code {
-                // KeyCode::Esc => self.unfocus(),
-                c => {
-                    if let Some(keymap) = self.keymap() {
-                        if c == keymap {
-                            self.focus()
-                        }
-                    }
-                    if let Some(next) = self.next_keymap {
-                        if next == c {
-                            self.focus_next()
-                        }
-                    }
-                    if let Some(previous) = self.previous_keymap {
-                        if previous == c {
-                            self.focus_previous()
-                        }
-                    }
-                }
-            };
+        if !self.is_any_focused() || self.active_if_child_focused {
+            let focus_result = self.focus_if_key(key.code);
+            if focus_result.is_none() {
+                self.components
+                    .iter_mut()
+                    .filter(|c| c.read().unwrap().context().wrapper)
+                    .try_for_each(|c| {
+                        c.write()
+                            .unwrap()
+                            .handle_key_events(key)
+                            .context("Wrapper component handle key event error")
+                    })?;
+                self.handle_container_key(key.code);
+            }
         }
-        self.components.iter_mut().try_for_each(|c| {
-            c.write()
-                .unwrap()
-                .handle_key_events(key)
-                .context("Child component handle key event error")
-        })
+        self.components
+            .iter_mut()
+            .filter(|c| c.read().unwrap().is_focused())
+            .try_for_each(|c| {
+                c.write()
+                    .unwrap()
+                    .handle_key_events(key)
+                    .context("Child component handle key event error")
+            })
     }
 
     fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Result<()> {
@@ -278,6 +286,43 @@ where
                 .draw(f, rect)
                 .context("Cannot draw child component")
         })
+    }
+}
+
+impl<T> Focus for ComponentsContainer<T>
+where
+    T: FocusableComponent + ?Sized + 'static,
+{
+    fn focus(&mut self) {
+        self.context_mut().focus()
+    }
+
+    fn unfocus(&mut self) {
+        self.context_mut().unfocus()
+    }
+
+    fn is_focused(&self) -> bool {
+        self.context().is_focused()
+    }
+
+    fn keymap(&self) -> Option<crossterm::event::KeyCode> {
+        self.context().keymap()
+    }
+
+    fn color(&self) -> Color {
+        if self.is_focused() {
+            *self
+                .context()
+                .focused_color
+                .as_ref()
+                .unwrap_or(&Color::Yellow)
+        } else {
+            *self
+                .context()
+                .unfocused_color
+                .as_ref()
+                .unwrap_or(&Color::Gray)
+        }
     }
 }
 
