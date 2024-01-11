@@ -14,7 +14,12 @@ use super::StreamCallback;
 pub struct SynthesizerStreamCallback(pub Arc<Mutex<Synthesizer>>);
 
 impl StreamCallback for SynthesizerStreamCallback {
-    fn process_stream(&mut self, data: &mut [f32], _time: f32) -> std::result::Result<(), Error> {
+    fn process_stream(
+        &mut self,
+        data: &mut [f32],
+        _time: f32,
+        _sample_rate: f32,
+    ) -> std::result::Result<(), Error> {
         let mut syn = self.0.lock().unwrap();
         let buf = syn.output()?;
         let mut l = buf.iter(0)?;
@@ -34,7 +39,12 @@ pub struct MidiStreamCallback(
 );
 
 impl StreamCallback for MidiStreamCallback {
-    fn process_stream(&mut self, _data: &mut [f32], time: f32) -> std::result::Result<(), Error> {
+    fn process_stream(
+        &mut self,
+        _data: &mut [f32],
+        time: f32,
+        _sample_rate: f32,
+    ) -> std::result::Result<(), Error> {
         let mut playback = self.0.lock().unwrap();
         if let PlaybackState::None = playback.get_state() {
             return Ok(());
@@ -46,4 +56,3 @@ impl StreamCallback for MidiStreamCallback {
         Ok(())
     }
 }
-

@@ -22,9 +22,10 @@ pub enum RenderState {
 pub trait StreamRenderer: Sync + Send {
     fn start(&mut self) -> Result<(), Error>;
     fn stop(&mut self) -> Result<(), Error>;
-    fn record(&mut self, samples: &[f32]) -> Result<(), Error>;
+    fn record(&mut self, samples: &[f32], sample_rate: f32) -> Result<(), Error>;
     fn reset(&mut self);
     fn get_state(&self) -> RenderState;
+    fn time(&self) -> f32;
 }
 
 type Writer = WavWriter<BufWriter<File>>;
@@ -33,6 +34,7 @@ pub struct StreamWavRenderer {
     writer: Shared<Option<Writer>>,
     spec: WavSpec,
     state: RenderState,
+    time: f32,
 }
 
 impl StreamWavRenderer {
@@ -41,6 +43,7 @@ impl StreamWavRenderer {
             writer: make_shared(None),
             spec,
             state: RenderState::None,
+            time: 0.0,
         }
     }
 
@@ -74,6 +77,7 @@ impl StreamRenderer for StreamWavRenderer {
             return Err(Error::Generic("Cannot get any writer".to_string()))?;
         }
         self.state = RenderState::Rendering;
+        self.time = 0.0;
         Ok(())
     }
 
@@ -90,12 +94,13 @@ impl StreamRenderer for StreamWavRenderer {
         Ok(())
     }
 
-    fn record(&mut self, samples: &[f32]) -> Result<(), Error> {
+    fn record(&mut self, samples: &[f32], sample_rate: f32) -> Result<(), Error> {
         let mut writer_guard = self.writer.write().unwrap();
         let writer = writer_guard.as_mut().ok_or("Cannot get wav writer")?;
         for s in samples {
             writer.write_sample(*s).map_err(|e| e.to_string())?;
         }
+        self.time += samples.len() as f32 / sample_rate;
         Ok(())
     }
 
@@ -107,17 +112,26 @@ impl StreamRenderer for StreamWavRenderer {
     fn get_state(&self) -> RenderState {
         self.state
     }
+
+    fn time(&self) -> f32 {
+        self.time
+    }
 }
 
 pub struct RenderStreamCallback(pub Arc<Mutex<dyn StreamRenderer>>);
 
 impl StreamCallback for RenderStreamCallback {
-    fn process_stream(&mut self, data: &mut [f32], _time: f32) -> std::result::Result<(), Error> {
+    fn process_stream(
+        &mut self,
+        data: &mut [f32],
+        _time: f32,
+        sample_rate: f32,
+    ) -> std::result::Result<(), Error> {
         let mut renderer = self.0.lock().unwrap();
         if let RenderState::None = renderer.get_state() {
             return Ok(());
         }
-        renderer.record(data)?;
+        renderer.record(data, sample_rate)?;
         Ok(())
     }
 }
