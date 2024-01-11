@@ -35,7 +35,8 @@ impl Application {
         let err_fn = |err| println!("An error occurred on stream: {}", err);
         let callbacks = self.ctx.callbacks.get_callbacks();
         let mut total_playback_seconds = 0.;
-        let delta = self.config.buffer_size as f32 / self.config.sample_rate as f32;
+        let sample_rate = self.config.sample_rate as f32;
+        let delta = self.config.buffer_size as f32 / sample_rate;
         Ok(device.build_output_stream(
             &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
@@ -43,7 +44,7 @@ impl Application {
                     .iter()
                     .try_for_each(|callback| -> Result<()> {
                         let mut callback = callback.lock().unwrap();
-                        Ok(callback.process_stream(data, total_playback_seconds)?)
+                        Ok(callback.process_stream(data, total_playback_seconds, sample_rate)?)
                     })
                     .unwrap();
                 total_playback_seconds += delta;
