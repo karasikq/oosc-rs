@@ -1,5 +1,8 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use oosc_core::{callbacks::stream_renderer::{StreamWavRenderer, StreamRenderer}, utils::SharedMutex};
+use oosc_core::{
+    callbacks::stream_renderer::{RenderState, StreamRenderer, StreamWavRenderer},
+    utils::SharedMutex,
+};
 use ratatui::{
     prelude::{Alignment, Margin, Rect},
     style::Style,
@@ -8,7 +11,7 @@ use ratatui::{
 
 use crate::ui::utils::keycode_to_string;
 
-use super::{Component, Focus, FocusableComponent, FocusableComponentContext, AutoFocus};
+use super::{AutoFocus, Component, Focus, FocusableComponent, FocusableComponentContext};
 
 struct RecordLayout {
     pub rect: Rect,
@@ -39,9 +42,19 @@ impl Component for RecordComponent {
         _rect: ratatui::prelude::Rect,
     ) -> anyhow::Result<()> {
         let layout = self.layout.as_ref().unwrap();
-        let p = Paragraph::new("Record [r] Stop [s]")
-            .wrap(Wrap { trim: true })
-            .alignment(Alignment::Center);
+        let p = {
+            let control = self.control.lock().unwrap();
+            match control.get_state() {
+                RenderState::None => Paragraph::new("Record [r] Stop [s]")
+                    .wrap(Wrap { trim: true })
+                    .alignment(Alignment::Center),
+                RenderState::Rendering => {
+                    Paragraph::new(format!("Recording {:.2}s Stop [s]", control.time()))
+                        .wrap(Wrap { trim: true })
+                        .alignment(Alignment::Center)
+                }
+            }
+        };
         f.render_widget(p, layout.inner);
         let b = Block::default()
             .borders(Borders::ALL)
@@ -66,9 +79,6 @@ impl Component for RecordComponent {
     }
 
     fn handle_key_events(&mut self, key: KeyEvent) -> anyhow::Result<()> {
-        if !self.is_focused() {
-            return Ok(());
-        }
         match key.code {
             KeyCode::Esc => self.unfocus(),
             KeyCode::Char(c) => {
@@ -76,15 +86,15 @@ impl Component for RecordComponent {
                     'r' => {
                         let mut control = self.control.lock().unwrap();
                         control.to_file("record.wav")?;
-                        control.start()?;
-                    },
+                        let _ = control.start();
+                    }
                     's' => {
                         let mut control = self.control.lock().unwrap();
-                        control.stop()?;
-                    },
+                        let _ = control.stop();
+                    }
                     _ => (),
                 };
-            },
+            }
             _ => (),
         };
         Ok(())
