@@ -13,7 +13,7 @@ use ratatui::{
 
 use crate::ui::components::parameter::ParameterComponentF32;
 
-use super::{components_container::ComponentsContainer, Component, Focus};
+use super::{components_container::ComponentsContainer, Component, Focus, FocusableComponent, FocusableComponentContext};
 
 struct BezierLayout {
     pub rect: Rect,
@@ -24,10 +24,29 @@ struct BezierLayout {
 pub struct BezierComponent {
     curve: Shared<CubicBezierCurve>,
     parameters: ComponentsContainer<ParameterComponentF32>,
+    ctx: FocusableComponentContext,
     samples: usize,
     line: Vec<canvas::Line>,
     color: Color,
     layout: Option<BezierLayout>,
+}
+
+impl FocusableComponent for BezierComponent {
+    fn context(&self) -> &super::FocusableComponentContext {
+        &self.ctx
+    }
+
+    fn context_mut(&mut self) -> &mut super::FocusableComponentContext {
+        &mut self.ctx
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 impl BezierComponent {
@@ -38,9 +57,11 @@ impl BezierComponent {
         parameters.next_keymap(KeyCode::Char('k'));
         parameters.previous_keymap(KeyCode::Char('j'));
         let curve = curve.curve.clone();
+        let ctx = FocusableComponentContext::new().focused(true);
         Self {
             curve,
             parameters,
+            ctx,
             samples: 30,
             line: vec![],
             color: Color::Red,
@@ -198,6 +219,9 @@ impl Component for BezierComponent {
     }
 
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
+        if !self.is_focused() {
+            return Ok(());
+        }
         self.parameters.handle_key_events(key)
     }
 

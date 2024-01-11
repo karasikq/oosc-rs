@@ -178,29 +178,35 @@ impl Component for EnvelopeComponent {
         }
         if self.state == ShowState::Info && key.code == KeyCode::Esc {
             self.unfocus();
+            self.bezier.unfocus();
             return Ok(())
         }
         self.bezier.handle_key_events(key)?;
         match key.code {
             KeyCode::Esc => {
                 self.state = ShowState::Info;
+                self.bezier.unfocus();
             }
             c => {
                 if c == self.envelope_keymaps[&ShowState::Attack] {
                     self.state = ShowState::Attack;
+                    self.bezier.focus();
                     self.bezier.new_curve(&self.envelope.read().unwrap().attack);
                 }
                 if c == self.envelope_keymaps[&ShowState::Decay] {
                     self.state = ShowState::Decay;
+                    self.bezier.focus();
                     self.bezier.new_curve(&self.envelope.read().unwrap().decay)
                 }
                 if c == self.envelope_keymaps[&ShowState::Sustain] {
                     self.state = ShowState::Sustain;
+                    self.bezier.focus();
                     self.bezier
                         .new_curve(&self.envelope.read().unwrap().sustain)
                 }
-                if c == self.envelope_keymaps[&ShowState::Decay] {
+                if c == self.envelope_keymaps[&ShowState::Release] {
                     self.state = ShowState::Release;
+                    self.bezier.focus();
                     self.bezier
                         .new_curve(&self.envelope.read().unwrap().release)
                 }
