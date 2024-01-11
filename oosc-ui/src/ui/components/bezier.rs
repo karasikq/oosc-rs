@@ -13,7 +13,10 @@ use ratatui::{
 
 use crate::ui::components::parameter::ParameterComponentF32;
 
-use super::{components_container::ComponentsContainer, Component, Focus, FocusableComponent, FocusableComponentContext};
+use super::{
+    components_container::ComponentsContainer, Component, Focus, FocusableComponent,
+    FocusableComponentContext, AutoFocus,
+};
 
 struct BezierLayout {
     pub rect: Rect,
@@ -30,6 +33,8 @@ pub struct BezierComponent {
     color: Color,
     layout: Option<BezierLayout>,
 }
+
+impl AutoFocus for BezierComponent {}
 
 impl FocusableComponent for BezierComponent {
     fn context(&self) -> &super::FocusableComponentContext {
