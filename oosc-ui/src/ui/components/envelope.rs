@@ -175,9 +175,6 @@ impl Component for EnvelopeComponent {
     }
 
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
-        if !self.is_focused() {
-            return Ok(());
-        }
         if self.state == ShowState::Info && key.code == KeyCode::Esc {
             self.unfocus();
             self.bezier.unfocus();
@@ -192,25 +189,25 @@ impl Component for EnvelopeComponent {
             c => {
                 if c == self.envelope_keymaps[&ShowState::Attack] {
                     self.state = ShowState::Attack;
-                    self.bezier.focus();
                     self.bezier.new_curve(&self.envelope.read().unwrap().attack);
+                    self.bezier.focus();
                 }
                 if c == self.envelope_keymaps[&ShowState::Decay] {
                     self.state = ShowState::Decay;
+                    self.bezier.new_curve(&self.envelope.read().unwrap().decay);
                     self.bezier.focus();
-                    self.bezier.new_curve(&self.envelope.read().unwrap().decay)
                 }
                 if c == self.envelope_keymaps[&ShowState::Sustain] {
                     self.state = ShowState::Sustain;
-                    self.bezier.focus();
                     self.bezier
-                        .new_curve(&self.envelope.read().unwrap().sustain)
+                        .new_curve(&self.envelope.read().unwrap().sustain);
+                    self.bezier.focus();
                 }
                 if c == self.envelope_keymaps[&ShowState::Release] {
                     self.state = ShowState::Release;
-                    self.bezier.focus();
                     self.bezier
-                        .new_curve(&self.envelope.read().unwrap().release)
+                        .new_curve(&self.envelope.read().unwrap().release);
+                    self.bezier.focus();
                 }
             }
         };
