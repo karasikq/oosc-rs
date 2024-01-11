@@ -128,6 +128,10 @@ where
             })
     }
 
+    pub fn focus_current(&mut self) {
+        self.focus_on(self.current)
+    }
+
     pub fn focus_next(&mut self) {
         self.focus_on(self.current + 1)
     }
@@ -240,9 +244,6 @@ where
     }
 
     fn handle_key_events(&mut self, key: KeyEvent) -> Result<()> {
-        /* if !self.is_focused() {
-            return Ok(());
-        } */
         self.unfocus_last();
         if !self.is_any_focused() || self.active_if_child_focused {
             let focus_result = self.focus_if_key(key.code);
@@ -257,6 +258,8 @@ where
                             .context("Wrapper component handle key event error")
                     })?;
                 self.handle_container_key(key.code);
+            } else {
+                return Ok(());
             }
         }
         self.components
