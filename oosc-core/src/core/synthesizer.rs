@@ -66,15 +66,15 @@ impl Synthesizer {
             .try_for_each(|osc| -> Result<(), Error> { osc.write().unwrap().note_off(note) })
     }
 
-    pub fn get_oscillators<T>(&mut self) -> impl Iterator<Item = LockedOscillator> + '_
+    pub fn get_oscillators<T>(&self) -> impl Iterator<Item = LockedOscillator> + '_
     where
         T: Oscillator + 'static,
     {
-        self.oscillators.iter_mut().filter_map(|osc| {
-            let mut osc_lock = osc.write().unwrap();
+        self.oscillators.iter().filter_map(|osc| {
+            let osc_lock = osc.write().unwrap();
             osc_lock
-                .as_any_mut()
-                .downcast_mut::<T>()
+                .as_any()
+                .downcast_ref::<T>()
                 .map(|_| osc.clone())
         })
     }

@@ -6,7 +6,10 @@ use std::{
 
 use hound::{WavSpec, WavWriter};
 
-use crate::{error::Error, utils::sample_buffer::BufferSettings};
+use crate::{
+    error::Error,
+    utils::{make_shared, sample_buffer::BufferSettings, Shared},
+};
 
 use super::StreamCallback;
 
@@ -17,8 +20,8 @@ pub enum RenderState {
 }
 
 pub trait StreamRenderer: Sync + Send {
-    fn start(&mut self);
-    fn stop(&mut self);
+    fn start(&mut self) -> Result<(), Error>;
+    fn stop(&mut self) -> Result<(), Error>;
     fn record(&mut self, samples: &[f32]) -> Result<(), Error>;
     fn reset(&mut self);
     fn get_state(&self) -> RenderState;
@@ -27,7 +30,7 @@ pub trait StreamRenderer: Sync + Send {
 type Writer = WavWriter<BufWriter<File>>;
 
 pub struct StreamWavRenderer {
-    writer: Option<Writer>,
+    writer: Shared<Option<Writer>>,
     spec: WavSpec,
     state: RenderState,
 }
@@ -35,14 +38,16 @@ pub struct StreamWavRenderer {
 impl StreamWavRenderer {
     pub fn new(spec: WavSpec) -> Self {
         Self {
-            writer: None,
+            writer: make_shared(None),
             spec,
             state: RenderState::None,
         }
     }
 
     pub fn to_file<P: AsRef<std::path::Path>>(&mut self, path: P) -> Result<&mut Self, Error> {
-        self.writer = Some(WavWriter::create(path, self.spec).map_err(|e| e.to_string())?);
+        self.writer = make_shared(Some(
+            WavWriter::create(path, self.spec).map_err(|e| e.to_string())?,
+        ));
         Ok(self)
     }
 }
@@ -63,16 +68,31 @@ where
 }
 
 impl StreamRenderer for StreamWavRenderer {
-    fn start(&mut self) {
+    fn start(&mut self) -> Result<(), Error> {
+        let writer_guard = self.writer.read().unwrap();
+        if writer_guard.is_none() {
+            return Err(Error::Generic("Cannot get any writer".to_string()))?;
+        }
         self.state = RenderState::Rendering;
+        Ok(())
     }
 
-    fn stop(&mut self) {
+    fn stop(&mut self) -> Result<(), Error> {
         self.state = RenderState::None;
+        let writer = self
+            .writer
+            .write()
+            .unwrap()
+            .take()
+            .ok_or("Cannot get wav writer")?;
+        writer.finalize().map_err(|e| e.to_string())?;
+        self.reset();
+        Ok(())
     }
 
     fn record(&mut self, samples: &[f32]) -> Result<(), Error> {
-        let writer = self.writer.as_mut().ok_or("Cannot get wav writer")?;
+        let mut writer_guard = self.writer.write().unwrap();
+        let writer = writer_guard.as_mut().ok_or("Cannot get wav writer")?;
         for s in samples {
             writer.write_sample(*s).map_err(|e| e.to_string())?;
         }
@@ -80,7 +100,7 @@ impl StreamRenderer for StreamWavRenderer {
     }
 
     fn reset(&mut self) {
-        self.writer = None;
+        *self.writer.write().unwrap() = None;
         self.state = RenderState::None;
     }
 
