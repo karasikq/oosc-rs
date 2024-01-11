@@ -3,6 +3,7 @@ pub mod components_container;
 pub mod envelope;
 pub mod oscillator;
 pub mod parameter;
+pub mod record;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
@@ -58,6 +59,7 @@ pub struct FocusableComponentContext {
     pub focused_color: Option<Color>,
     pub unfocused_color: Option<Color>,
     pub focused: bool,
+    pub wrapper: bool,
 }
 
 impl FocusableComponentContext {
@@ -67,6 +69,7 @@ impl FocusableComponentContext {
             focused_color: None,
             unfocused_color: None,
             focused: false,
+            wrapper: false,
         }
     }
 
@@ -98,6 +101,10 @@ impl FocusableComponentContext {
 
     pub fn focused(self, focused: bool) -> FocusableComponentContext {
         FocusableComponentContext { focused, ..self }
+    }
+
+    pub fn wrapper(self, wrapper: bool) -> FocusableComponentContext {
+        FocusableComponentContext { wrapper, ..self }
     }
 }
 
@@ -140,7 +147,9 @@ pub trait FocusableComponent: Component + Focus {
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-impl<T: FocusableComponent> Focus for T {
+pub trait AutoFocus: FocusableComponent {}
+
+impl<T: AutoFocus> Focus for T {
     fn focus(&mut self) {
         self.context_mut().focus()
     }
