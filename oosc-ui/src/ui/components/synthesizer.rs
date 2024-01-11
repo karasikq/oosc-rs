@@ -5,7 +5,7 @@ use oosc_core::core::{oscillator::WavetableOscillator, synthesizer::Synthesizer}
 use ratatui::prelude::*;
 
 use super::{
-    components_container::ComponentsContainer, oscillator::OscillatorComponent, Component,
+    components_container::ComponentsContainer, oscillator::OscillatorComponent, Component, Focus,
     FocusableComponent, FocusableComponentContext,
 };
 
@@ -21,7 +21,7 @@ pub struct SynthesizerComponent {
 }
 
 impl SynthesizerComponent {
-    pub fn new(synthesizer: &mut Synthesizer) -> Self {
+    pub fn new(synthesizer: &Synthesizer) -> Self {
         let oscillators = ComponentsContainer::from(
             synthesizer
                 .get_oscillators::<WavetableOscillator>()
@@ -32,7 +32,7 @@ impl SynthesizerComponent {
                 })
                 .collect::<Vec<OscillatorComponent>>(),
         );
-        let context = FocusableComponentContext::new();
+        let context = FocusableComponentContext::new().wrapper(true);
         Self {
             oscillators,
             context,
@@ -92,5 +92,39 @@ impl Component for SynthesizerComponent {
 
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
         self.oscillators.handle_key_events(key)
+    }
+}
+
+impl Focus for SynthesizerComponent {
+    fn focus(&mut self) {
+        self.context_mut().focus()
+    }
+
+    fn unfocus(&mut self) {
+        self.context_mut().unfocus()
+    }
+
+    fn is_focused(&self) -> bool {
+        self.oscillators.is_any_focused()
+    }
+
+    fn keymap(&self) -> Option<crossterm::event::KeyCode> {
+        self.context().keymap()
+    }
+
+    fn color(&self) -> Color {
+        if self.is_focused() {
+            *self
+                .context()
+                .focused_color
+                .as_ref()
+                .unwrap_or(&Color::Yellow)
+        } else {
+            *self
+                .context()
+                .unfocused_color
+                .as_ref()
+                .unwrap_or(&Color::Gray)
+        }
     }
 }

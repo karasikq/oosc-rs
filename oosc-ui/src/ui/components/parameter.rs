@@ -14,7 +14,7 @@ use crate::ui::{
     widgets::bar::BarWidget,
 };
 
-use super::{Component, Focus, FocusableComponent, FocusableComponentContext};
+use super::{Component, Focus, FocusableComponent, FocusableComponentContext, AutoFocus};
 
 pub struct ParameterLayout {
     pub rect: Rect,
@@ -109,6 +109,8 @@ impl ParameterComponentF32 {
     }
 }
 
+impl AutoFocus for ParameterComponentF32 {}
+
 impl FocusableComponent for ParameterComponentF32 {
     fn context(&self) -> &FocusableComponentContext {
         &self.context
@@ -135,6 +137,8 @@ pub struct ParameterComponentI32 {
     context: FocusableComponentContext,
     layout: Option<ParameterLayout>,
 }
+
+impl AutoFocus for ParameterComponentI32 {}
 
 impl FocusableComponent for ParameterComponentI32 {
     fn context(&self) -> &FocusableComponentContext {

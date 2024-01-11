@@ -13,7 +13,7 @@ use ratatui::{
 use crate::ui::utils::keycode_to_string_prefixed;
 
 use super::{
-    bezier::BezierComponent, Component, Focus, FocusableComponent, FocusableComponentContext,
+    bezier::BezierComponent, Component, Focus, FocusableComponent, FocusableComponentContext, AutoFocus,
 };
 
 #[derive(Eq, PartialEq, Hash, Clone, Copy)]
@@ -40,6 +40,8 @@ pub struct EnvelopeComponent {
     line: Vec<canvas::Line>,
     layout: Option<EnvelopeLayout>,
 }
+
+impl AutoFocus for EnvelopeComponent {}
 
 impl FocusableComponent for EnvelopeComponent {
     fn context(&self) -> &FocusableComponentContext {

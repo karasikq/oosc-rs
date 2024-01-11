@@ -20,8 +20,8 @@ impl Application {
             delta_time: 1.0 / 48000.0,
             buffer_size: 2048,
         };
-        let ctx = context::Context::build_default(&config)?;
-        let mut root = Root::new(ctx.synthesizer.clone());
+        let mut ctx = context::Context::build_default(&config)?;
+        let mut root = Root::new(&mut ctx);
         root.resize(ctx.terminal.write().unwrap().current_buffer_mut().area)?;
         Ok(Application { ctx, config, root })
     }

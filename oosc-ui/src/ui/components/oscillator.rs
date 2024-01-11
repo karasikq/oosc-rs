@@ -15,7 +15,7 @@ use super::{
     envelope::EnvelopeComponent,
     parameter::{ParameterComponentF32, ParameterComponentI32},
     wavetable::WavetableComponent,
-    Component, Focus, FocusableComponent, FocusableComponentContext,
+    AutoFocus, Component, Focus, FocusableComponent, FocusableComponentContext,
 };
 
 struct OscillatorLayout {
@@ -33,6 +33,8 @@ pub struct OscillatorComponent {
     context: FocusableComponentContext,
     layout: Option<OscillatorLayout>,
 }
+
+impl AutoFocus for OscillatorComponent {}
 
 impl OscillatorComponent {
     pub fn new(oscillator: LockedOscillator, keymap: KeyCode) -> Self {
@@ -207,9 +209,6 @@ impl Component for OscillatorComponent {
     }
 
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
-        if !self.is_focused() {
-            return Ok(());
-        }
         if !self.parametrs.is_any_focused()
             && !self.components.is_any_focused()
             && key.code == KeyCode::Esc
