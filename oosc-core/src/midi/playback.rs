@@ -84,39 +84,47 @@ impl MidiPlayback for SmfPlayback {
         delta_time: f32,
         event_receiver: &mut Box<dyn MidiEventReceiver>,
     ) -> Result<(), Error> {
-        let data = self.data.as_ref().ok_or("Cannot get midi data for playback")?;
-        let t = self.time + delta_time;
-        let playback_time_ticks: u32 = (t * self.tps) as u32;
-        let playback_midi_ticks: u32 = self.midi_ticks;
-        let delta_ticks = playback_time_ticks - playback_midi_ticks;
-        let mut last_event_ticks: u32 = playback_midi_ticks;
-        let mut current_ticks: u32 = 0;
+        match self.state {
+            PlaybackState::Playing(mut t) => {
+                let data = self
+                    .data
+                    .as_ref()
+                    .ok_or("Cannot get midi data for playback")?;
+                t = self.time + delta_time;
+                let playback_time_ticks: u32 = (t * self.tps) as u32;
+                let playback_midi_ticks: u32 = self.midi_ticks;
+                let delta_ticks = playback_time_ticks - playback_midi_ticks;
+                let mut last_event_ticks: u32 = playback_midi_ticks;
+                let mut current_ticks: u32 = 0;
 
-        for track in data.tracks.iter().skip(1) {
-            for event in track.iter() {
-                current_ticks += event.delta;
-                if current_ticks > playback_midi_ticks + delta_ticks {
-                    self.midi_ticks = match last_event_ticks {
-                        0 => 1,
-                        v => v,
-                    };
-                    return Ok(());
+                for track in data.tracks.iter().skip(1) {
+                    for event in track.iter() {
+                        current_ticks += event.delta;
+                        if current_ticks > playback_midi_ticks + delta_ticks {
+                            self.midi_ticks = match last_event_ticks {
+                                0 => 1,
+                                v => v,
+                            };
+                            return Ok(());
+                        }
+                        if current_ticks > playback_midi_ticks
+                            || (current_ticks == 0 && playback_midi_ticks == 0)
+                        {
+                            let receiver = event_receiver.as_mut();
+                            receiver.receive_event(event)?;
+                            last_event_ticks = current_ticks;
+                        }
+                    }
                 }
-                if current_ticks > playback_midi_ticks
-                    || (current_ticks == 0 && playback_midi_ticks == 0)
-                {
-                    let receiver = event_receiver.as_mut();
-                    receiver.receive_event(event)?;
-                    last_event_ticks = current_ticks;
-                }
+
+                self.midi_ticks = match last_event_ticks {
+                    0 => 1,
+                    v => v,
+                };
+                Ok(())
             }
+            _ => Ok(()),
         }
-
-        self.midi_ticks = match last_event_ticks {
-            0 => 1,
-            v => v,
-        };
-        Ok(())
     }
 
     fn set_bpm(&mut self, bpm: f32) {
