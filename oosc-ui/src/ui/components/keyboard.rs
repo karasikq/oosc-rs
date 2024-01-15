@@ -76,7 +76,7 @@ impl Component for KeyboardComponent {
     fn handle_key_events(&mut self, key: KeyEvent) -> anyhow::Result<()> {
         match key.code {
             KeyCode::Esc => self.unfocus(),
-            KeyCode::Char(c) => {
+            KeyCode::Char(_c) => {
                 if key.kind == KeyEventKind::Press {
                     let _ = self.output.send(&[0x90, 60, 0x64]);
                     self.last_note = Some(60);
