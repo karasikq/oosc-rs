@@ -1,19 +1,20 @@
 pub mod bezier;
 pub mod components_container;
 pub mod envelope;
+pub mod keyboard;
+pub mod menu_bar;
 pub mod oscillator;
 pub mod parameter;
 pub mod record;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
-pub mod keyboard;
 use std::any::Any;
 
 use anyhow::Result;
 use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent};
 use oosc_core::utils::Shared;
-use ratatui::{layout::Rect, style::Color, Frame};
+use ratatui::{layout::Rect, style::Color, Frame, text::Span};
 
 pub trait Component {
     fn init(&mut self) -> Result<()> {
@@ -147,6 +148,14 @@ pub trait FocusableComponent: Component + Focus {
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
+
+pub trait Named {
+    fn name(&self) -> Vec<Span<'static>>;
+}
+
+pub trait NamedFocusableComponent: FocusableComponent + Named {}
+
+impl<T: FocusableComponent + Named> NamedFocusableComponent for T {}
 
 pub trait AutoFocus: FocusableComponent {}
 
