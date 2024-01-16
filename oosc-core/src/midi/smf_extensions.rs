@@ -1,3 +1,4 @@
+use midly::live::LiveEvent;
 use midly::Header;
 use midly::MidiMessage;
 use midly::Smf;
@@ -77,6 +78,21 @@ impl<'a> TryFrom<&TrackEventKind<'a>> for OwnedTrackEventKind {
     }
 }
 
+impl<'a> TryFrom<&LiveEvent<'a>> for OwnedTrackEventKind {
+    type Error = crate::error::Error;
+
+    fn try_from(value: &LiveEvent<'a>) -> Result<Self, Self::Error> {
+        Ok(match value {
+            LiveEvent::Midi { channel, message } => Self::Midi {
+                channel: (*channel).into(),
+                message: *message,
+            },
+            LiveEvent::Common(_) => todo!(),
+            LiveEvent::Realtime(_) => todo!(),
+        })
+    }
+}
+
 pub struct OwnedTrackEvent {
     pub delta: u32,
     pub kind: OwnedTrackEventKind,
@@ -91,6 +107,15 @@ impl<'a> TryFrom<&TrackEvent<'a>> for OwnedTrackEvent {
             delta: value.delta.into(),
             kind,
         })
+    }
+}
+
+impl<'a> TryFrom<&LiveEvent<'a>> for OwnedTrackEvent {
+    type Error = crate::error::Error;
+
+    fn try_from(value: &LiveEvent<'a>) -> Result<Self, Self::Error> {
+        let kind: OwnedTrackEventKind = TryFrom::try_from(value)?;
+        Ok(Self { delta: 0, kind })
     }
 }
 
