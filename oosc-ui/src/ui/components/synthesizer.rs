@@ -1,12 +1,15 @@
 use std::rc::Rc;
 
 use crossterm::event::KeyCode;
-use oosc_core::core::{oscillator::WavetableOscillator, synthesizer::Synthesizer};
+use oosc_core::{
+    core::{oscillator::WavetableOscillator, synthesizer::Synthesizer},
+    utils::{make_shared, Shared},
+};
 use ratatui::prelude::*;
 
 use super::{
-    components_container::ComponentsContainer, oscillator::OscillatorComponent, Component, Focus,
-    FocusableComponent, FocusableComponentContext,
+    components_container::ComponentsContainer, menu_bar::MenuBar, oscillator::OscillatorComponent,
+    Component, Focus, FocusableComponent, FocusableComponentContext,
 };
 
 struct SynthesizerLayout {
@@ -15,7 +18,8 @@ struct SynthesizerLayout {
 }
 
 pub struct SynthesizerComponent {
-    pub oscillators: ComponentsContainer<OscillatorComponent>,
+    pub oscillators: Shared<ComponentsContainer<OscillatorComponent>>,
+    menu: MenuBar<OscillatorComponent>,
     context: FocusableComponentContext,
     layout: Option<SynthesizerLayout>,
 }
@@ -33,9 +37,12 @@ impl SynthesizerComponent {
                 .collect::<Vec<OscillatorComponent>>(),
         );
         oscillators.draw_only_focused(true);
+        let oscillators = make_shared(oscillators);
+        let menu = MenuBar::new(oscillators.clone());
         let context = FocusableComponentContext::new().wrapper(true);
         Self {
             oscillators,
+            menu,
             context,
             layout: None,
         }
@@ -71,7 +78,9 @@ impl Component for SynthesizerComponent {
         }
         let layout = self.layout.as_ref().unwrap();
         let _rect = layout.rect;
-        self.oscillators.draw_in_layout(f, &layout.oscillators)?;
+        self.menu.draw(f, _rect)?;
+        let mut oscillators = self.oscillators.write().unwrap();
+        oscillators.draw_in_layout(f, &layout.oscillators)?;
         Ok(())
     }
 
@@ -86,14 +95,25 @@ impl Component for SynthesizerComponent {
                     .collect::<Vec<_>>(),
             )
             .split(rect); */
-        let oscillators = Rc::new(vec![rect; self.oscillators.components.len()]);
-        self.oscillators.resize_in_layout(&oscillators)?;
-        self.layout = Some(SynthesizerLayout { rect, oscillators });
+        let osc_rect = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(1), Constraint::Min(0)])
+            .split(rect);
+
+        let mut oscillators = self.oscillators.write().unwrap();
+        let oscillators_layout = Rc::new(vec![osc_rect[1]; oscillators.components.len()]);
+        oscillators.resize_in_layout(&oscillators_layout)?;
+        self.menu.resize(osc_rect[0])?;
+        self.layout = Some(SynthesizerLayout {
+            rect,
+            oscillators: oscillators_layout,
+        });
         Ok(())
     }
 
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
-        self.oscillators.handle_key_events(key)
+        let mut oscillators = self.oscillators.write().unwrap();
+        oscillators.handle_key_events(key)
     }
 }
 
@@ -107,7 +127,7 @@ impl Focus for SynthesizerComponent {
     }
 
     fn is_focused(&self) -> bool {
-        self.oscillators.is_any_focused()
+        self.oscillators.read().unwrap().is_any_focused()
     }
 
     fn keymap(&self) -> Option<crossterm::event::KeyCode> {

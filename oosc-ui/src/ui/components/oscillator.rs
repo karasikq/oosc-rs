@@ -15,7 +15,7 @@ use super::{
     envelope::EnvelopeComponent,
     parameter::{ParameterComponentF32, ParameterComponentI32},
     wavetable::WavetableComponent,
-    AutoFocus, Component, Focus, FocusableComponent, FocusableComponentContext,
+    AutoFocus, Component, Focus, FocusableComponent, FocusableComponentContext, Named,
 };
 
 struct OscillatorLayout {
@@ -161,6 +161,18 @@ impl FocusableComponent for OscillatorComponent {
     }
 }
 
+impl Named for OscillatorComponent {
+    fn name(&self) -> Vec<Span<'static>> {
+        vec![
+            Span::styled("osc", Style::default().fg(Color::Yellow)),
+            Span::styled(
+                keycode_to_string_prefixed(self.keymap(), "[", "]"),
+                Style::default().fg(Color::Red),
+            ),
+        ]
+    }
+}
+
 impl Component for OscillatorComponent {
     fn draw(
         &mut self,
@@ -174,11 +186,7 @@ impl Component for OscillatorComponent {
         let buf = f.buffer_mut();
         let b = Block::default()
             .borders(Borders::ALL)
-            .title(format!(
-                "{}{}",
-                "osc",
-                keycode_to_string_prefixed(self.keymap(), "[", "]")
-            ))
+            .title(self.name())
             .border_type(BorderType::Rounded)
             .title_alignment(Alignment::Center)
             .style(Style::default().fg(self.color()));
