@@ -5,11 +5,38 @@ use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent};
 use oosc_core::utils::{make_shared, Shared};
 use ratatui::{prelude::Rect, style::Color, Frame};
 
+use crate::ui::observer::{Notifier, NotifierContainer};
+
 use super::{Component, Focus, FocusableComponent, FocusableComponentContext};
+
+pub enum ContainerEvent<T>
+where
+    T: FocusableComponent + ?Sized + 'static,
+{
+    FocusChanged { index: i32, component: Shared<T> },
+    Unfocus { last_focus: Shared<T> },
+}
+
+impl<T> Clone for ContainerEvent<T>
+where
+    T: FocusableComponent + ?Sized + 'static,
+{
+    fn clone(&self) -> Self {
+        match self {
+            ContainerEvent::FocusChanged { index, component } => ContainerEvent::FocusChanged {
+                index: *index,
+                component: component.clone(),
+            },
+            ContainerEvent::Unfocus { last_focus } => ContainerEvent::Unfocus {
+                last_focus: last_focus.clone(),
+            },
+        }
+    }
+}
 
 pub struct ComponentsContainer<T>
 where
-    T: FocusableComponent + ?Sized,
+    T: FocusableComponent + ?Sized + 'static,
 {
     pub components: Vec<Shared<T>>,
     pub ctx: FocusableComponentContext,
@@ -19,6 +46,7 @@ where
     previous_keymap: Option<KeyCode>,
     last_focus: Option<Shared<T>>,
     current: i32,
+    notifier: NotifierContainer<ContainerEvent<T>>,
 }
 
 impl<T> FocusableComponent for ComponentsContainer<T>
@@ -76,6 +104,7 @@ where
             previous_keymap: None,
             last_focus: None,
             current: 0,
+            notifier: NotifierContainer::new(),
         }
     }
 
@@ -207,6 +236,8 @@ where
         if let Some(last) = last.clone() {
             if !last.read().unwrap().is_focused() {
                 self.last_focus = None;
+                self.notifier
+                    .notify(ContainerEvent::Unfocus { last_focus: last })
             }
         }
     }
@@ -376,6 +407,7 @@ where
             last_focus: None,
             current: 0,
             draw_only_focused: false,
+            notifier: NotifierContainer::new(),
         }
     }
 }
@@ -395,6 +427,7 @@ where
             last_focus: None,
             current: 0,
             draw_only_focused: false,
+            notifier: NotifierContainer::new(),
         }
     }
 }
