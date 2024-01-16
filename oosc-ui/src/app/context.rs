@@ -5,7 +5,7 @@ use crossterm::{
     terminal::{self, enable_raw_mode, EnterAlternateScreen},
 };
 use midir::{Ignore, MidiInput, MidiInputConnection};
-use midly::{live::LiveEvent, MidiMessage};
+use midly::live::LiveEvent;
 use std::{
     io::Stdout,
     sync::{Arc, Mutex, RwLock},
@@ -23,7 +23,6 @@ use oosc_core::{
         StreamCallback,
     },
     core::{
-        note::Note,
         oscillator::{OscillatorBuilder, WavetableOscillator},
         synthesizer::{Synthesizer, SynthesizerBuilder},
         waveshape::WaveShape,
@@ -31,7 +30,11 @@ use oosc_core::{
     },
     effects::{amplifier::Amplifier, chorus::Chorus, compressor::Compressor, delay::Delay},
     error::Error,
-    midi::playback::{MidiPlayback, SmfPlayback},
+    midi::{
+        mediator::{MidiEventReceiver, MidiSynthesizerMediator},
+        playback::{MidiPlayback, SmfPlayback},
+        smf_extensions::OwnedTrackEvent,
+    },
     utils::{
         adsr_envelope::ADSREnvelope,
         interpolation::InterpolateMethod,
@@ -97,14 +100,16 @@ impl Context {
                 .build()?,
         ));
 
-        let synthesizer_cloned = synthesizer.clone();
-        let synthesizer_callback = make_shared_mutex(SynthesizerStreamCallback(synthesizer_cloned));
+        let synthesizer_callback =
+            make_shared_mutex(SynthesizerStreamCallback(synthesizer.clone()));
 
-        let synthesizer_cloned = synthesizer.clone();
+        let midi_mediator = make_shared_mutex(MidiSynthesizerMediator::new(synthesizer.clone()));
         let midi_control = make_shared_mutex(SmfPlayback::default());
         let midi_control_cloned = midi_control.clone();
-        let midi_callback =
-            make_shared_mutex(MidiStreamCallback(midi_control_cloned, synthesizer_cloned));
+        let midi_callback = make_shared_mutex(MidiStreamCallback(
+            midi_control_cloned,
+            midi_mediator.clone(),
+        ));
 
         let render_control = make_shared_mutex(StreamWavRenderer::from(&settings));
         let render_callback = make_shared_mutex(RenderStreamCallback(render_control.clone()));
@@ -115,7 +120,7 @@ impl Context {
             render: render_callback,
         };
 
-        let midi_input = Self::build_midi_input(synthesizer.clone());
+        let midi_input = Self::build_midi_input(midi_mediator);
         let midi = match midi_input.is_ok() {
             true => {
                 let input = make_shared(midi_input.unwrap());
@@ -188,39 +193,22 @@ impl Context {
     }
 
     fn build_midi_input(
-        synthesizer: SharedMutex<Synthesizer>,
+        mediator: SharedMutex<dyn MidiEventReceiver>,
     ) -> Result<MidiInputConnection<()>, anyhow::Error> {
         let mut midi_in = MidiInput::new("oosc")?;
         midi_in.ignore(Ignore::None);
         let binding = midi_in.ports();
         let in_port = binding.get(0).unwrap();
-        let synthesizer = synthesizer.clone();
+        let mediator = mediator.clone();
         let connection = midi_in
             .connect(
                 in_port,
                 "oosc-input",
                 move |_stamp, message, _| {
-                    let event = LiveEvent::parse(message).unwrap();
-                    if let LiveEvent::Midi {
-                        channel: _,
-                        message,
-                    } = event
-                    {
-                        match message {
-                            MidiMessage::NoteOn { key, vel } => {
-                                let mut syn = synthesizer.lock().unwrap();
-                                let key = key.as_int();
-                                let vel = vel.as_int();
-                                let _ = syn.note_on(Note::new(key.into(), vel.into()));
-                            }
-                            MidiMessage::NoteOff { key, .. } => {
-                                let mut syn = synthesizer.lock().unwrap();
-                                let key = key.as_int();
-                                syn.note_off(key.into()).unwrap();
-                            }
-                            _ => {}
-                        }
-                    }
+                    let event =
+                        OwnedTrackEvent::try_from(&LiveEvent::parse(message).unwrap()).unwrap();
+                    let mut receiver = mediator.lock().unwrap();
+                    receiver.receive_event(&event).unwrap();
                 },
                 (),
             )
