@@ -3,9 +3,11 @@ pub mod components_container;
 pub mod envelope;
 pub mod oscillator;
 pub mod parameter;
+pub mod record;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
+pub mod keyboard;
 use std::any::Any;
 
 use anyhow::Result;
@@ -58,6 +60,7 @@ pub struct FocusableComponentContext {
     pub focused_color: Option<Color>,
     pub unfocused_color: Option<Color>,
     pub focused: bool,
+    pub wrapper: bool,
 }
 
 impl FocusableComponentContext {
@@ -67,6 +70,7 @@ impl FocusableComponentContext {
             focused_color: None,
             unfocused_color: None,
             focused: false,
+            wrapper: false,
         }
     }
 
@@ -75,6 +79,11 @@ impl FocusableComponentContext {
             keymap: Some(keymap),
             ..self
         }
+    }
+
+    pub fn set_keymap(&mut self, keymap: KeyCode) -> &mut Self {
+        self.keymap = Some(keymap);
+        self
     }
 
     pub fn focused_color(self, color: Color) -> FocusableComponentContext {
@@ -93,6 +102,10 @@ impl FocusableComponentContext {
 
     pub fn focused(self, focused: bool) -> FocusableComponentContext {
         FocusableComponentContext { focused, ..self }
+    }
+
+    pub fn wrapper(self, wrapper: bool) -> FocusableComponentContext {
+        FocusableComponentContext { wrapper, ..self }
     }
 }
 
@@ -135,7 +148,9 @@ pub trait FocusableComponent: Component + Focus {
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-impl<T: FocusableComponent> Focus for T {
+pub trait AutoFocus: FocusableComponent {}
+
+impl<T: AutoFocus> Focus for T {
     fn focus(&mut self) {
         self.context_mut().focus()
     }

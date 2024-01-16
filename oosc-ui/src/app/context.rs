@@ -1,8 +1,11 @@
 use anyhow::Result;
 use crossterm::{
+    event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags},
     execute,
     terminal::{self, enable_raw_mode, EnterAlternateScreen},
 };
+use midir::{Ignore, MidiInput, MidiInputConnection};
+use midly::{live::LiveEvent, MidiMessage};
 use std::{
     io::Stdout,
     sync::{Arc, Mutex, RwLock},
@@ -20,6 +23,7 @@ use oosc_core::{
         StreamCallback,
     },
     core::{
+        note::Note,
         oscillator::{OscillatorBuilder, WavetableOscillator},
         synthesizer::{Synthesizer, SynthesizerBuilder},
         waveshape::WaveShape,
@@ -54,12 +58,17 @@ impl CallbacksData {
     }
 }
 
+pub struct MidiContext {
+    pub input: Shared<MidiInputConnection<()>>,
+}
+
 pub struct Context {
     pub synthesizer: SharedMutex<Synthesizer>,
     pub callbacks: CallbacksData,
     pub midi_control: SharedMutex<dyn MidiPlayback>,
     pub render_control: SharedMutex<StreamWavRenderer>,
     pub terminal: AppTerminal,
+    pub midi: Option<MidiContext>,
 }
 
 impl Context {
@@ -105,6 +114,16 @@ impl Context {
             smf: midi_callback,
             render: render_callback,
         };
+
+        let midi_input = Self::build_midi_input(synthesizer.clone());
+        let midi = match midi_input.is_ok() {
+            true => {
+                let input = make_shared(midi_input.unwrap());
+                Some(MidiContext { input })
+            }
+            false => None,
+        };
+
         let terminal = build_terminal()?;
         setup_panic_hook();
 
@@ -114,6 +133,7 @@ impl Context {
             midi_control,
             render_control,
             terminal,
+            midi,
         })
     }
 
@@ -166,10 +186,55 @@ impl Context {
                 .build()?,
         ))
     }
+
+    fn build_midi_input(
+        synthesizer: SharedMutex<Synthesizer>,
+    ) -> Result<MidiInputConnection<()>, anyhow::Error> {
+        let mut midi_in = MidiInput::new("oosc")?;
+        midi_in.ignore(Ignore::None);
+        let binding = midi_in.ports();
+        let in_port = binding.get(0).unwrap();
+        let synthesizer = synthesizer.clone();
+        let connection = midi_in
+            .connect(
+                in_port,
+                "oosc-input",
+                move |_stamp, message, _| {
+                    let event = LiveEvent::parse(message).unwrap();
+                    if let LiveEvent::Midi {
+                        channel: _,
+                        message,
+                    } = event
+                    {
+                        match message {
+                            MidiMessage::NoteOn { key, vel } => {
+                                let mut syn = synthesizer.lock().unwrap();
+                                let key = key.as_int();
+                                let vel = vel.as_int();
+                                let _ = syn.note_on(Note::new(key.into(), vel.into()));
+                            }
+                            MidiMessage::NoteOff { key, .. } => {
+                                let mut syn = synthesizer.lock().unwrap();
+                                let key = key.as_int();
+                                syn.note_off(key.into()).unwrap();
+                            }
+                            _ => {}
+                        }
+                    }
+                },
+                (),
+            )
+            .unwrap();
+        Ok(connection)
+    }
 }
 
 fn build_terminal() -> Result<AppTerminal> {
     let mut stdout = std::io::stdout();
+    execute!(
+        stdout,
+        PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+    )?;
     anyhow::Context::context(enable_raw_mode(), "Failed to enable raw mode")?;
     anyhow::Context::context(
         execute!(stdout, EnterAlternateScreen),

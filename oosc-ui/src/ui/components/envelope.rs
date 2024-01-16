@@ -13,7 +13,7 @@ use ratatui::{
 use crate::ui::utils::keycode_to_string_prefixed;
 
 use super::{
-    bezier::BezierComponent, Component, Focus, FocusableComponent, FocusableComponentContext,
+    bezier::BezierComponent, Component, Focus, FocusableComponent, FocusableComponentContext, AutoFocus,
 };
 
 #[derive(Eq, PartialEq, Hash, Clone, Copy)]
@@ -40,6 +40,8 @@ pub struct EnvelopeComponent {
     line: Vec<canvas::Line>,
     layout: Option<EnvelopeLayout>,
 }
+
+impl AutoFocus for EnvelopeComponent {}
 
 impl FocusableComponent for EnvelopeComponent {
     fn context(&self) -> &FocusableComponentContext {
@@ -173,33 +175,39 @@ impl Component for EnvelopeComponent {
     }
 
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
-        if !self.is_focused() {
-            return Ok(());
+        if self.state == ShowState::Info && key.code == KeyCode::Esc {
+            self.unfocus();
+            self.bezier.unfocus();
+            return Ok(())
         }
         self.bezier.handle_key_events(key)?;
         match key.code {
             KeyCode::Esc => {
-                self.unfocus();
                 self.state = ShowState::Info;
+                self.bezier.unfocus();
             }
             c => {
                 if c == self.envelope_keymaps[&ShowState::Attack] {
                     self.state = ShowState::Attack;
                     self.bezier.new_curve(&self.envelope.read().unwrap().attack);
+                    self.bezier.focus();
                 }
                 if c == self.envelope_keymaps[&ShowState::Decay] {
                     self.state = ShowState::Decay;
-                    self.bezier.new_curve(&self.envelope.read().unwrap().decay)
+                    self.bezier.new_curve(&self.envelope.read().unwrap().decay);
+                    self.bezier.focus();
                 }
                 if c == self.envelope_keymaps[&ShowState::Sustain] {
                     self.state = ShowState::Sustain;
                     self.bezier
-                        .new_curve(&self.envelope.read().unwrap().sustain)
+                        .new_curve(&self.envelope.read().unwrap().sustain);
+                    self.bezier.focus();
                 }
-                if c == self.envelope_keymaps[&ShowState::Decay] {
+                if c == self.envelope_keymaps[&ShowState::Release] {
                     self.state = ShowState::Release;
                     self.bezier
-                        .new_curve(&self.envelope.read().unwrap().release)
+                        .new_curve(&self.envelope.read().unwrap().release);
+                    self.bezier.focus();
                 }
             }
         };

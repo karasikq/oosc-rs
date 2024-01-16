@@ -8,14 +8,14 @@ use oosc_core::{
 };
 use ratatui::{prelude::*, widgets::*};
 
-use crate::ui::observer::Notifier;
+use crate::ui::{observer::Notifier, utils::keycode_to_string_prefixed};
 
 use super::{
     components_container::ComponentsContainer,
     envelope::EnvelopeComponent,
     parameter::{ParameterComponentF32, ParameterComponentI32},
     wavetable::WavetableComponent,
-    Component, Focus, FocusableComponent, FocusableComponentContext,
+    AutoFocus, Component, Focus, FocusableComponent, FocusableComponentContext,
 };
 
 struct OscillatorLayout {
@@ -33,6 +33,8 @@ pub struct OscillatorComponent {
     context: FocusableComponentContext,
     layout: Option<OscillatorLayout>,
 }
+
+impl AutoFocus for OscillatorComponent {}
 
 impl OscillatorComponent {
     pub fn new(oscillator: LockedOscillator, keymap: KeyCode) -> Self {
@@ -90,10 +92,12 @@ impl OscillatorComponent {
                 Direction::Vertical,
                 KeyCode::Char('o'),
             )),
-            make_shared(ParameterComponentI32::new(
+            make_shared(ParameterComponentF32::new(
                 "Cents".to_owned(),
                 osc.cents_offset(),
                 Direction::Vertical,
+                200,
+                InterpolateMethod::Linear,
                 KeyCode::Char('c'),
             )),
             make_shared(ParameterComponentF32::new(
@@ -163,11 +167,18 @@ impl Component for OscillatorComponent {
         f: &mut ratatui::Frame<'_>,
         _rect: ratatui::prelude::Rect,
     ) -> anyhow::Result<()> {
-        let layout = self.layout.as_ref().context("Cannot get OscillatorComponent layout")?;
+        let layout = self
+            .layout
+            .as_ref()
+            .context("Cannot get OscillatorComponent layout")?;
         let buf = f.buffer_mut();
         let b = Block::default()
             .borders(Borders::ALL)
-            .title("osc")
+            .title(format!(
+                "{}{}",
+                "osc",
+                keycode_to_string_prefixed(self.keymap(), "[", "]")
+            ))
             .border_type(BorderType::Rounded)
             .title_alignment(Alignment::Center)
             .style(Style::default().fg(self.color()));
@@ -198,10 +209,18 @@ impl Component for OscillatorComponent {
     }
 
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
-        if !self.is_focused() {
-            return Ok(());
+        if !self.parametrs.is_any_focused()
+            && !self.components.is_any_focused()
+            && key.code == KeyCode::Esc
+        {
+            self.unfocus()
         }
-        self.parametrs.handle_key_events(key)?;
-        self.components.handle_key_events(key)
+        if !self.parametrs.is_any_focused() {
+            self.components.handle_key_events(key)?;
+        }
+        if !self.components.is_any_focused() {
+            self.parametrs.handle_key_events(key)?;
+        }
+        Ok(())
     }
 }

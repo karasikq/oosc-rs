@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent};
-use oosc_core::utils::Shared;
-use ratatui::{prelude::Rect, Frame};
+use oosc_core::utils::{make_shared, Shared};
+use ratatui::{prelude::Rect, style::Color, Frame};
 
 use super::{Component, Focus, FocusableComponent, FocusableComponentContext};
 
@@ -43,7 +43,7 @@ where
 
 impl<T> Default for ComponentsContainer<T>
 where
-    T: FocusableComponent + ?Sized,
+    T: FocusableComponent + ?Sized + 'static,
 {
     fn default() -> Self {
         Self::new()
@@ -63,12 +63,12 @@ where
 
 impl<T> ComponentsContainer<T>
 where
-    T: FocusableComponent + ?Sized,
+    T: FocusableComponent + ?Sized + 'static,
 {
     pub fn new() -> Self {
         Self {
             components: vec![],
-            ctx: FocusableComponentContext::new(),
+            ctx: FocusableComponentContext::new().focused(true),
             active_if_child_focused: false,
             next_keymap: None,
             previous_keymap: None,
@@ -92,6 +92,12 @@ where
         self
     }
 
+    pub fn is_any_focused(&self) -> bool {
+        self.components
+            .iter()
+            .any(|c| c.read().unwrap().is_focused())
+    }
+
     pub fn container(&mut self) -> &mut Vec<Shared<T>> {
         &mut self.components
     }
@@ -109,6 +115,21 @@ where
                     .unwrap()
                     .draw(f, *layout.get(i).context("Cannot get layout")?)
             })
+    }
+
+    pub fn resize_in_layout(&mut self, layout: &[Rect]) -> Result<()> {
+        self.components
+            .iter_mut()
+            .enumerate()
+            .try_for_each(|(i, c)| {
+                c.write()
+                    .unwrap()
+                    .resize(*layout.get(i).context("Cannot get layout")?)
+            })
+    }
+
+    pub fn focus_current(&mut self) {
+        self.focus_on(self.current)
     }
 
     pub fn focus_next(&mut self) {
@@ -148,6 +169,15 @@ where
         })
     }
 
+    fn unfocus_last(&mut self) {
+        let last = self.last_focus.clone();
+        if let Some(last) = last.clone() {
+            if !last.read().unwrap().is_focused() {
+                self.last_focus = None;
+            }
+        }
+    }
+
     fn focus_if_key(&mut self, key: KeyCode) -> Option<FocusContextResult<T>> {
         for p in self.components.iter() {
             if p.read().unwrap().keymap() == Some(key) {
@@ -155,6 +185,24 @@ where
             }
         }
         None
+    }
+
+    fn handle_container_key(&mut self, key: KeyCode) {
+        if let Some(keymap) = self.keymap() {
+            if key == keymap {
+                self.focus()
+            }
+        }
+        if let Some(next) = self.next_keymap {
+            if next == key {
+                self.focus_next()
+            }
+        }
+        if let Some(previous) = self.previous_keymap {
+            if previous == key {
+                self.focus_previous()
+            }
+        }
     }
 }
 
@@ -196,43 +244,33 @@ where
     }
 
     fn handle_key_events(&mut self, key: KeyEvent) -> Result<()> {
-        /* if !self.is_focused() {
-            return Ok(());
-        } */
-        if !self
-            .components
-            .iter()
-            .any(|c| c.read().unwrap().is_focused())
-            || self.active_if_child_focused
-        {
-            self.focus_if_key(key.code);
-            match key.code {
-                KeyCode::Esc => self.unfocus(),
-                c => {
-                    if let Some(keymap) = self.keymap() {
-                        if c == keymap {
-                            self.focus()
-                        }
-                    }
-                    if let Some(next) = self.next_keymap {
-                        if next == c {
-                            self.focus_next()
-                        }
-                    }
-                    if let Some(previous) = self.previous_keymap {
-                        if previous == c {
-                            self.focus_previous()
-                        }
-                    }
-                }
-            };
+        self.unfocus_last();
+        if !self.is_any_focused() || self.active_if_child_focused {
+            let focus_result = self.focus_if_key(key.code);
+            if focus_result.is_none() {
+                self.components
+                    .iter_mut()
+                    .filter(|c| c.read().unwrap().context().wrapper)
+                    .try_for_each(|c| {
+                        c.write()
+                            .unwrap()
+                            .handle_key_events(key)
+                            .context("Wrapper component handle key event error")
+                    })?;
+                self.handle_container_key(key.code);
+            } else {
+                return Ok(());
+            }
         }
-        self.components.iter_mut().try_for_each(|c| {
-            c.write()
-                .unwrap()
-                .handle_key_events(key)
-                .context("Child component handle key event error")
-        })
+        self.components
+            .iter_mut()
+            .filter(|c| c.read().unwrap().is_focused())
+            .try_for_each(|c| {
+                c.write()
+                    .unwrap()
+                    .handle_key_events(key)
+                    .context("Child component handle key event error")
+            })
     }
 
     fn handle_mouse_events(&mut self, mouse: MouseEvent) -> Result<()> {
@@ -254,6 +292,43 @@ where
     }
 }
 
+impl<T> Focus for ComponentsContainer<T>
+where
+    T: FocusableComponent + ?Sized + 'static,
+{
+    fn focus(&mut self) {
+        self.context_mut().focus()
+    }
+
+    fn unfocus(&mut self) {
+        self.context_mut().unfocus()
+    }
+
+    fn is_focused(&self) -> bool {
+        self.context().is_focused()
+    }
+
+    fn keymap(&self) -> Option<crossterm::event::KeyCode> {
+        self.context().keymap()
+    }
+
+    fn color(&self) -> Color {
+        if self.is_focused() {
+            *self
+                .context()
+                .focused_color
+                .as_ref()
+                .unwrap_or(&Color::Yellow)
+        } else {
+            *self
+                .context()
+                .unfocused_color
+                .as_ref()
+                .unwrap_or(&Color::Gray)
+        }
+    }
+}
+
 impl<T> From<Vec<Shared<T>>> for ComponentsContainer<T>
 where
     T: FocusableComponent + ?Sized,
@@ -261,6 +336,24 @@ where
     fn from(value: Vec<Shared<T>>) -> Self {
         Self {
             components: value,
+            ctx: FocusableComponentContext::new(),
+            active_if_child_focused: false,
+            previous_keymap: None,
+            next_keymap: None,
+            last_focus: None,
+            current: 0,
+        }
+    }
+}
+
+impl<T> From<Vec<T>> for ComponentsContainer<T>
+where
+    T: FocusableComponent,
+{
+    fn from(value: Vec<T>) -> Self {
+        let components = value.into_iter().map(|c| make_shared(c)).collect();
+        Self {
+            components,
             ctx: FocusableComponentContext::new(),
             active_if_child_focused: false,
             previous_keymap: None,

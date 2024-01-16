@@ -10,11 +10,11 @@ use ratatui::{prelude::*, widgets::*};
 
 use crate::ui::{
     observer::{Notifier, NotifierContainer},
-    utils::keycode_to_string,
+    utils::keycode_to_string_prefixed,
     widgets::bar::BarWidget,
 };
 
-use super::{Component, Focus, FocusableComponent, FocusableComponentContext};
+use super::{AutoFocus, Component, Focus, FocusableComponent, FocusableComponentContext};
 
 pub struct ParameterLayout {
     pub rect: Rect,
@@ -109,6 +109,8 @@ impl ParameterComponentF32 {
     }
 }
 
+impl AutoFocus for ParameterComponentF32 {}
+
 impl FocusableComponent for ParameterComponentF32 {
     fn context(&self) -> &FocusableComponentContext {
         &self.context
@@ -135,6 +137,8 @@ pub struct ParameterComponentI32 {
     context: FocusableComponentContext,
     layout: Option<ParameterLayout>,
 }
+
+impl AutoFocus for ParameterComponentI32 {}
 
 impl FocusableComponent for ParameterComponentI32 {
     fn context(&self) -> &FocusableComponentContext {
@@ -299,9 +303,9 @@ impl<T: AnyParameterComponent + Focus> Component for T {
         let b = Block::default()
             .borders(Borders::ALL)
             .title(format!(
-                "{}[{}]",
-                self.name().as_str(),
-                keycode_to_string(self.keymap().unwrap_or(KeyCode::Null))
+                "{}{}",
+                self.name(),
+                keycode_to_string_prefixed(self.keymap(), "[", "]")
             ))
             .border_type(BorderType::Rounded)
             .title_alignment(Alignment::Center)
@@ -314,9 +318,6 @@ impl<T: AnyParameterComponent + Focus> Component for T {
     }
 
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
-        if !self.is_focused() {
-            return Ok(());
-        }
         match key.code {
             KeyCode::Char('h') => self.decrement(),
             KeyCode::Char('l') => self.increment(),
