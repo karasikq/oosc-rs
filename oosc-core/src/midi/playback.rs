@@ -1,6 +1,6 @@
 use midly::{Smf, Timing};
 
-use crate::error::Error;
+use crate::{error::Error, utils::SharedMutex};
 
 use super::{mediator::MidiEventReceiver, smf_extensions::OwnedSmf};
 
@@ -20,7 +20,7 @@ pub trait MidiPlayback: Sync + Send {
     fn process_events(
         &mut self,
         delta_time: f32,
-        event_receiver: &mut Box<dyn MidiEventReceiver>,
+        event_receiver: SharedMutex<dyn MidiEventReceiver>,
     ) -> Result<(), Error>;
     fn reset(&mut self);
 }
@@ -82,8 +82,9 @@ impl MidiPlayback for SmfPlayback {
     fn process_events(
         &mut self,
         delta_time: f32,
-        event_receiver: &mut Box<dyn MidiEventReceiver>,
+        event_receiver: SharedMutex<dyn MidiEventReceiver>,
     ) -> Result<(), Error> {
+        let mut receiver = event_receiver.lock().unwrap();
         match self.state {
             PlaybackState::Playing(mut t) => {
                 let data = self
@@ -110,7 +111,6 @@ impl MidiPlayback for SmfPlayback {
                         if current_ticks > playback_midi_ticks
                             || (current_ticks == 0 && playback_midi_ticks == 0)
                         {
-                            let receiver = event_receiver.as_mut();
                             receiver.receive_event(event)?;
                             last_event_ticks = current_ticks;
                         }

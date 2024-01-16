@@ -3,10 +3,8 @@ use std::sync::{Arc, Mutex};
 use crate::{
     core::synthesizer::Synthesizer,
     error::Error,
-    midi::{
-        mediator::{MidiEventReceiver, MidiSynthesizerMediator},
-        playback::{MidiPlayback, PlaybackState},
-    },
+    midi::{mediator::MidiEventReceiver, playback::MidiPlayback},
+    utils::SharedMutex,
 };
 
 use super::StreamCallback;
@@ -34,8 +32,8 @@ impl StreamCallback for SynthesizerStreamCallback {
 }
 
 pub struct MidiStreamCallback(
-    pub Arc<Mutex<dyn MidiPlayback>>,
-    pub Arc<Mutex<Synthesizer>>,
+    pub SharedMutex<dyn MidiPlayback>,
+    pub SharedMutex<dyn MidiEventReceiver>,
 );
 
 impl StreamCallback for MidiStreamCallback {
@@ -46,13 +44,7 @@ impl StreamCallback for MidiStreamCallback {
         _sample_rate: f32,
     ) -> std::result::Result<(), Error> {
         let mut playback = self.0.lock().unwrap();
-        if let PlaybackState::None = playback.get_state() {
-            return Ok(());
-        }
-        let syn = self.1.clone();
-        let mut synth_mediator: Box<dyn MidiEventReceiver> =
-            Box::new(MidiSynthesizerMediator::new(syn));
-        playback.process_events(time, &mut synth_mediator)?;
+        playback.process_events(time, self.1.clone())?;
         Ok(())
     }
 }

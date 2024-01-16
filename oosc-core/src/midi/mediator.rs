@@ -5,7 +5,7 @@ use crate::{
 
 use super::smf_extensions::{OwnedTrackEvent, OwnedTrackEventKind};
 
-pub trait MidiEventReceiver {
+pub trait MidiEventReceiver: Send + Sync {
     fn receive_event(&mut self, event: &OwnedTrackEvent) -> Result<(), Error>;
 }
 
