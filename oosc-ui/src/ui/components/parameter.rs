@@ -55,12 +55,12 @@ fn build_bar(parametr: &(impl AnyParameterComponent + Focus), rect: Rect) -> Bar
     }
 }
 
-#[derive(Eq, PartialEq, Hash)]
-pub enum ParameterEvent {
-    ValueChanged,
+#[derive(Clone)]
+pub enum ParameterEvent<T> {
+    ValueChanged(SharedParameter<T>),
 }
 
-type EventContainer<T> = NotifierContainer<ParameterEvent, SharedParameter<T>>;
+type EventContainer<T> = NotifierContainer<ParameterEvent<T>>;
 
 pub struct ParameterComponentF32 {
     name: String,
@@ -99,7 +99,7 @@ impl ParameterComponentF32 {
         }
     }
 
-    pub fn events(&mut self) -> &mut impl Notifier<SharedParameter<f32>, ParameterEvent> {
+    pub fn events(&mut self) -> &mut impl Notifier<ParameterEvent<f32>> {
         &mut self.events
     }
 
@@ -176,7 +176,7 @@ impl ParameterComponentI32 {
         }
     }
 
-    pub fn events(&mut self) -> &mut impl Notifier<SharedParameter<i32>, ParameterEvent> {
+    pub fn events(&mut self) -> &mut impl Notifier<ParameterEvent<i32>> {
         &mut self.events
     }
 }
@@ -211,7 +211,7 @@ impl AnyParameterComponent for ParameterComponentF32 {
             parametr.set_value(result);
         }
         self.events
-            .notify(ParameterEvent::ValueChanged, self.parametr.clone());
+            .notify(ParameterEvent::ValueChanged(self.parametr.clone()));
     }
 
     fn decrement(&mut self) {
@@ -223,7 +223,7 @@ impl AnyParameterComponent for ParameterComponentF32 {
             parametr.set_value(result);
         }
         self.events
-            .notify(ParameterEvent::ValueChanged, self.parametr.clone());
+            .notify(ParameterEvent::ValueChanged(self.parametr.clone()));
     }
 
     fn resize(&mut self, rect: Rect) {
@@ -264,7 +264,7 @@ impl AnyParameterComponent for ParameterComponentI32 {
             parametr.set_value(result);
         }
         self.events
-            .notify(ParameterEvent::ValueChanged, self.parametr.clone());
+            .notify(ParameterEvent::ValueChanged(self.parametr.clone()));
     }
 
     fn decrement(&mut self) {
@@ -274,7 +274,7 @@ impl AnyParameterComponent for ParameterComponentI32 {
             parametr.set_value(result);
         }
         self.events
-            .notify(ParameterEvent::ValueChanged, self.parametr.clone());
+            .notify(ParameterEvent::ValueChanged(self.parametr.clone()));
     }
 
     fn resize(&mut self, rect: Rect) {

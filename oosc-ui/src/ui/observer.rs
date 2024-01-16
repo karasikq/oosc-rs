@@ -1,26 +1,19 @@
 use oosc_core::utils::Shared;
 
-pub trait Observer<T, E> {
+pub trait Observer<T> {
     fn react(&mut self, value: T);
-    fn event(&self) -> E;
 }
 
-pub trait Notifier<T, E> {
-    fn subscribe<O: Observer<T, E> + 'static>(&mut self, observer: Shared<O>);
-    fn notify(&mut self, event: E, value: T);
+pub trait Notifier<T> {
+    fn subscribe<O: Observer<T> + 'static>(&mut self, observer: Shared<O>);
+    fn notify(&mut self, value: T);
 }
 
-pub struct NotifierContainer<E, T>
-where
-    E: Eq + PartialEq,
-{
-    observers: Vec<Shared<dyn Observer<T, E>>>,
+pub struct NotifierContainer<T> {
+    observers: Vec<Shared<dyn Observer<T>>>,
 }
 
-impl<E, T> NotifierContainer<E, T>
-where
-    E: Eq + PartialEq,
-{
+impl<T> NotifierContainer<T> {
     pub fn new() -> Self {
         Self {
             observers: Vec::new(),
@@ -28,31 +21,23 @@ where
     }
 }
 
-impl<E, T> Default for NotifierContainer<E, T>
-where
-    E: Eq + PartialEq,
-{
+impl<T> Default for NotifierContainer<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T, E> Notifier<T, E> for NotifierContainer<E, T>
+impl<T> Notifier<T> for NotifierContainer<T>
 where
     T: Clone,
-    E: Eq + PartialEq,
 {
-    fn subscribe<O: Observer<T, E> + Sized + 'static>(
-        &mut self,
-        observer: Shared<O>,
-    ) {
+    fn subscribe<O: Observer<T> + Sized + 'static>(&mut self, observer: Shared<O>) {
         self.observers.push(observer);
     }
 
-    fn notify(&mut self, event: E, value: T) {
+    fn notify(&mut self, value: T) {
         self.observers
             .iter_mut()
-            .filter(|o| o.read().unwrap().event() == event)
             .for_each(|o| o.write().unwrap().react(value.clone()));
     }
 }

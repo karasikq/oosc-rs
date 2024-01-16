@@ -1,5 +1,5 @@
 use oosc_core::{
-    core::{wavetable::WaveTable, parameter::SharedParameter},
+    core::wavetable::WaveTable,
     utils::{consts::PI_2M, evaluate::Evaluate, Shared},
 };
 use ratatui::{
@@ -9,7 +9,7 @@ use ratatui::{
 
 use crate::ui::observer::Observer;
 
-use super::{Component, parameter::ParameterEvent};
+use super::{parameter::ParameterEvent, Component};
 
 pub struct WavetableComponent {
     pub wavetable: Shared<WaveTable>,
@@ -87,12 +87,8 @@ impl Component for WavetableComponent {
     }
 }
 
-impl Observer<SharedParameter<i32>, ParameterEvent> for WavetableComponent {
-    fn react(&mut self, _value: SharedParameter<i32>) {
+impl Observer<ParameterEvent<i32>> for WavetableComponent {
+    fn react(&mut self, _value: ParameterEvent<i32>) {
         self.line = self.render_line();
-    }
-
-    fn event(&self) -> ParameterEvent {
-        ParameterEvent::ValueChanged
     }
 }
