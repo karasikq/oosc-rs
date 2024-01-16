@@ -13,6 +13,7 @@ where
 {
     pub components: Vec<Shared<T>>,
     pub ctx: FocusableComponentContext,
+    draw_only_focused: bool,
     active_if_child_focused: bool,
     next_keymap: Option<KeyCode>,
     previous_keymap: Option<KeyCode>,
@@ -69,6 +70,7 @@ where
         Self {
             components: vec![],
             ctx: FocusableComponentContext::new().focused(true),
+            draw_only_focused: false,
             active_if_child_focused: false,
             next_keymap: None,
             previous_keymap: None,
@@ -84,6 +86,11 @@ where
 
     pub fn previous_keymap(&mut self, keymap: KeyCode) -> &mut Self {
         self.previous_keymap = Some(keymap);
+        self
+    }
+
+    pub fn draw_only_focused(&mut self, value: bool) -> &mut Self {
+        self.draw_only_focused = value;
         self
     }
 
@@ -107,14 +114,39 @@ where
     }
 
     pub fn draw_in_layout(&mut self, f: &mut Frame<'_>, layout: &[Rect]) -> Result<()> {
-        self.components
-            .iter_mut()
-            .enumerate()
-            .try_for_each(|(i, c)| {
-                c.write()
-                    .unwrap()
-                    .draw(f, *layout.get(i).context("Cannot get layout")?)
-            })
+        match self.draw_only_focused {
+            true => {
+                if self.is_any_focused() {
+                    self.components
+                        .iter_mut()
+                        .filter(|c| c.read().unwrap().is_focused())
+                        .enumerate()
+                        .try_for_each(|(i, c)| {
+                            c.write()
+                                .unwrap()
+                                .draw(f, *layout.get(i).context("Cannot get layout")?)
+                        })
+                } else {
+                    let index = self.bounded_index(self.current) as usize;
+                    let mut c = self
+                        .components
+                        .get_mut(index)
+                        .context("Cannot get component")?
+                        .write()
+                        .unwrap();
+                    c.draw(f, *layout.get(index).context("Cannot get layout")?)
+                }
+            }
+            false => self
+                .components
+                .iter_mut()
+                .enumerate()
+                .try_for_each(|(i, c)| {
+                    c.write()
+                        .unwrap()
+                        .draw(f, *layout.get(i).context("Cannot get layout")?)
+                }),
+        }
     }
 
     pub fn resize_in_layout(&mut self, layout: &[Rect]) -> Result<()> {
@@ -141,14 +173,15 @@ where
     }
 
     pub fn focus_on(&mut self, index: i32) {
-        let len = self.components.len() as i32;
-        let mut index = index;
-        if index < 0 {
-            index = len + index % len;
-        }
-        self.current = (index % len).abs();
+        self.current = self.bounded_index(index);
         let component = self.components.get(self.current as usize).unwrap();
         self.focus_to(component.clone());
+    }
+
+    fn bounded_index(&self, index: i32) -> i32 {
+        let len = self.components.len() as i32;
+        let index = if index < 0 { len + index % len } else { index };
+        (index % len).abs()
     }
 
     fn focus_to(&mut self, component: Shared<T>) -> Option<FocusContextResult<T>> {
@@ -342,6 +375,7 @@ where
             next_keymap: None,
             last_focus: None,
             current: 0,
+            draw_only_focused: false,
         }
     }
 }
@@ -360,6 +394,7 @@ where
             next_keymap: None,
             last_focus: None,
             current: 0,
+            draw_only_focused: false,
         }
     }
 }

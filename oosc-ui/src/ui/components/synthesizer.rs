@@ -11,7 +11,7 @@ use super::{
 
 struct SynthesizerLayout {
     rect: Rect,
-    oscillators: Rc<[Rect]>,
+    oscillators: Rc<Vec<Rect>>,
 }
 
 pub struct SynthesizerComponent {
@@ -22,7 +22,7 @@ pub struct SynthesizerComponent {
 
 impl SynthesizerComponent {
     pub fn new(synthesizer: &Synthesizer) -> Self {
-        let oscillators = ComponentsContainer::from(
+        let mut oscillators = ComponentsContainer::from(
             synthesizer
                 .get_oscillators::<WavetableOscillator>()
                 .enumerate()
@@ -32,6 +32,7 @@ impl SynthesizerComponent {
                 })
                 .collect::<Vec<OscillatorComponent>>(),
         );
+        oscillators.draw_only_focused(true);
         let context = FocusableComponentContext::new().wrapper(true);
         Self {
             oscillators,
@@ -75,7 +76,7 @@ impl Component for SynthesizerComponent {
     }
 
     fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
-        let len = self.oscillators.components.len();
+        /* let len = self.oscillators.components.len();
         let size = 100 / len;
         let oscillators = Layout::default()
             .direction(Direction::Horizontal)
@@ -84,7 +85,8 @@ impl Component for SynthesizerComponent {
                     .take(len)
                     .collect::<Vec<_>>(),
             )
-            .split(rect);
+            .split(rect); */
+        let oscillators = Rc::new(vec![rect; self.oscillators.components.len()]);
         self.oscillators.resize_in_layout(&oscillators)?;
         self.layout = Some(SynthesizerLayout { rect, oscillators });
         Ok(())
