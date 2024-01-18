@@ -164,7 +164,7 @@ impl FocusableComponent for OscillatorComponent {
 impl Named for OscillatorComponent {
     fn name(&self) -> Vec<Span<'static>> {
         vec![
-            Span::styled("osc", Style::default().fg(Color::Yellow)),
+            Span::styled("osc", Style::default().fg(self.color())),
             Span::styled(
                 keycode_to_string_prefixed(self.keymap(), "[", "]"),
                 Style::default().fg(Color::Red),

@@ -182,7 +182,7 @@ impl<T: AutoFocus> Focus for T {
                 .context()
                 .focused_color
                 .as_ref()
-                .unwrap_or(&Color::Yellow)
+                .unwrap_or(&Color::Blue)
         } else {
             *self
                 .context()
