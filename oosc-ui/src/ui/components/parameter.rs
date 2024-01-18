@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crossterm::event::KeyCode;
 use oosc_core::{
     core::parameter::{Parameter, SharedParameter},
-    utils::interpolation::{interpolate_range, InterpolateMethod},
+    utils::interpolation::{interpolate_range, time_at, InterpolateMethod},
 };
 use ratatui::style::Style;
 use ratatui::{prelude::*, widgets::*};
@@ -84,8 +84,11 @@ impl ParameterComponentF32 {
         keymap: KeyCode,
     ) -> Self {
         let context = FocusableComponentContext::new().keymap(keymap);
-        let current_step =
-            Self::normalize_parametr(&*parametr.read().unwrap()) * (steps as f32 - 1.0);
+        let param_time = {
+            let param = parametr.read().unwrap();
+            time_at(param.get_value(), param.range(), interpolation_method)
+        };
+        let current_step = param_time * (steps as f32 - 1.0);
         Self {
             name,
             parametr,
