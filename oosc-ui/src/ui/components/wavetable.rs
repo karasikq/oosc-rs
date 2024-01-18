@@ -9,13 +9,16 @@ use ratatui::{
 
 use crate::ui::observer::Observer;
 
-use super::{parameter::ParameterEvent, Component};
+use super::{
+    parameter::ParameterEvent, AutoFocus, Component, Focus, FocusableComponent,
+    FocusableComponentContext,
+};
 
 pub struct WavetableComponent {
     pub wavetable: Shared<WaveTable>,
     pub samples: usize,
+    ctx: FocusableComponentContext,
     line: Vec<canvas::Line>,
-    color: Color,
 }
 
 impl WavetableComponent {
@@ -23,17 +26,13 @@ impl WavetableComponent {
         Self {
             wavetable,
             samples: 0,
+            ctx: FocusableComponentContext::new().focused(false),
             line: vec![],
-            color: Color::Red,
         }
     }
 
     pub fn samples(self, samples: usize) -> Self {
         Self { samples, ..self }
-    }
-
-    pub fn color(self, color: Color) -> Self {
-        Self { color, ..self }
     }
 
     pub fn build(mut self) -> Self {
@@ -46,7 +45,7 @@ impl WavetableComponent {
         let rate = PI_2M / self.samples as f32;
         (1..=self.samples)
             .map(|t| {
-                let mut line = canvas::Line::new(0.0, 0.0, 0.0, 0.0, self.color);
+                let mut line = canvas::Line::new(0.0, 0.0, 0.0, 0.0, self.color());
                 let x1 = (t - 1) as f32 * rate;
                 let x2 = t as f32 * rate;
                 line.x1 = x1 as f64;
@@ -74,7 +73,8 @@ impl Component for WavetableComponent {
             .block(
                 Block::default()
                     .borders(Borders::TOP | Borders::BOTTOM)
-                    .title("Wavetable"),
+                    .title("Wavetable")
+                    .style(Style::default().fg(self.color())),
             )
             .marker(Marker::Braille)
             .x_bounds([0.0, PI_2M as f64])
@@ -90,5 +90,25 @@ impl Component for WavetableComponent {
 impl Observer<ParameterEvent<i32>> for WavetableComponent {
     fn react(&mut self, _value: ParameterEvent<i32>) {
         self.line = self.render_line();
+    }
+}
+
+impl AutoFocus for WavetableComponent {}
+
+impl FocusableComponent for WavetableComponent {
+    fn context(&self) -> &FocusableComponentContext {
+        &self.ctx
+    }
+
+    fn context_mut(&mut self) -> &mut FocusableComponentContext {
+        &mut self.ctx
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
