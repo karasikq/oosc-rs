@@ -38,7 +38,7 @@ impl SynthesizerComponent {
         );
         oscillators.draw_only_focused(true);
         let oscillators = make_shared(oscillators);
-        let menu = MenuBar::new(oscillators.clone());
+        let menu = MenuBar::new(oscillators.clone(), "Menu");
         let context = FocusableComponentContext::new().wrapper(true);
         Self {
             oscillators,
@@ -97,7 +97,7 @@ impl Component for SynthesizerComponent {
             .split(rect); */
         let osc_rect = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(1), Constraint::Min(0)])
+            .constraints([Constraint::Length(3), Constraint::Min(0)])
             .split(rect);
 
         let mut oscillators = self.oscillators.write().unwrap();

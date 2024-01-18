@@ -16,7 +16,7 @@ pub struct Root {
 }
 
 impl Root {
-    pub fn new(ctx: &mut Context) -> Self {
+    pub fn new(ctx: &Context) -> Self {
         let synthesizer = ctx.synthesizer.lock().unwrap();
         let synthesizer = make_shared(SynthesizerComponent::new(&synthesizer));
         let recorder = ctx.render_control.clone();

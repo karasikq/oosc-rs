@@ -1,26 +1,37 @@
 use oosc_core::utils::Shared;
-use ratatui::{prelude::*, text::Span, widgets::Paragraph};
+use ratatui::{
+    prelude::*,
+    text::Span,
+    widgets::{Block, BorderType, Borders, Paragraph},
+};
 
 use super::{components_container::ComponentsContainer, Component, NamedFocusableComponent};
 
 type Container<C> = Shared<ComponentsContainer<C>>;
+
+struct MenuLayout {
+    pub rect: Rect,
+    pub inner: Rect,
+}
 
 pub struct MenuBar<C>
 where
     C: NamedFocusableComponent + ?Sized + 'static,
 {
     pub container: Container<C>,
-    rect: Option<Rect>,
+    title: &'static str,
+    layout: Option<MenuLayout>,
 }
 
 impl<C> MenuBar<C>
 where
     C: NamedFocusableComponent + ?Sized + 'static,
 {
-    pub fn new(container: Container<C>) -> Self {
+    pub fn new(container: Container<C>, title: &'static str) -> Self {
         Self {
             container,
-            rect: None,
+            title,
+            layout: None,
         }
     }
 
@@ -31,7 +42,7 @@ where
             .flat_map(|c| {
                 let c = c.read().unwrap();
                 let mut name_spans = c.name();
-                name_spans.push(Span::styled("|", Style::default().fg(c.color())));
+                name_spans.push(Span::styled(" | ", Style::default().fg(c.color())));
                 name_spans
             })
             .collect();
@@ -48,13 +59,22 @@ where
         f: &mut ratatui::Frame<'_>,
         _rect: ratatui::prelude::Rect,
     ) -> anyhow::Result<()> {
-        let rect = self.rect.unwrap();
-        f.render_widget(Self::build_paragraph(self.container.clone()), rect);
+        let layout = self.layout.as_ref().unwrap();
+        f.render_widget(Self::build_paragraph(self.container.clone()), layout.inner);
+        let b = Block::default()
+            .borders(Borders::ALL)
+            .title(self.title)
+            .border_type(BorderType::Rounded)
+            .title_alignment(Alignment::Center);
+        f.render_widget(b, layout.rect);
         Ok(())
     }
 
     fn resize(&mut self, rect: ratatui::prelude::Rect) -> anyhow::Result<()> {
-        self.rect = Some(rect);
+        self.layout = Some(MenuLayout {
+            rect,
+            inner: rect.inner(&Margin::new(1, 1)),
+        });
         Ok(())
     }
 }

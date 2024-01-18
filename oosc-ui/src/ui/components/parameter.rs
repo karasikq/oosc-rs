@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crossterm::event::KeyCode;
 use oosc_core::{
-    core::parameter::{Parameter, SharedParameter},
+    core::parameter::SharedParameter,
     utils::interpolation::{interpolate_range, time_at, InterpolateMethod},
 };
 use ratatui::style::Style;
@@ -104,11 +104,6 @@ impl ParameterComponentF32 {
 
     pub fn events(&mut self) -> &mut impl Notifier<ParameterEvent<f32>> {
         &mut self.events
-    }
-
-    fn normalize_parametr(param: &(impl Parameter<f32> + ?Sized)) -> f32 {
-        let range = param.range();
-        (param.get_value() - range.0) / (range.1 - range.0)
     }
 }
 
