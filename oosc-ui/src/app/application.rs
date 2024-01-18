@@ -20,9 +20,8 @@ impl Application {
             delta_time: 1.0 / 48000.0,
             buffer_size: 2048,
         };
-        let mut ctx = context::Context::build_default(&config)?;
-        let mut root = Root::new(&mut ctx);
-        root.resize(ctx.terminal.write().unwrap().current_buffer_mut().area)?;
+        let ctx = context::Context::build_default(&config)?;
+        let root = Root::new(&ctx);
         Ok(Application { ctx, config, root })
     }
 
@@ -55,6 +54,9 @@ impl Application {
     }
 
     fn main_loop(&mut self) -> Result<(), anyhow::Error> {
+        self.ctx.terminal.write().unwrap().clear()?;
+        let area = self.ctx.terminal.write().unwrap().current_buffer_mut().area;
+        self.root.resize(area)?;
         loop {
             thread::sleep(Duration::from_millis(16));
             if !self.read_events()? {
