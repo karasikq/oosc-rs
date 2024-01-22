@@ -2,11 +2,8 @@ use crate::utils::convert::{analog_from_corner, corner_angle};
 
 #[derive(Clone, Copy)]
 pub enum Coefficients {
-    // [a1, b0, b1] / a0
     FirstOrder { memory: [f32; 3] },
-    // [a1, a2, b0, b1, b2] / a0
     SecondOrder { memory: [f32; 5] },
-    // [a1, a2, a3, b0, b1, b2, b4] / a0
     ThirdOrder { memory: [f32; 7] },
 }
 
@@ -16,6 +13,7 @@ impl From<[f32; 3]> for Coefficients {
     }
 }
 
+// [a1, b0, b1] / a0
 impl From<[f32; 4]> for Coefficients {
     fn from(value: [f32; 4]) -> Self {
         let a0_inv = 1.0 / value[0];
@@ -30,6 +28,7 @@ impl From<[f32; 5]> for Coefficients {
     }
 }
 
+// [a1, a2, b0, b1, b2] / a0
 impl From<[f32; 6]> for Coefficients {
     fn from(value: [f32; 6]) -> Self {
         let a0_inv = 1.0 / value[0];
@@ -38,6 +37,7 @@ impl From<[f32; 6]> for Coefficients {
     }
 }
 
+// [a1, a2, a3, b0, b1, b2, b4] / a0
 impl From<[f32; 7]> for Coefficients {
     fn from(value: [f32; 7]) -> Self {
         Self::ThirdOrder { memory: value }
@@ -53,6 +53,14 @@ impl From<[f32; 8]> for Coefficients {
 }
 
 impl Coefficients {
+    pub fn order(&self) -> u32 {
+        match self {
+            Coefficients::FirstOrder { .. } => 1,
+            Coefficients::SecondOrder { .. } => 2,
+            Coefficients::ThirdOrder { .. } => 3,
+        }
+    }
+
     pub fn get(&self, index: usize) -> Option<f32> {
         match self {
             Coefficients::FirstOrder { memory } => memory.get(index).copied(),
