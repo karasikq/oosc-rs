@@ -1,6 +1,6 @@
 use crate::utils::consts::PI_4;
 
-use super::consts::ANALOG_TC;
+use super::consts::{ANALOG_TC, PI, PI_2M};
 
 #[inline]
 pub fn cents_to_freq(cents: i32) -> f32 {
@@ -58,4 +58,14 @@ pub fn cents_to_freq_coefficient(cents: f32) -> f32 {
 #[inline]
 pub fn octave_offset_to_notes(octave: i32) -> i32 {
     octave * 12
+}
+
+#[inline]
+pub fn corner_angle(sample_rate: f32, corner_frequency: f32) -> f32 {
+    PI_2M * corner_frequency / sample_rate
+}
+
+#[inline]
+pub fn analog_from_corner(sample_rate: f32, corner_frequency: f32) -> f32 {
+    (PI * corner_frequency / sample_rate).tan()
 }
