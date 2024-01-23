@@ -5,6 +5,7 @@ pub mod compressor;
 pub mod sample_detector;
 pub mod chorus;
 pub mod delay;
+pub mod filter;
 
 #[derive(Clone, Copy)]
 pub enum State {
