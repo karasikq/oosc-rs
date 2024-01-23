@@ -103,6 +103,7 @@ impl Coefficients {
                 for sample in samples {
                     let input = *sample;
                     let output = input * b0 + yn;
+                    *sample = output;
 
                     yn = (input * b1) - (output * a1);
                 }
@@ -121,6 +122,7 @@ impl Coefficients {
                 for sample in samples {
                     let input = *sample;
                     let output = input * b0 + y1;
+                    *sample = output;
 
                     y1 = (input * b1) - (output * a1) + y2;
                     y2 = (input * b2) - (output * a2);
@@ -144,6 +146,7 @@ impl Coefficients {
                 for sample in samples {
                     let input = *sample;
                     let output = input * b0 + y1;
+                    *sample = output;
 
                     y1 = (input * b1) - (output * a1) + y2;
                     y2 = (input * b2) - (output * a2) + y3;
@@ -153,6 +156,43 @@ impl Coefficients {
                 state[1] = y2;
                 state[2] = y3;
             }
+        }
+    }
+}
+
+impl Default for Coefficients {
+    fn default() -> Self {
+        From::from([0.0, 1.0, 0.0])
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum FilterType {
+    LPF1(f32),
+    LPF2 { frequency: f32, quality: f32 },
+    HPF1(f32),
+    HPF2 { frequency: f32, quality: f32 },
+    APF1(f32),
+    LPFButterworth(f32),
+    HPFButterworth(f32),
+}
+
+pub fn build_filter(filter: &FilterType, sample_rate: f32) -> Coefficients {
+    match filter {
+        FilterType::LPF1(frequency) => build_first_order_low_pass(sample_rate, *frequency),
+        FilterType::LPF2 { frequency, quality } => {
+            build_second_order_low_pass(sample_rate, *frequency, *quality)
+        }
+        FilterType::HPF1(frequency) => build_first_order_high_pass(sample_rate, *frequency),
+        FilterType::HPF2 { frequency, quality } => {
+            build_second_order_high_pass(sample_rate, *frequency, *quality)
+        }
+        FilterType::APF1(frequency) => build_first_order_all_pass(sample_rate, *frequency),
+        FilterType::LPFButterworth(frequency) => {
+            build_second_order_butterworth_low_pass(sample_rate, *frequency)
+        }
+        FilterType::HPFButterworth(frequency) => {
+            build_second_order_butterworth_high_pass(sample_rate, *frequency)
         }
     }
 }
