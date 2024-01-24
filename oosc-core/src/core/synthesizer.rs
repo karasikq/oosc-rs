@@ -1,6 +1,4 @@
-use std::sync::{Arc, Mutex, RwLock};
-
-use crate::effects::Effect;
+use crate::{utils::{Shared, SharedMutex}, effects::Effect};
 use rayon::prelude::*;
 
 use super::{note::Note, oscillator::Oscillator};
@@ -9,10 +7,10 @@ use crate::{
     utils::sample_buffer::{SampleBuffer, SampleBufferBuilder},
 };
 
-pub type LockedOscillator = Arc<RwLock<dyn Oscillator>>;
-pub type LockedEffect = Arc<RwLock<dyn Effect + Sync + Send>>;
+pub type LockedOscillator = Shared<dyn Oscillator>;
+pub type LockedEffect = Shared<dyn Effect>;
 
-pub type SyncSynthesizer = Arc<Mutex<Synthesizer>>;
+pub type SyncSynthesizer = SharedMutex<Synthesizer>;
 
 pub struct Synthesizer {
     buffer: SampleBuffer,
@@ -72,11 +70,12 @@ impl Synthesizer {
     {
         self.oscillators.iter().filter_map(|osc| {
             let osc_lock = osc.write().unwrap();
-            osc_lock
-                .as_any()
-                .downcast_ref::<T>()
-                .map(|_| osc.clone())
+            osc_lock.as_any().downcast_ref::<T>().map(|_| osc.clone())
         })
+    }
+
+    pub fn get_named_effects(&self) -> impl Iterator<Item = LockedEffect> + '_ {
+        self.effects.iter().cloned()
     }
 }
 
