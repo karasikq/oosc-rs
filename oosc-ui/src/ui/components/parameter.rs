@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crossterm::event::KeyCode;
 use oosc_core::{
-    core::parameter::SharedParameter,
+    core::parameter::{NamedParameter, SharedParameter},
     utils::interpolation::{interpolate_range, time_at, InterpolateMethod},
 };
 use ratatui::style::Style;
@@ -104,6 +104,23 @@ impl ParameterComponentF32 {
 
     pub fn events(&mut self) -> &mut impl Notifier<ParameterEvent<f32>> {
         &mut self.events
+    }
+
+    pub fn from_named(
+        named: &NamedParameter<f32>,
+        direction: Direction,
+        steps: i32,
+        interpolation_method: InterpolateMethod,
+        keymap: KeyCode,
+    ) -> Self {
+        Self::new(
+            named.name.to_owned(),
+            named.parameter.clone(),
+            direction,
+            steps,
+            interpolation_method,
+            keymap,
+        )
     }
 }
 

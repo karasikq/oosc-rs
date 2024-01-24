@@ -8,8 +8,9 @@ use oosc_core::{
 use ratatui::prelude::*;
 
 use super::{
-    components_container::ComponentsContainer, menu_bar::MenuBar, oscillator::OscillatorComponent,
-    Component, Focus, FocusableComponent, FocusableComponentContext,
+    components_container::ComponentsContainer, effect::EffectComponent, menu_bar::MenuBar,
+    oscillator::OscillatorComponent, Component, Focus, FocusableComponent,
+    FocusableComponentContext, NamedFocusableComponent,
 };
 
 struct SynthesizerLayout {
@@ -18,8 +19,8 @@ struct SynthesizerLayout {
 }
 
 pub struct SynthesizerComponent {
-    pub oscillators: Shared<ComponentsContainer<OscillatorComponent>>,
-    menu: MenuBar<OscillatorComponent>,
+    pub oscillators: Shared<ComponentsContainer<dyn NamedFocusableComponent>>,
+    menu: MenuBar<dyn NamedFocusableComponent>,
     context: FocusableComponentContext,
     layout: Option<SynthesizerLayout>,
 }
@@ -32,10 +33,14 @@ impl SynthesizerComponent {
                 .enumerate()
                 .map(|(i, osc)| {
                     let map = KeyCode::Char(char::from_digit(i as u32 + 1, 10).unwrap());
-                    OscillatorComponent::new(osc, map)
+                    make_shared(OscillatorComponent::new(osc, map))
+                        as Shared<dyn NamedFocusableComponent>
                 })
-                .collect::<Vec<OscillatorComponent>>(),
+                .collect::<Vec<Shared<dyn NamedFocusableComponent>>>(),
         );
+        let effect = synthesizer.get_named_effects().next().unwrap();
+        let effect = make_shared(EffectComponent::new(effect));
+        oscillators.components.push(effect);
         oscillators.draw_only_focused(true);
         let oscillators = make_shared(oscillators);
         let menu = MenuBar::new(oscillators.clone(), "Menu");
@@ -97,7 +102,11 @@ impl Component for SynthesizerComponent {
             .split(rect); */
         let osc_rect = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(3), Constraint::Min(0)])
+            .constraints([
+                Constraint::Length(3),
+                Constraint::Min(0),
+                Constraint::Length(3),
+            ])
             .split(rect);
 
         let mut oscillators = self.oscillators.write().unwrap();
