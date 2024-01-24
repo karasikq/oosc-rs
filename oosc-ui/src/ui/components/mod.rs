@@ -9,6 +9,7 @@ pub mod record;
 pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
+pub mod effect;
 use std::any::Any;
 
 use anyhow::Result;
