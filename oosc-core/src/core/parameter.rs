@@ -24,6 +24,35 @@ where
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
+pub struct NamedParameter<T>
+where
+    T: Clone,
+{
+    pub parameter: SharedParameter<T>,
+    pub name: &'static str,
+}
+
+impl<T> NamedParameter<T>
+where
+    T: Clone,
+{
+    pub fn new(parameter: SharedParameter<T>, name: &'static str) -> Self {
+        Self { parameter, name }
+    }
+}
+
+pub trait NamedParametersContainer {
+    fn name(&self) -> Option<&'static str> {
+        None
+    }
+    fn parameters_f32(&self) -> Option<&[NamedParameter<f32>]> {
+        None
+    }
+    fn parameters_i32(&self) -> Option<&[NamedParameter<f32>]> {
+        None
+    }
+}
+
 pub type SharedParameter<T> = Shared<dyn Parameter<T>>;
 
 pub struct ValueParameter<T>
