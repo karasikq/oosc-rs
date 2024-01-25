@@ -94,8 +94,8 @@ impl Context {
                 .add_osc(osc2)
                 .add_effect(amplifier)
                 .add_effect(chorus)
-                .add_effect(delay)
-                .add_effect(compressor)
+                // .add_effect(delay)
+                // .add_effect(compressor)
                 .set_sample_rate(config.sample_rate)
                 .build()?,
         ));

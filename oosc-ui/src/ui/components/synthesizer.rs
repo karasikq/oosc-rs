@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crossterm::event::KeyCode;
 use oosc_core::{
     core::{oscillator::WavetableOscillator, synthesizer::Synthesizer},
@@ -8,18 +6,17 @@ use oosc_core::{
 use ratatui::prelude::*;
 
 use super::{
-    components_container::ComponentsContainer, effect::EffectComponent, menu_bar::MenuBar,
-    oscillator::OscillatorComponent, Component, Focus, FocusableComponent,
+    components_container::ComponentsContainer, effects_container::EffectsContainer,
+    menu_bar::MenuBar, oscillator::OscillatorComponent, Component, Focus, FocusableComponent,
     FocusableComponentContext, NamedFocusableComponent,
 };
 
 struct SynthesizerLayout {
     rect: Rect,
-    // oscillators: Rc<Vec<Rect>>,
 }
 
 pub struct SynthesizerComponent {
-    pub oscillators: Shared<ComponentsContainer<dyn NamedFocusableComponent>>,
+    pub components: Shared<ComponentsContainer<dyn NamedFocusableComponent>>,
     menu: MenuBar<dyn NamedFocusableComponent>,
     context: FocusableComponentContext,
     layout: Option<SynthesizerLayout>,
@@ -38,15 +35,15 @@ impl SynthesizerComponent {
                 })
                 .collect::<Vec<Shared<dyn NamedFocusableComponent>>>(),
         );
-        let effect = synthesizer.get_named_effects().next().unwrap();
-        let effect = make_shared(EffectComponent::new(effect));
-        oscillators.components.push(effect);
+        let effects = synthesizer.get_named_effects();
+        let effects = make_shared(EffectsContainer::new(effects));
+        oscillators.components.push(effects);
         oscillators.draw_only_focused(true);
         let oscillators = make_shared(oscillators);
         let menu = MenuBar::new(oscillators.clone(), "Menu");
         let context = FocusableComponentContext::new().wrapper(true);
         Self {
-            oscillators,
+            components: oscillators,
             menu,
             context,
             layout: None,
@@ -76,49 +73,33 @@ impl Component for SynthesizerComponent {
     fn draw(
         &mut self,
         f: &mut ratatui::Frame<'_>,
-        _rect: ratatui::prelude::Rect,
+        rect: ratatui::prelude::Rect,
     ) -> anyhow::Result<()> {
         if self.layout.is_none() {
             return Err(oosc_core::error::Error::from("Create layout before draw"))?;
         }
-        let layout = self.layout.as_ref().unwrap();
-        let rect = layout.rect;
+        let _rect = self.layout.as_ref().unwrap().rect;
         self.menu.draw(f, rect)?;
-        let mut oscillators = self.oscillators.write().unwrap();
+        let mut oscillators = self.components.write().unwrap();
         oscillators.draw(f, rect)?;
         Ok(())
     }
 
     fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
-        /* let len = self.oscillators.components.len();
-        let size = 100 / len;
-        let oscillators = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints(
-                std::iter::repeat_with(|| Constraint::Percentage(size as u16))
-                    .take(len)
-                    .collect::<Vec<_>>(),
-            )
-            .split(rect); */
         let osc_rect = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(3),
-                Constraint::Min(0),
-            ])
+            .constraints([Constraint::Length(3), Constraint::Min(0)])
             .split(rect);
 
-        let mut oscillators = self.oscillators.write().unwrap();
+        let mut oscillators = self.components.write().unwrap();
         oscillators.resize(osc_rect[1])?;
         self.menu.resize(osc_rect[0])?;
-        self.layout = Some(SynthesizerLayout {
-            rect,
-        });
+        self.layout = Some(SynthesizerLayout { rect });
         Ok(())
     }
 
     fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> anyhow::Result<()> {
-        let mut oscillators = self.oscillators.write().unwrap();
+        let mut oscillators = self.components.write().unwrap();
         oscillators.handle_key_events(key)
     }
 }
@@ -133,7 +114,7 @@ impl Focus for SynthesizerComponent {
     }
 
     fn is_focused(&self) -> bool {
-        self.oscillators.read().unwrap().is_any_focused()
+        self.components.read().unwrap().is_any_focused()
     }
 
     fn keymap(&self) -> Option<crossterm::event::KeyCode> {

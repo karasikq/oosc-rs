@@ -6,7 +6,7 @@ use oosc_core::{
     utils::{make_shared, Shared},
 };
 use ratatui::{
-    prelude::{Alignment, Direction, Margin, Rect, Layout, Constraint},
+    prelude::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Style},
     text::Span,
     widgets::{Block, BorderType, Borders},
@@ -32,7 +32,7 @@ pub struct EffectComponent {
 }
 
 impl EffectComponent {
-    pub fn new(effect: Shared<dyn Effect>) -> Self {
+    pub fn new(effect: Shared<dyn Effect>, keymap: KeyCode) -> Self {
         let parameters = {
             let mut effect_guard = effect.write().unwrap();
             let parameters_container = effect_guard.parameters().unwrap().parameters_f32().unwrap();
@@ -55,7 +55,7 @@ impl EffectComponent {
         Self {
             effect,
             parameters,
-            ctx: FocusableComponentContext::new().keymap(KeyCode::Char('e')),
+            ctx: FocusableComponentContext::new().keymap(keymap),
             layout: None,
         }
     }
@@ -70,7 +70,8 @@ impl Component for EffectComponent {
         let layout = self.layout.as_ref().unwrap();
         let b = Block::default()
             .borders(Borders::ALL)
-            .title(self.effect.read().unwrap().name())
+            .title(self.name())
+            .style(Style::default().fg(self.color()))
             .border_type(BorderType::Rounded)
             .title_alignment(Alignment::Center);
         f.render_widget(b, layout.rect);
@@ -85,11 +86,7 @@ impl Component for EffectComponent {
             let size = 100 / len;
             Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints(
-                    std::iter::repeat_with(|| Constraint::Percentage(size as u16))
-                        .take(len)
-                        .collect::<Vec<_>>(),
-                )
+                .constraints(vec![Constraint::Percentage(size as u16); len])
                 .split(inner)
         };
         self.parameters.resize_in_layout(&inner)?;
@@ -127,9 +124,11 @@ impl FocusableComponent for EffectComponent {
 
 impl Named for EffectComponent {
     fn name(&self) -> Vec<Span<'static>> {
+        let mut effect = self.effect.write().unwrap();
+
         vec![
             Span::styled(
-                self.effect.read().unwrap().name(),
+                effect.parameters().unwrap().name().unwrap(),
                 Style::default().fg(self.color()),
             ),
             Span::styled(

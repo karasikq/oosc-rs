@@ -10,6 +10,7 @@ pub mod root;
 pub mod synthesizer;
 pub mod wavetable;
 pub mod effect;
+pub mod effects_container;
 use std::any::Any;
 
 use anyhow::Result;
