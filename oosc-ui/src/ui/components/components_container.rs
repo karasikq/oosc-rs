@@ -347,12 +347,29 @@ where
     }
 
     fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> Result<()> {
-        self.components.iter_mut().try_for_each(|c| {
-            c.write()
-                .unwrap()
-                .draw(f, rect)
-                .context("Cannot draw child component")
-        })
+        match self.draw_only_focused {
+            true => {
+                if self.is_any_focused() {
+                    self.components
+                        .iter_mut()
+                        .filter(|c| c.read().unwrap().is_focused())
+                        .try_for_each(|c| c.write().unwrap().draw(f, rect))
+                } else {
+                    let index = self.bounded_index(self.current) as usize;
+                    let mut c = self
+                        .components
+                        .get_mut(index)
+                        .context("Cannot get component")?
+                        .write()
+                        .unwrap();
+                    c.draw(f, rect)
+                }
+            }
+            false => self
+                .components
+                .iter_mut()
+                .try_for_each(|c| c.write().unwrap().draw(f, rect)),
+        }
     }
 }
 
