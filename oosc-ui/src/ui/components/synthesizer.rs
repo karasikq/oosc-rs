@@ -15,7 +15,7 @@ use super::{
 
 struct SynthesizerLayout {
     rect: Rect,
-    oscillators: Rc<Vec<Rect>>,
+    // oscillators: Rc<Vec<Rect>>,
 }
 
 pub struct SynthesizerComponent {
@@ -82,10 +82,10 @@ impl Component for SynthesizerComponent {
             return Err(oosc_core::error::Error::from("Create layout before draw"))?;
         }
         let layout = self.layout.as_ref().unwrap();
-        let _rect = layout.rect;
-        self.menu.draw(f, _rect)?;
+        let rect = layout.rect;
+        self.menu.draw(f, rect)?;
         let mut oscillators = self.oscillators.write().unwrap();
-        oscillators.draw_in_layout(f, &layout.oscillators)?;
+        oscillators.draw(f, rect)?;
         Ok(())
     }
 
@@ -105,17 +105,14 @@ impl Component for SynthesizerComponent {
             .constraints([
                 Constraint::Length(3),
                 Constraint::Min(0),
-                Constraint::Length(3),
             ])
             .split(rect);
 
         let mut oscillators = self.oscillators.write().unwrap();
-        let oscillators_layout = Rc::new(vec![osc_rect[1]; oscillators.components.len()]);
-        oscillators.resize_in_layout(&oscillators_layout)?;
+        oscillators.resize(osc_rect[1])?;
         self.menu.resize(osc_rect[0])?;
         self.layout = Some(SynthesizerLayout {
             rect,
-            oscillators: oscillators_layout,
         });
         Ok(())
     }
