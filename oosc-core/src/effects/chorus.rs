@@ -1,14 +1,16 @@
 use crate::{
     core::{
-        parameter::{Parameter, ValueParameter, VolumeParameter},
+        parameter::{NamedParameter, Parameter, SharedParameter, ValueParameter, VolumeParameter, NamedParametersContainer},
         waveshape::WaveShape,
     },
     error::Error,
     utils::{
-        consts::{PI_2M, PI_2},
+        consts::{PI_2, PI_2M},
         evaluate::Evaluate,
         interpolation::{interpolate_sample_mut, InterpolateMethod},
+        make_shared,
         sample_buffer::{BufferSettings, SampleBuffer, SampleBufferBuilder, SampleBufferMono},
+        Shared,
     },
 };
 
@@ -18,13 +20,14 @@ pub struct Chorus {
     settings: BufferSettings,
     buffer: SampleBuffer,
     time: Vec<usize>,
-    depth: VolumeParameter,
-    rate: ValueParameter<f32>,
-    phase: ValueParameter<f32>,
+    depth: Shared<VolumeParameter>,
+    rate: SharedParameter<f32>,
+    phase: SharedParameter<f32>,
     lfo: WaveShape,
-    width: ValueParameter<f32>,
-    delay: ValueParameter<f32>,
+    width: SharedParameter<f32>,
+    delay: SharedParameter<f32>,
     state: State,
+    parameters_f32: Vec<NamedParameter<f32>>,
 }
 
 impl Chorus {
@@ -46,6 +49,19 @@ impl Chorus {
             .set_samples(sampled_time)
             .build()
             .unwrap();
+        let depth = make_shared(depth);
+        let rate = make_shared(rate);
+        let phase = make_shared(phase);
+        let width = make_shared(width);
+        let delay = make_shared(delay);
+
+        let parameters_f32 = vec![
+            NamedParameter::new(depth.clone(), "Depth"),
+            NamedParameter::new(rate.clone(), "Rate"),
+            NamedParameter::new(phase.clone(), "Phase"),
+            NamedParameter::new(width.clone(), "Width"),
+            NamedParameter::new(delay.clone(), "Delay"),
+        ];
 
         Self {
             settings: *settings,
@@ -58,6 +74,7 @@ impl Chorus {
             width,
             delay,
             state,
+            parameters_f32,
         }
     }
 
@@ -69,7 +86,16 @@ impl Chorus {
         let width = ValueParameter::<f32>::new(0.05, (0.0, 0.1));
         let delay = ValueParameter::<f32>::new(0.05, (0.0, 0.1));
 
-        Self::new(settings, depth, rate, phase, lfo, width, delay, State::Enabled)
+        Self::new(
+            settings,
+            depth,
+            rate,
+            phase,
+            lfo,
+            width,
+            delay,
+            State::Enabled,
+        )
     }
 
     fn proccess_channel(
@@ -78,12 +104,12 @@ impl Chorus {
         index: usize,
     ) -> Result<(), Error> {
         let sample_rate = self.settings.sample_rate;
-        let rate = self.rate.get_value();
-        let delay = self.delay.get_value();
-        let width = self.width.get_value();
-        let depth = self.depth.linear;
+        let rate = self.rate.read().unwrap().get_value();
+        let delay = self.delay.read().unwrap().get_value();
+        let width = self.width.read().unwrap().get_value();
+        let depth = self.depth.read().unwrap().linear;
         let table = self.buffer.get_mut_buffer_ref(index as u32).unwrap();
-        let phase = self.phase.get_value() * index as f32;
+        let phase = self.phase.read().unwrap().get_value() * index as f32;
 
         let len = self.time.len();
         let last_time = self
@@ -99,7 +125,11 @@ impl Chorus {
             let dry = *s;
             let current_time = *last_time as f32;
             let delay_time = sample_rate
-                * (delay + width * self.lfo.evaluate(current_time / sample_rate * rate + phase)?);
+                * (delay
+                    + width
+                        * self
+                            .lfo
+                            .evaluate(current_time / sample_rate * rate + phase)?);
             let index = (current_time - delay_time + len_f32) % len_f32;
             let out = interpolate_sample_mut(InterpolateMethod::Linear, delay_buffer, index)?;
             *s = dry + depth * (out - dry);
@@ -109,26 +139,6 @@ impl Chorus {
             *last_time += 1;
             Ok(())
         })
-    }
-
-    pub fn depth(&mut self) -> &mut impl Parameter<f32> {
-        &mut self.depth
-    }
-
-    pub fn rate(&mut self) -> &mut impl Parameter<f32> {
-        &mut self.rate
-    }
-
-    pub fn phase(&mut self) -> &mut impl Parameter<f32> {
-        &mut self.rate
-    }
-
-    pub fn width(&mut self) -> &mut impl Parameter<f32> {
-        &mut self.width
-    }
-
-    pub fn delay(&mut self) -> &mut impl Parameter<f32> {
-        &mut self.delay
     }
 }
 
@@ -154,5 +164,19 @@ impl Effect for Chorus {
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
+    }
+
+    fn parameters(&mut self) -> Option<&mut dyn NamedParametersContainer> {
+        Some(self)
+    }
+}
+
+impl NamedParametersContainer for Chorus {
+    fn name(&self) -> Option<&'static str> {
+        Some("Chorus")
+    }
+
+    fn parameters_f32(&self) -> Option<&[NamedParameter<f32>]> {
+        Some(&self.parameters_f32)
     }
 }
