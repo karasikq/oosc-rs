@@ -42,10 +42,6 @@ impl Amplifier {
 }
 
 impl Effect for Amplifier {
-    fn name(&self) -> &'static str {
-        "Aplifier"
-    }
-
     fn state(&self) -> State {
         self.state
     }

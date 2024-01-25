@@ -20,14 +20,12 @@ pub enum State {
 }
 
 pub trait Effect: Send + Sync {
-    fn name(&self) -> &'static str {
-        ""
-    }
     fn state(&self) -> State;
     fn set_state(&mut self, state: State);
     fn process(&mut self, buffer: &mut SampleBuffer) -> Result<(), Error>;
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
+    // Really need macro for this
     fn parameters(&mut self) -> Option<&mut dyn NamedParametersContainer> {
         None
     }
