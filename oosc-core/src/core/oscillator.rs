@@ -20,7 +20,7 @@ use super::{
 };
 
 pub trait Oscillator: Send + Sync + NoteEventReceiver {
-    fn evaluate(&mut self, t: f32) -> Result<(), Error>;
+    fn evaluate(&mut self, size: usize, t: f32) -> Result<(), Error>;
     fn get_buffer_mut(&mut self) -> &mut SampleBuffer;
     fn get_buffer(&self) -> &SampleBuffer;
     fn as_any(&self) -> &dyn Any;
@@ -109,7 +109,7 @@ impl WavetableOscillator {
 }
 
 impl Oscillator for WavetableOscillator {
-    fn evaluate(&mut self, delta_time: f32) -> Result<(), Error> {
+    fn evaluate(&mut self, size: usize, delta_time: f32) -> Result<(), Error> {
         self.remove_released_notes();
         let buffer = &mut self.buffer;
         let mut pan = self.parametrs.pan.write().unwrap();
@@ -117,7 +117,7 @@ impl Oscillator for WavetableOscillator {
         let mut cents = self.parametrs.cents_offset.write().unwrap();
         let gain = self.parametrs.gain.read().unwrap().linear;
 
-        (0..buffer.len()).try_for_each(|i| -> Result<(), Error> {
+        (0..size).try_for_each(|i| -> Result<(), Error> {
             let mut iteration_buffer = [0.0; 2];
             pan.next_value(delta_time)?;
             let polar_pan = pan.polar;

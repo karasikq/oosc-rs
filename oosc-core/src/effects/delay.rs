@@ -57,6 +57,7 @@ impl Delay {
         &mut self,
         buffer: &mut SampleBufferMono,
         index: usize,
+        size: usize,
     ) -> Result<(), Error> {
         let sample_rate = self.settings.sample_rate;
         let delay = sample_rate * self.delay.get_value();
@@ -74,29 +75,32 @@ impl Delay {
         let len_f32 = len as f32;
         let delay_buffer = table.get_slice_mut();
 
-        buffer.iter_mut().try_for_each(|s| -> Result<(), Error> {
-            let current_time = *last_time as f32;
-            let dry = *s;
-            let index = (current_time - delay + len_f32) % len_f32;
-            let out = interpolate_sample_mut(InterpolateMethod::Linear, delay_buffer, index)?;
-            *s = dry + mix * (out - dry);
-            let index = *last_time % len;
-            let ts = delay_buffer.get_mut(index).unwrap();
-            *ts = dry + out * feedback;
-            *last_time += 1;
-            Ok(())
-        })?;
+        buffer
+            .iter_mut()
+            .take(size)
+            .try_for_each(|s| -> Result<(), Error> {
+                let current_time = *last_time as f32;
+                let dry = *s;
+                let index = (current_time - delay + len_f32) % len_f32;
+                let out = interpolate_sample_mut(InterpolateMethod::Linear, delay_buffer, index)?;
+                *s = dry + mix * (out - dry);
+                let index = *last_time % len;
+                let ts = delay_buffer.get_mut(index).unwrap();
+                *ts = dry + out * feedback;
+                *last_time += 1;
+                Ok(())
+            })?;
 
         Ok(())
     }
 }
 
 impl Effect for Delay {
-    fn process(&mut self, buffer: &mut SampleBuffer) -> Result<(), Error> {
+    fn process(&mut self, size: usize, buffer: &mut SampleBuffer) -> Result<(), Error> {
         buffer
             .iter_buffers()
             .enumerate()
-            .try_for_each(|(i, buffer)| self.proccess_channel(buffer, i))
+            .try_for_each(|(i, buffer)| self.proccess_channel(buffer, i, size))
     }
 
     fn state(&self) -> State {

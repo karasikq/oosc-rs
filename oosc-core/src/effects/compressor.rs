@@ -118,10 +118,11 @@ impl Compressor {
 }
 
 impl Effect for Compressor {
-    fn process(&mut self, buffer: &mut SampleBuffer) -> Result<(), Error> {
+    fn process(&mut self, size: usize, buffer: &mut SampleBuffer) -> Result<(), Error> {
         buffer.iter_buffers().enumerate().for_each(|(i, buffer)| {
             buffer
                 .iter_mut()
+                .take(size)
                 .for_each(|sample| self.proccess_sample(sample, i));
         });
         Ok(())

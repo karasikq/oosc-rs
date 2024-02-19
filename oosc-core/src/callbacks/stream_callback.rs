@@ -19,7 +19,7 @@ impl StreamCallback for SynthesizerStreamCallback {
         _sample_rate: f32,
     ) -> std::result::Result<(), Error> {
         let mut syn = self.0.lock().unwrap();
-        let buf = syn.output()?;
+        let buf = syn.output(data.len() / 2)?;
         let mut l = buf.iter(0)?;
         let mut r = buf.iter(1)?;
         for frame in data.chunks_exact_mut(2) {
