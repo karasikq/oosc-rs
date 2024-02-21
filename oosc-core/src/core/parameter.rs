@@ -55,6 +55,17 @@ pub trait NamedParametersContainer {
 
 pub type SharedParameter<T> = Shared<dyn Parameter<T>>;
 
+pub trait ModulatedParameter<T>: Parameter<T> + Modulation
+where
+    T: Clone + PartialOrd + Default,
+{
+}
+
+impl<T, U: Parameter<T> + Modulation> ModulatedParameter<T> for U where
+    T: Clone + PartialOrd + Default
+{
+}
+
 pub struct ValueParameter<T>
 where
     T: Clone,
@@ -97,6 +108,31 @@ impl Modulation for ValueParameter<f32> {
         if self.modulated() {
             let value = self.container_mut().next_value(delta_time)?;
             self.set_value(value);
+        }
+        Ok(())
+    }
+}
+
+impl ValueParameter<i32> {
+    pub fn set_evaluate_range(&mut self, range: (f32, f32)) -> &mut Self {
+        self.container_mut().modulation_range = range;
+        self
+    }
+}
+
+impl Modulation for ValueParameter<i32> {
+    fn container(&self) -> &ModulationContainer {
+        &self.modifiers
+    }
+
+    fn container_mut(&mut self) -> &mut ModulationContainer {
+        &mut self.modifiers
+    }
+
+    fn next_value(&mut self, delta_time: f32) -> Result<(), Error> {
+        if self.modulated() {
+            let value = self.container_mut().next_value(delta_time)?;
+            self.set_value(value as i32);
         }
         Ok(())
     }
@@ -433,6 +469,7 @@ where
     pub setter: S,
     pub getter: G,
     pub range: R,
+    modifiers: ModulationContainer,
 }
 
 impl<S, G, R, T> CallbackParameter<S, G, R, T>
@@ -447,6 +484,7 @@ where
             setter,
             getter,
             range,
+            modifiers: Default::default(),
         }
     }
 }
@@ -476,5 +514,28 @@ where
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl<S, G, R> Modulation for CallbackParameter<S, G, R, i32>
+where
+    S: FnMut(i32) + Send + Sync + 'static,
+    G: Fn() -> i32 + Send + Sync + 'static,
+    R: Fn() -> (i32, i32) + Send + Sync + 'static,
+{
+    fn container(&self) -> &ModulationContainer {
+        &self.modifiers
+    }
+
+    fn container_mut(&mut self) -> &mut ModulationContainer {
+        &mut self.modifiers
+    }
+
+    fn next_value(&mut self, delta_time: f32) -> Result<(), Error> {
+        if self.modulated() {
+            let value = self.container_mut().next_value(delta_time)?;
+            self.set_value(value as i32);
+        }
+        Ok(())
     }
 }

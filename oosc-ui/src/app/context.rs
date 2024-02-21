@@ -23,6 +23,7 @@ use oosc_core::{
         StreamCallback,
     },
     core::{
+        lfo::LFO,
         oscillator::{OscillatorBuilder, WavetableOscillator},
         synthesizer::{Synthesizer, SynthesizerBuilder},
         waveshape::WaveShape,
@@ -87,6 +88,15 @@ impl Context {
         let compressor = make_shared(Compressor::default(&settings));
         let delay = make_shared(Delay::default(&settings));
         let amplifier = make_shared(Amplifier::default());
+
+        {
+            let lfo = make_shared(LFO::new(WaveShape::Sin, 2.12));
+            let wt_pos = osc1.write().unwrap().wavetable_position().clone();
+            let mut wt_pos = wt_pos.write().unwrap();
+            wt_pos.container_mut().modulators.push(lfo);
+            wt_pos.container_mut().modulation_range = (0.0, 20.0);
+        }
+
         let synthesizer = Arc::new(Mutex::new(
             SynthesizerBuilder::new()
                 .set_buffer(config.buffer_size)?

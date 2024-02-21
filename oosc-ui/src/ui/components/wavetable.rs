@@ -19,6 +19,7 @@ pub struct WavetableComponent {
     pub samples: usize,
     ctx: FocusableComponentContext,
     line: Vec<canvas::Line>,
+    last_pos: usize,
 }
 
 impl WavetableComponent {
@@ -28,6 +29,7 @@ impl WavetableComponent {
             samples: 0,
             ctx: FocusableComponentContext::new().focused(false),
             line: vec![],
+            last_pos: 0,
         }
     }
 
@@ -69,6 +71,9 @@ where
 
 impl Component for WavetableComponent {
     fn draw(&mut self, f: &mut Frame<'_>, rect: Rect) -> anyhow::Result<()> {
+        if self.last_pos != self.wavetable.read().unwrap().position() {
+            self.line = self.render_line();
+        }
         let canvas = Canvas::default()
             .block(
                 Block::default()

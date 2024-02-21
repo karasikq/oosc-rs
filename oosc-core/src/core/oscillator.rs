@@ -13,7 +13,10 @@ use crate::utils::{
 use crate::utils::{make_shared, Shared};
 
 use super::note::NoteEventReceiver;
-use super::parameter::{CallbackParameter, CentsParameter, SharedParameter, VolumeParameter};
+use super::parameter::{
+    CallbackParameter, CentsParameter, ModulatedParameter, Parameter, SharedParameter,
+    VolumeParameter,
+};
 use super::{
     parameter::{OctaveParameter, PanParameter, ValueParameter},
     wavetable::WaveTable,
@@ -31,7 +34,7 @@ struct Parametrs {
     octave_offset: Shared<OctaveParameter>,
     cents_offset: Shared<CentsParameter>,
     pan: Shared<PanParameter>,
-    wt_pos: SharedParameter<i32>,
+    wt_pos: Shared<dyn ModulatedParameter<i32>>,
     gain: Shared<VolumeParameter>,
 }
 
@@ -62,7 +65,7 @@ impl WavetableOscillator {
         self.parametrs.cents_offset.clone()
     }
 
-    pub fn wavetable_position(&self) -> SharedParameter<i32> {
+    pub fn wavetable_position(&self) -> Shared<dyn ModulatedParameter<i32>> {
         self.parametrs.wt_pos.clone()
     }
 
@@ -123,6 +126,10 @@ impl Oscillator for WavetableOscillator {
             let polar_pan = pan.polar;
             cents.next_value(delta_time)?;
             let cents = cents.freq;
+            {
+                let mut wt_pos = self.parametrs.wt_pos.write().unwrap();
+                wt_pos.next_value(delta_time)?;
+            }
             self.notes
                 .iter_mut()
                 .chain(self.release_notes.iter_mut())
@@ -132,7 +139,7 @@ impl Oscillator for WavetableOscillator {
                     let freq =
                         PI_2M * note_to_freq((note.note as i32 + octave_offset) as u32) * t * cents;
                     let sample = {
-                        let wavetable = self.wavetable.write().unwrap();
+                        let wavetable = self.wavetable.read().unwrap();
                         wavetable.evaluate(freq)?
                     };
 
@@ -237,23 +244,26 @@ impl OscillatorBuilder {
         let envelope = make_shared(self.envelope.take().ok_or(Error::Specify("envelope"))?);
         let wavetable = make_shared(self.wavetable.take().ok_or(Error::Specify("wavetable"))?);
         let octave_offset = make_shared(OctaveParameter::new(ValueParameter::new(0, (-2, 2))));
-        let cents_offset = make_shared(CentsParameter::new(ValueParameter::new(0.0, (-100.0, 100.0))));
+        let cents_offset = make_shared(CentsParameter::new(ValueParameter::new(
+            0.0,
+            (-100.0, 100.0),
+        )));
         let pan = make_shared(PanParameter::default());
         let gain = make_shared(VolumeParameter::default());
 
         let wt_clone = wavetable.clone();
         let wt_clone2 = wavetable.clone();
         let wt_clone3 = wavetable.clone();
-        let wt_pos = make_shared(CallbackParameter {
-            setter: move |v| {
+        let wt_pos = make_shared(CallbackParameter::new(
+            move |v| {
                 let _ = wt_clone.write().unwrap().set_position(v as usize);
             },
-            getter: move || wt_clone2.read().unwrap().position() as i32,
-            range: move || {
+            move || wt_clone2.read().unwrap().position() as i32,
+            move || {
                 let wt_range = wt_clone3.read().unwrap().position_range();
                 (wt_range.0 as i32, wt_range.1 as i32)
             },
-        });
+        ));
         let parametrs = Parametrs {
             octave_offset,
             cents_offset,
