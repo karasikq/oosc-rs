@@ -22,7 +22,7 @@ pub enum State {
 pub trait Effect: Send + Sync {
     fn state(&self) -> State;
     fn set_state(&mut self, state: State);
-    fn process(&mut self, buffer: &mut SampleBuffer) -> Result<(), Error>;
+    fn process(&mut self, size: usize, buffer: &mut SampleBuffer) -> Result<(), Error>;
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
     // Really need macro for this
@@ -36,5 +36,5 @@ pub trait SampleProcessor {
 }
 
 pub trait MonoBufferProcessor {
-    fn process(&mut self, buffer: &mut SampleBufferMono);
+    fn process(&mut self, size: usize, buffer: &mut SampleBufferMono);
 }

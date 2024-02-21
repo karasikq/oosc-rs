@@ -20,14 +20,14 @@ pub struct Synthesizer {
 }
 
 impl Synthesizer {
-    pub fn output(&mut self) -> Result<&SampleBuffer, Error> {
+    pub fn output(&mut self, size: usize) -> Result<&SampleBuffer, Error> {
         let buffer = &mut self.buffer;
         let delta_time = 1.0 / self.sample_rate as f32;
         buffer.fill(0.);
         self.oscillators
             .par_iter_mut()
             .try_for_each(|osc| -> Result<(), Error> {
-                osc.write().unwrap().evaluate(delta_time)
+                osc.write().unwrap().evaluate(size, delta_time)
             })?;
         self.oscillators
             .iter()
@@ -37,7 +37,7 @@ impl Synthesizer {
         self.effects
             .iter_mut()
             .try_for_each(|effect| -> Result<(), Error> {
-                effect.write().unwrap().process(buffer)
+                effect.write().unwrap().process(size, buffer)
             })?;
         Ok(&self.buffer)
     }
