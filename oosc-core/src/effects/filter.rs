@@ -24,9 +24,9 @@ impl StatefulCoefficients {
 }
 
 impl MonoBufferProcessor for StatefulCoefficients {
-    fn process(&mut self, buffer: &mut SampleBufferMono) {
+    fn process(&mut self, size: usize, buffer: &mut SampleBufferMono) {
         self.coefficients
-            .process(buffer.get_slice_mut(), &mut self.state);
+            .process(&mut buffer.get_slice_mut()[0..size], &mut self.state);
     }
 }
 
@@ -49,12 +49,12 @@ impl Filter {
 }
 
 impl Effect for Filter {
-    fn process(&mut self, buffer: &mut SampleBuffer) -> Result<(), Error> {
+    fn process(&mut self, size: usize, buffer: &mut SampleBuffer) -> Result<(), Error> {
         self.recalculate_coefficients();
         buffer
             .iter_buffers()
             .enumerate()
-            .for_each(|(i, buffer)| self.coefficients[i].process(buffer));
+            .for_each(|(i, buffer)| self.coefficients[i].process(size, buffer));
 
         Ok(())
     }

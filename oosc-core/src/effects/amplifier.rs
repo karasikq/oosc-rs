@@ -1,7 +1,6 @@
 use crate::{
     core::parameter::{
-        NamedParameter, NamedParametersContainer, PanParameter, ValueParameter,
-        VolumeParameter,
+        NamedParameter, NamedParametersContainer, PanParameter, ValueParameter, VolumeParameter,
     },
     error::Error,
     utils::{make_shared, sample_buffer::SampleBuffer, Shared},
@@ -50,7 +49,7 @@ impl Effect for Amplifier {
         self.state = state;
     }
 
-    fn process(&mut self, buffer: &mut SampleBuffer) -> Result<(), Error> {
+    fn process(&mut self, size: usize, buffer: &mut SampleBuffer) -> Result<(), Error> {
         let gain = self.gain.read().unwrap().linear;
         let pan = self.pan.read().unwrap().polar;
         buffer.iter_buffers().enumerate().for_each(|(i, buffer)| {
@@ -59,7 +58,7 @@ impl Effect for Amplifier {
                 1 => pan.1,
                 _ => 1.0,
             };
-            buffer.iter_mut().for_each(|s| *s *= pan * gain);
+            buffer.iter_mut().take(size).for_each(|s| *s *= pan * gain);
         });
         Ok(())
     }
