@@ -3,26 +3,34 @@ use anyhow::{Context, Result};
 use std::{thread, time::Duration};
 
 use super::{config::Config, context};
-use cpal::traits::DeviceTrait;
+use cpal::{traits::DeviceTrait, Device};
 use crossterm::event::{self, Event, KeyCode};
 
 pub struct Application {
     pub ctx: context::Context,
     pub config: Config,
     root: Root,
+    device: Device,
 }
 
 impl Application {
     pub fn new() -> Result<Self> {
-        let config = Config {
+        let (_, device, config) = context::Context::get_default_device()?;
+        let sample_rate = config.sample_rate().0;
+        let synth_config = Config {
             channels: 2,
-            sample_rate: 48000,
-            delta_time: 1.0 / 48000.0,
+            sample_rate,
+            delta_time: 1.0 / sample_rate as f32,
             buffer_size: 2048,
         };
-        let ctx = context::Context::build_default(&config)?;
+        let ctx = context::Context::build_default(&synth_config)?;
         let root = Root::new(&ctx);
-        Ok(Application { ctx, config, root })
+        Ok(Application {
+            ctx,
+            config: synth_config,
+            root,
+            device,
+        })
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -30,14 +38,13 @@ impl Application {
     }
 
     pub fn detach_stream(&mut self) -> Result<cpal::Stream> {
-        let (_, device, config) = context::Context::get_default_device(&self.config)?;
         let err_fn = |err| println!("An error occurred on stream: {}", err);
         let callbacks = self.ctx.callbacks.get_callbacks();
         let mut total_playback_seconds = 0.;
         let sample_rate = self.config.sample_rate as f32;
-        let channels_rate = config.channels as f32 * sample_rate;
-        Ok(device.build_output_stream(
-            &config,
+        let channels_rate = self.config.channels as f32 * sample_rate;
+        Ok(self.device.build_output_stream(
+            &self.config.into(),
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
                 callbacks
                     .iter()
