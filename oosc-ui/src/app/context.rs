@@ -198,7 +198,7 @@ impl Context {
         let mut midi_in = MidiInput::new("oosc")?;
         midi_in.ignore(Ignore::None);
         let binding = midi_in.ports();
-        let in_port = binding.get(0).unwrap();
+        let in_port = anyhow::Context::context(binding.get(0), "Cannot get MIDI-IN port")?;
         let mediator = mediator.clone();
         let connection = midi_in
             .connect(
@@ -212,7 +212,12 @@ impl Context {
                 },
                 (),
             )
-            .unwrap();
+            .map_err(|e| {
+                anyhow::anyhow!(format!(
+                    "Cannot connect to MIDI-IN port. Reason: {}",
+                    e.to_string()
+                ))
+            })?;
         Ok(connection)
     }
 }
