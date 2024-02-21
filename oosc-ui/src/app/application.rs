@@ -35,7 +35,7 @@ impl Application {
         let callbacks = self.ctx.callbacks.get_callbacks();
         let mut total_playback_seconds = 0.;
         let sample_rate = self.config.sample_rate as f32;
-        let delta = self.config.buffer_size as f32 / sample_rate;
+        let channels_rate = config.channels as f32 * sample_rate;
         Ok(device.build_output_stream(
             &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
@@ -46,7 +46,7 @@ impl Application {
                         Ok(callback.process_stream(data, total_playback_seconds, sample_rate)?)
                     })
                     .unwrap();
-                total_playback_seconds += delta;
+                total_playback_seconds += data.len() as f32 / channels_rate;
             },
             err_fn,
             None,
