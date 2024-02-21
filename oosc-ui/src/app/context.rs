@@ -13,7 +13,7 @@ use std::{
 
 use cpal::{
     traits::{DeviceTrait, HostTrait},
-    Device, Host, StreamConfig,
+    Device, Host, SupportedStreamConfig,
 };
 
 use oosc_core::{
@@ -142,7 +142,7 @@ impl Context {
         })
     }
 
-    pub fn get_default_device(config: &Config) -> Result<(Host, Device, StreamConfig), Error> {
+    pub fn get_default_device() -> Result<(Host, Device, SupportedStreamConfig), Error> {
         #[cfg(any(
             not(any(
                 target_os = "linux",
@@ -155,19 +155,25 @@ impl Context {
         let host = cpal::default_host();
         println!("{}", host.id().name());
 
+        for dev in host.output_devices().unwrap() {
+            println!("{}", dev.name().unwrap());
+
+            let default_config = dev
+                .default_output_config()
+                .expect("Cannot get default output device");
+            println!("{:?}", default_config);
+        }
         let device = host
             .default_output_device()
             .ok_or("Cannot get default output device")?;
         println!("{}", device.name().unwrap());
 
-        let config = cpal::StreamConfig {
-            channels: config.channels as u16,
-            sample_rate: cpal::SampleRate(config.sample_rate),
-            buffer_size: cpal::BufferSize::Fixed(config.buffer_size as u32),
-        };
-        println!("{:?}", config);
+        let default_config = device
+            .default_output_config()
+            .expect("Cannot get default output device");
+        println!("{:?}", default_config);
 
-        Ok((host, device, config))
+        Ok((host, device, default_config))
     }
 
     fn build_osc(
