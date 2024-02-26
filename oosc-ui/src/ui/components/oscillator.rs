@@ -13,7 +13,7 @@ use crate::ui::{observer::Notifier, utils::keycode_to_string_prefixed};
 use super::{
     components_container::ComponentsContainer,
     envelope::EnvelopeComponent,
-    parameter::{ParameterComponentF32, ParameterComponentI32},
+    parameter::{ParameterComponentF32, ParameterComponentI32, ModParameterComponentI32},
     wavetable::WavetableComponent,
     AutoFocus, Component, Focus, FocusableComponent, FocusableComponentContext, Named,
 };
@@ -46,7 +46,7 @@ impl OscillatorComponent {
             .unwrap();
         let mut parametrs = ComponentsContainer::from(Self::build_parametr_components(osc));
         let wavetable = make_shared(WavetableComponent::from(osc.wavetable()));
-        let wt_pos = make_shared(ParameterComponentI32::new(
+        let wt_pos = make_shared(ModParameterComponentI32::new(
             "Wt Pos".to_owned(),
             osc.wavetable_position(),
             Direction::Vertical,

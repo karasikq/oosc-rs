@@ -2,8 +2,11 @@ use std::rc::Rc;
 
 use crossterm::event::KeyCode;
 use oosc_core::{
-    core::parameter::{NamedParameter, SharedParameter},
-    utils::interpolation::{interpolate_range, time_at, InterpolateMethod},
+    core::parameter::{ModulatedParameter, NamedParameter, SharedParameter},
+    utils::{
+        interpolation::{interpolate_range, time_at, InterpolateMethod},
+        Shared,
+    },
 };
 use ratatui::style::Style;
 use ratatui::{prelude::*, widgets::*};
@@ -345,5 +348,97 @@ impl<T: AnyParameterComponent + Focus> Component for T {
     fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
         self.resize(rect);
         Ok(())
+    }
+}
+
+// Modulated parameter
+//
+
+pub struct ModParameterComponentI32 {
+    name: String,
+    parametr: Shared<dyn ModulatedParameter<i32>>,
+    direction: Direction,
+    events: EventContainer<i32>,
+    context: FocusableComponentContext,
+    layout: Option<ParameterLayout>,
+}
+
+impl AutoFocus for ModParameterComponentI32 {}
+
+impl FocusableComponent for ModParameterComponentI32 {
+    fn context(&self) -> &FocusableComponentContext {
+        &self.context
+    }
+
+    fn context_mut(&mut self) -> &mut FocusableComponentContext {
+        &mut self.context
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+impl ModParameterComponentI32 {
+    pub fn new(
+        name: String,
+        parametr: Shared<dyn ModulatedParameter<i32>>,
+        direction: Direction,
+        keymap: KeyCode,
+    ) -> Self {
+        let context = FocusableComponentContext::new().keymap(keymap);
+        Self {
+            name,
+            parametr,
+            direction,
+            events: EventContainer::<i32>::default(),
+            context,
+            layout: None,
+        }
+    }
+
+    pub fn events(&mut self) -> &mut impl Notifier<ParameterEvent<i32>> {
+        &mut self.events
+    }
+}
+
+impl AnyParameterComponent for ModParameterComponentI32 {
+    fn name(&self) -> &String {
+        &self.name
+    }
+
+    fn value(&self) -> f32 {
+        self.parametr.read().unwrap().get_value() as f32
+    }
+
+    fn range(&self) -> (f32, f32) {
+        let range = self.parametr.read().unwrap().range();
+        (range.0 as f32, range.1 as f32)
+    }
+
+    fn direction(&self) -> Direction {
+        self.direction
+    }
+
+    fn format_value(&self) -> String {
+        format!("{:.0}", self.value().round())
+    }
+
+    fn increment(&mut self) {
+    }
+
+    fn decrement(&mut self) {
+    }
+
+    fn resize(&mut self, rect: Rect) {
+        self.layout = Some(ParameterLayout::from(rect));
+    }
+
+    fn layout(&self) -> &Option<ParameterLayout> {
+        &self.layout
     }
 }

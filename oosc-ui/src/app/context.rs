@@ -97,6 +97,14 @@ impl Context {
             wt_pos.container_mut().modulation_range = (0.0, 20.0);
         }
 
+        {
+            let lfo = make_shared(LFO::new(WaveShape::Sin, 2.12));
+            let wt_pos = osc2.write().unwrap().wavetable_position().clone();
+            let mut wt_pos = wt_pos.write().unwrap();
+            wt_pos.container_mut().modulators.push(lfo);
+            wt_pos.container_mut().modulation_range = (0.0, 20.0);
+        }
+
         let synthesizer = Arc::new(Mutex::new(
             SynthesizerBuilder::new()
                 .set_buffer(config.buffer_size)?
