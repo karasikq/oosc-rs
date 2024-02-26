@@ -2,6 +2,14 @@
 
 oosc-rs is an additive wavetable synthesizer for terminal.
 
+![oosc](repo/oosc.png)
+
+## Controls
+Press char that at [] braces to make component focused and active. 
+h, l - to decrease/increase value of parameter
+j, k - to move between some parameters(eg. when Envelope component active)
+Esc - to unfocus current component and focus on parent
+
 ## Features
 - Additive
 - Wavetable
