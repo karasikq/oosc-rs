@@ -312,8 +312,11 @@ impl<T: AnyParameterComponent + Focus> Component for T {
             return Err(oosc_core::error::Error::from("Create layout before draw"))?;
         }
         let layout = layout_opt.as_ref().unwrap();
-        let bar = build_bar(self, layout.main[0]);
-        f.render_widget(bar, layout.main[0]);
+
+        if layout.rect.width > 3 && layout.rect.height > 3 {
+            let bar = build_bar(self, layout.main[0]);
+            f.render_widget(bar, layout.main[0]);
+        }
 
         let b = Block::default()
             .borders(Borders::ALL)

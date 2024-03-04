@@ -34,6 +34,12 @@ where
     }
 }
 
+pub enum ContainerAction {
+    Focus,
+    Next,
+    Previous
+}
+
 pub struct ComponentsContainer<T>
 where
     T: FocusableComponent + ?Sized + 'static,
@@ -116,6 +122,14 @@ where
     pub fn previous_keymap(&mut self, keymap: KeyCode) -> &mut Self {
         self.previous_keymap = Some(keymap);
         self
+    }
+
+    pub fn get_keymap(&self, action: ContainerAction) -> Option<KeyCode> {
+        match action {
+            ContainerAction::Focus => self.ctx.keymap,
+            ContainerAction::Next => self.next_keymap,
+            ContainerAction::Previous => self.previous_keymap,
+        }
     }
 
     pub fn draw_only_focused(&mut self, value: bool) -> &mut Self {

@@ -6,22 +6,23 @@ use oosc_core::utils::{
     adsr_envelope::SharedCurve, cubic_bezier::CubicBezierCurve, interpolation::InterpolateMethod,
     make_shared, Shared,
 };
+use ratatui::style::Style;
 use ratatui::{
     prelude::*,
-    widgets::{canvas::*, *},
+    widgets::{canvas::Canvas, *},
 };
 
-use crate::ui::components::parameter::ParameterComponentF32;
+use crate::ui::{components::parameter::ParameterComponentF32, utils::keycode_to_string_prefixed};
 
 use super::{
-    components_container::ComponentsContainer, Component, Focus, FocusableComponent,
-    FocusableComponentContext,
+    components_container::{ComponentsContainer, ContainerAction},
+    Component, Focus, FocusableComponent, FocusableComponentContext,
 };
 
 struct BezierLayout {
     pub rect: Rect,
     pub main: Rc<[Rect]>,
-    pub parameters: Vec<Rect>,
+    pub navigation: Option<[Rect; 2]>,
 }
 
 pub struct BezierComponent {
@@ -113,6 +114,17 @@ impl BezierComponent {
             .direction(Direction::Vertical)
             .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
             .margin(1)
+            .split(rect)
+    }
+
+    fn build_navigation_layout(rect: Rect) -> Rc<[Rect]> {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Length(3),
+                Constraint::Min(0),
+                Constraint::Length(3),
+            ])
             .split(rect)
     }
 
@@ -217,7 +229,35 @@ impl Component for BezierComponent {
                 self.line.iter().for_each(|line| ctx.draw(line));
             });
         canvas.render(layout.main[0], f.buffer_mut());
-        self.parameters.draw_in_layout(f, &layout.parameters)?;
+        self.parameters.draw(f, layout.main[1])?;
+
+        if let Some(navigation) = layout.navigation {
+            let to_left = vec![
+                Line::from("<"),
+                Line::from(keycode_to_string_prefixed(
+                    self.parameters.get_keymap(ContainerAction::Previous),
+                    "[",
+                    "]",
+                )),
+            ];
+            let to_right = vec![
+                Line::from(">"),
+                Line::from(keycode_to_string_prefixed(
+                    self.parameters.get_keymap(ContainerAction::Next),
+                    "[",
+                    "]",
+                )),
+            ];
+            let paragraph = Paragraph::new(to_left)
+                .alignment(Alignment::Center)
+                .wrap(Wrap { trim: true });
+            f.render_widget(paragraph, navigation[0]);
+            let paragraph = Paragraph::new(to_right)
+                .alignment(Alignment::Center)
+                .wrap(Wrap { trim: true });
+            f.render_widget(paragraph, navigation[1]);
+        }
+
         Ok(())
     }
 
@@ -230,15 +270,20 @@ impl Component for BezierComponent {
 
     fn resize(&mut self, rect: Rect) -> anyhow::Result<()> {
         let main = Self::build_main_layout(rect);
-        let parameters = Self::build_parametrs_layout(main[1]);
-        self.parameters
-            .iter()
-            .enumerate()
-            .try_for_each(|(i, p)| p.write().unwrap().resize(parameters[i]))?;
+        let navigation = if main[1].width < 13 || main[1].height < 13 {
+            let navigation = Self::build_navigation_layout(main[1]);
+            self.parameters.draw_only_focused(true);
+            self.parameters.resize(navigation[1])?;
+            Some([navigation[0], navigation[2]])
+        } else {
+            let parameters = Self::build_parametrs_layout(main[1]);
+            self.parameters.resize_in_layout(&parameters)?;
+            None
+        };
         self.layout = Some(BezierLayout {
             rect,
             main,
-            parameters,
+            navigation,
         });
         Ok(())
     }
